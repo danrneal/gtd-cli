@@ -1,0 +1,30 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# Lua
+luac.out
+*.src.rock
+*.zip
+*.tar.gz
+*.o
+*.os
+*.ko
+*.obj
+*.elf
+
+# Project Specific
+bin/
+credentials.json
+token.json
+*.db
+
+# Documentation (Allow README only)
+*.md
+!README.md
