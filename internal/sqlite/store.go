@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/danrneal/gtd.nvim/internal/model"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -66,6 +67,29 @@ func (s *Store) createTables(ctx context.Context) error {
 
 	if _, err := s.db.ExecContext(ctx, query); err != nil {
 		return fmt.Errorf("failed to create tables: %w", err)
+	}
+
+	return nil
+}
+
+// CreateList inserts a new list into the database.
+func (s *Store) CreateList(ctx context.Context, list model.List) error {
+	query := `
+		INSERT INTO lists (
+			name,
+			position,
+			modified,
+			external_id
+		) VALUES (?, ?, ?, ?);
+	`
+
+	if _, err := s.db.ExecContext(ctx, query,
+		list.Name,
+		list.Position,
+		list.Modified,
+		list.ExternalID,
+	); err != nil {
+		return fmt.Errorf("failed to insert list: %w", err)
 	}
 
 	return nil
