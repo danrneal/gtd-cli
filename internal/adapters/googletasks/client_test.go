@@ -1,0 +1,371 @@
+package googletasks
+
+import (
+	"bytes"
+	"context"
+	"io"
+	"net/http"
+	"testing"
+	"time"
+
+	"github.com/danrneal/gtd.nvim/internal/model"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/api/option"
+	"google.golang.org/api/tasks/v1"
+)
+
+// mockTransport implements http.RoundTripper to mock API responses
+type mockTransport struct {
+	roundTripFunc func(req *http.Request) (*http.Response, error)
+}
+
+func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return m.roundTripFunc(req)
+}
+
+func TestGetAllItems(t *testing.T) {
+	tests := []struct {
+		name           string
+		lists          []model.List
+		mockResponse   string
+		mockStatusCode int
+		wantItems      []model.Item
+		wantErr        bool
+	}{
+		{
+			name: "basic properties (unsorted, position sort)",
+			lists: []model.List{
+				{
+					ID:         1,
+					Name:       "Inbox",
+					ExternalID: stringPtr("L1"),
+				},
+			},
+			mockResponse: `{
+				"items": [
+					{
+						"id": "t2", 
+						"title": "Task 2", 
+						"position": "0002", 
+						"status": "needsAction"
+					},
+					{
+						"id": "t1", 
+						"title": "Task 1", 
+						"position": "0001", 
+						"status": "needsAction"
+					}
+				]
+			}`,
+			mockStatusCode: 200,
+			wantItems: []model.Item{
+				{
+					ListID:     1,
+					Title:      "Task 1",
+					Position:   0,
+					ExternalID: stringPtr("t1"),
+				},
+				{
+					ListID:     1,
+					Title:      "Task 2",
+					Position:   1,
+					ExternalID: stringPtr("t2"),
+				},
+			},
+		},
+		{
+			name: "waiting for parsing",
+			lists: []model.List{
+				{
+					ID:         1,
+					Name:       "Waiting For",
+					ExternalID: stringPtr("L1"),
+				},
+			},
+			mockResponse: `{
+				"items": [
+					{
+						"id": "t1", 
+						"title": "Alice - Send Mail - Jan 23", 
+						"position": "0001"
+					}
+				]
+			}`,
+			mockStatusCode: 200,
+			wantItems: []model.Item{
+				{
+					ListID:     1,
+					Title:      "Send Mail",
+					WaitingOn:  stringPtr("Alice"),
+					ExternalID: stringPtr("t1"),
+				},
+			},
+		},
+		{
+			name: "project parsing",
+			lists: []model.List{
+				{
+					ID:         1,
+					Name:       "Inbox",
+					ExternalID: stringPtr("L1"),
+				},
+			},
+			mockResponse: `{
+				"items": [
+					{
+						"id": "t1", 
+						"title": "Task +ProjectA", 
+						"position": "0001"
+					}
+				]
+			}`,
+			mockStatusCode: 200,
+			wantItems: []model.Item{
+				{
+					ListID:     1,
+					Title:      "Task",
+					ProjectID:  stringPtr("ProjectA"),
+					ExternalID: stringPtr("t1"),
+				},
+			},
+		},
+		{
+			name: "due date parsing (title)",
+			lists: []model.List{
+				{
+					ID:         1,
+					Name:       "Inbox",
+					ExternalID: stringPtr("L1"),
+				},
+			},
+			mockResponse: `{
+				"items": [
+					{
+						"id": "t1", 
+						"title": "Task due:2024-01-01", 
+						"position": "0001"
+					}
+				]
+			}`,
+			mockStatusCode: 200,
+			wantItems: []model.Item{
+				{
+					ListID:     1,
+					Title:      "Task",
+					Due:        date("2024-01-01"),
+					ExternalID: stringPtr("t1")},
+			},
+		},
+		{
+			name: "multiple tags",
+			lists: []model.List{
+				{
+					ID:         1,
+					Name:       "Inbox",
+					ExternalID: stringPtr("L1"),
+				},
+			},
+			mockResponse: `{
+				"items": [
+					{
+						"id": "t1", 
+						"title": "Task #tag1 #tag2", 
+						"position": "0001"
+					}
+				]
+			}`,
+			mockStatusCode: 200,
+			wantItems: []model.Item{
+				{
+					ListID:     1,
+					Title:      "Task",
+					Tags:       []string{"tag1", "tag2"},
+					ExternalID: stringPtr("t1"),
+				},
+			},
+		},
+		{
+			name: "completed task",
+			lists: []model.List{
+				{
+					ID: 1, Name: "Inbox",
+					ExternalID: stringPtr("L1"),
+				},
+			},
+			mockResponse: `{
+				"items": [
+					{
+						"id": "t1", 
+						"title": "Task", 
+						"status": "completed", 
+						"position": "0001"
+					}
+				]
+			}`,
+			mockStatusCode: 200,
+			wantItems: []model.Item{
+				{
+					ListID:     1,
+					Title:      "Task",
+					Completed:  true,
+					ExternalID: stringPtr("t1"),
+				},
+			},
+		},
+		{
+			name: "description included",
+			lists: []model.List{
+				{
+					ID:         1,
+					Name:       "Inbox",
+					ExternalID: stringPtr("L1"),
+				},
+			},
+			mockResponse: `{
+				"items": [
+					{
+						"id": "t1", 
+						"title": "Task", 
+						"notes": "My notes", 
+						"position": "0001"
+					}
+				]
+			}`,
+			mockStatusCode: 200,
+			wantItems: []model.Item{
+				{
+					ListID:      1,
+					Title:       "Task",
+					Description: "My notes",
+					ExternalID:  stringPtr("t1"),
+				},
+			},
+		},
+		{
+			name: "native due date (snoozed)",
+			lists: []model.List{
+				{
+					ID:         1,
+					Name:       "Inbox",
+					ExternalID: stringPtr("L1"),
+				},
+			},
+			mockResponse: `{
+				"items": [
+					{
+						"id": "t1", 
+						"title": "Task", 
+						"due": "2024-01-01T00:00:00Z", 
+						"position": "0001"
+					}
+				]
+			}`,
+			mockStatusCode: 200,
+			wantItems: []model.Item{
+				{
+					ListID:     1,
+					Title:      "Task",
+					Snoozed:    date("2024-01-01"),
+					ExternalID: stringPtr("t1"),
+				},
+			},
+		},
+		{
+			name: "updated timestamp",
+			lists: []model.List{
+				{
+					ID:         1,
+					Name:       "Inbox",
+					ExternalID: stringPtr("L1"),
+				},
+			},
+			mockResponse: `{
+				"items": [
+					{
+						"id": "t1", 
+						"title": "Task", 
+						"updated": "2024-01-01T12:00:00Z", 
+						"position": "0001"
+					}
+				]
+			}`,
+			mockStatusCode: 200,
+			wantItems: []model.Item{
+				{
+					ListID:     1,
+					Title:      "Task",
+					Modified:   rfc3339("2024-01-01T12:00:00Z"),
+					ExternalID: stringPtr("t1"),
+				},
+			},
+		},
+		{
+			name: "api error",
+			lists: []model.List{
+				{
+					ID:         1,
+					Name:       "Inbox",
+					ExternalID: stringPtr("L1"),
+				},
+			},
+			mockResponse:   `{"error": "internal"}`,
+			mockStatusCode: 500,
+			wantItems:      nil,
+			wantErr:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &http.Client{
+				Transport: &mockTransport{
+					roundTripFunc: func(req *http.Request) (*http.Response, error) {
+						return &http.Response{
+							StatusCode: tt.mockStatusCode,
+							Body:       io.NopCloser(bytes.NewBufferString(tt.mockResponse)),
+							Header:     make(http.Header),
+						}, nil
+					},
+				},
+			}
+
+			svc, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
+			client := NewClient(svc)
+
+			got, err := client.GetAllItems(context.Background(), tt.lists)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("GetAllItems() expected error, got nil")
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Errorf("GetAllItems() unexpected error: %v", err)
+				return
+			}
+
+			if diff := cmp.Diff(tt.wantItems, got); diff != "" {
+				t.Errorf("GetAllItems() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func stringPtr(s string) *string {
+	return &s
+}
+
+func date(s string) *time.Time {
+	t, _ := time.Parse("2006-01-02", s)
+
+	return &t
+}
+
+func rfc3339(s string) time.Time {
+	t, _ := time.Parse(time.RFC3339, s)
+
+	return t
+}
