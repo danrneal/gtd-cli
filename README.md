@@ -50,3 +50,11 @@ We follow strict development practices:
 -   Neovim (>= 0.9.0)
 -   Go (>= 1.21)
 -   SQLite3
+
+### Running Tests
+
+Run all backend unit tests with strict coverage checks:
+
+```bash
+go test -v ./...
+```
