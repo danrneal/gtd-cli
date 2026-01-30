@@ -24,6 +24,7 @@ bin/
 credentials.json
 token.json
 *.db
+.gemini/
 
 # Documentation (Allow README only)
 *.md
