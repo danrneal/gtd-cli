@@ -38,7 +38,8 @@ func main() {
 				log.Fatal(err)
 			}
 
-			_ = tasksService
+			tasksClient := googletasks.NewClient(tasksService)
+			_ = tasksClient
 		default:
 			log.Fatalf("unsupported adapter: %q. Supported adapters are: google_tasks", adapter)
 		}
