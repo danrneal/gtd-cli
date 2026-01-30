@@ -2,6 +2,8 @@ package sqlite_test
 
 import (
 	"context"
+	"database/sql"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -10,23 +12,63 @@ import (
 
 func TestNewStore(t *testing.T) {
 	tests := []struct {
-		name        string
-		dbPath   func(t *testing.T) string
-		wantErr bool
+		name         string
+		dbPath       func(t *testing.T) string
+		wantErr      bool
+		verifyTables func(t *testing.T, dbPath string)
 	}{
 		{
-			name: "valid database path",
+			name: "valid database path creates tables",
 			dbPath: func(t *testing.T) string {
 				return filepath.Join(t.TempDir(), "valid.db")
 			},
 			wantErr: false,
+			verifyTables: func(t *testing.T, dbPath string) {
+				db, err := sql.Open("sqlite3", dbPath)
+				if err != nil {
+					t.Fatalf("failed to open db for verification: %v", err)
+				}
+
+				defer db.Close()
+
+				wantTables := []string{"lists", "items"}
+				for _, tbl := range wantTables {
+					var name string
+					err := db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name=?", tbl).Scan(&name)
+					if err != nil {
+						t.Errorf("table %q not found in database: %v", tbl, err)
+					}
+				}
+			},
 		},
 		{
 			name: "invalid database path (non-existent directory)",
 			dbPath: func(t *testing.T) string {
 				return "/non/existent/path/db.sqlite"
 			},
-			wantErr: true,
+			wantErr:      true,
+			verifyTables: nil,
+		},
+		{
+			name: "create tables fails on read-only db",
+			dbPath: func(t *testing.T) string {
+				tmpDir := t.TempDir()
+				dbPath := filepath.Join(tmpDir, "readonly.db")
+				file, err := os.Create(dbPath)
+				if err != nil {
+					t.Fatalf("failed to create temp file: %v", err)
+				}
+
+				file.Close()
+
+				if err := os.Chmod(dbPath, 0400); err != nil {
+					t.Fatalf("failed to chmod: %v", err)
+				}
+
+				return dbPath
+			},
+			wantErr:      true,
+			verifyTables: nil,
 		},
 	}
 
@@ -41,6 +83,7 @@ func TestNewStore(t *testing.T) {
 				if err == nil {
 					t.Error("NewStore() expected error, got nil")
 				}
+
 				if store != nil {
 					t.Error("NewStore() expected nil store on error, got instance")
 				}
@@ -48,8 +91,13 @@ func TestNewStore(t *testing.T) {
 				if err != nil {
 					t.Errorf("NewStore() unexpected error: %v", err)
 				}
+
 				if store == nil {
 					t.Error("NewStore() expected store instance, got nil")
+				}
+
+				if tt.verifyTables != nil {
+					tt.verifyTables(t, dbPath)
 				}
 			}
 		})
