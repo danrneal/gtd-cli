@@ -20,7 +20,8 @@ type Store struct {
 // NewStore initializes a new SQLite store.
 // It opens the database at dbPath, ensures it is accessible, and creates the necessary schema.
 func NewStore(ctx context.Context, dbPath string) (*Store, error) {
-	db, err := sql.Open("sqlite3", dbPath)
+	dataSourceName := fmt.Sprintf("%s?_foreign_keys=on", dbPath)
+	db, err := sql.Open("sqlite3", dataSourceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
@@ -52,7 +53,7 @@ func (s *Store) createTables(ctx context.Context) error {
 
 		CREATE TABLE IF NOT EXISTS items (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			list_id INTEGER NOT NULL,
+			list_id INTEGER NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
 			position INTEGER NOT NULL DEFAULT 0,
 			completed BOOLEAN NOT NULL DEFAULT 0,
 			title TEXT NOT NULL,
@@ -199,6 +200,26 @@ func (s *Store) UpdateList(ctx context.Context, list model.List) error {
 
 	if rowsAffected == 0 {
 		return fmt.Errorf("list with id %d not found", list.ID)
+	}
+
+	return nil
+}
+
+// DeleteList deletes a list from the database.
+func (s *Store) DeleteList(ctx context.Context, id int64) error {
+	query := `DELETE FROM lists WHERE id = ?;`
+	res, err := s.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete list %d: %w", id, err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("list with id %d not found", id)
 	}
 
 	return nil
@@ -408,6 +429,7 @@ func (s *Store) DeleteItem(ctx context.Context, id int64) error {
 	return nil
 }
 
+// multilineTrim trims whitespace from the beginning of the first line and the end of all lines.
 func multilineTrim(s string) string {
 	s = strings.TrimSpace(s)
 	lines := strings.Split(s, "\n")

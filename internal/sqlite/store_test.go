@@ -566,6 +566,149 @@ func TestUpdateList(t *testing.T) {
 	}
 }
 
+func TestDeleteList(t *testing.T) {
+	tests := []struct {
+		name      string
+		setupDB   func(t *testing.T, db *sql.DB) int64
+		setupCtx  func() (context.Context, context.CancelFunc)
+		wantErr   bool
+		wantItems int
+	}{
+		{
+			name: "valid delete with cascade",
+			setupDB: func(t *testing.T, db *sql.DB) int64 {
+				res, err := db.Exec(
+					`
+						INSERT INTO lists (name, modified) 
+						VALUES (?, ?)
+					`, "To Delete", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				listID, _ := res.LastInsertId()
+				_, err = db.Exec(
+					`
+						INSERT INTO items (
+							title, 
+							list_id, 
+							tags, 
+							modified, 
+							created
+						) VALUES (?, ?, '[]', ?, ?)
+					`, "Linked Item", listID, time.Now(), time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
+
+				return listID
+			},
+			wantItems: 0,
+			wantErr:   false,
+		},
+		{
+			name: "nonexistent id",
+			setupDB: func(t *testing.T, db *sql.DB) int64 {
+				return 999
+			},
+			wantErr: true,
+		},
+		{
+			name: "context cancellation",
+			setupDB: func(t *testing.T, db *sql.DB) int64 {
+				res, err := db.Exec(
+					`
+						INSERT INTO lists (name, modified) 
+						VALUES (?, ?)
+					`, "To Delete", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				id, _ := res.LastInsertId()
+
+				return id
+			},
+			setupCtx: func() (context.Context, context.CancelFunc) {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				return ctx, cancel
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			dbPath := filepath.Join(tmpDir, "test.db")
+
+			var ctx context.Context
+			var cancel context.CancelFunc
+
+			if tt.setupCtx != nil {
+				ctx, cancel = tt.setupCtx()
+				defer cancel()
+			} else {
+				ctx = context.Background()
+			}
+
+			store, err := sqlite.NewStore(context.Background(), dbPath)
+			if err != nil {
+				t.Fatalf("failed to create store: %v", err)
+			}
+
+			db, err := sql.Open("sqlite3", dbPath)
+			if err != nil {
+				t.Fatalf("failed to open db setup: %v", err)
+			}
+
+			defer db.Close()
+
+			id := tt.setupDB(t, db)
+
+			err = store.DeleteList(ctx, id)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("DeleteList() expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("DeleteList() unexpected error: %v", err)
+				}
+
+				var count int
+				err = db.QueryRow("SELECT COUNT(*) FROM lists WHERE id = ?", id).Scan(&count)
+				if err != nil {
+					t.Fatalf("failed to query list count: %v", err)
+				}
+
+				if count != 0 {
+					t.Errorf("expected list to be deleted, found %d", count)
+				}
+
+				if tt.name == "valid delete with cascade" {
+					err = db.QueryRow("SELECT COUNT(*) FROM items WHERE list_id = ?", id).Scan(&count)
+					if err != nil {
+						t.Fatalf("failed to query item count: %v", err)
+					}
+
+					if count != tt.wantItems {
+						t.Errorf("expected %d items (cascade), found %d", tt.wantItems, count)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestCreateItem(t *testing.T) {
 	tests := []struct {
 		name     string
