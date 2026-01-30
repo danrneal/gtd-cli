@@ -388,6 +388,26 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
 	return nil
 }
 
+// DeleteItem deletes an item from the database.
+func (s *Store) DeleteItem(ctx context.Context, id int64) error {
+	query := `DELETE FROM items WHERE id = ?;`
+	res, err := s.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete item %d: %w", id, err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("item with id %d not found", id)
+	}
+
+	return nil
+}
+
 func multilineTrim(s string) string {
 	s = strings.TrimSpace(s)
 	lines := strings.Split(s, "\n")
