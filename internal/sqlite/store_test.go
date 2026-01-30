@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -114,9 +115,9 @@ func TestCreateList(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name: "valid list",
+			name: "valid list (auto-trimmed)",
 			list: model.List{
-				Name:     "Inbox",
+				Name:     " Inbox ",
 				Position: 0,
 				Modified: time.Now(),
 			},
@@ -142,6 +143,14 @@ func TestCreateList(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
 				return ctx, cancel
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty list name",
+			list: model.List{
+				Name:     "",
+				Modified: time.Now(),
 			},
 			wantErr: true,
 		},
@@ -186,13 +195,14 @@ func TestCreateList(t *testing.T) {
 				defer db.Close()
 
 				var count int
-				err = db.QueryRow("SELECT COUNT(*) FROM lists WHERE name = ?", tt.list.Name).Scan(&count)
+				wantName := strings.TrimSpace(tt.list.Name)
+				err = db.QueryRow("SELECT COUNT(*) FROM lists WHERE name = ?", wantName).Scan(&count)
 				if err != nil {
 					t.Fatalf("failed to query list: %v", err)
 				}
 
 				if count != 1 {
-					t.Errorf("expected 1 list with name %q, got %d", tt.list.Name, count)
+					t.Errorf("expected 1 list with name %q, got %d", wantName, count)
 				}
 			}
 		})

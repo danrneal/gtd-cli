@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
 	_ "github.com/mattn/go-sqlite3"
@@ -74,6 +75,11 @@ func (s *Store) createTables(ctx context.Context) error {
 
 // CreateList inserts a new list into the database.
 func (s *Store) CreateList(ctx context.Context, list model.List) error {
+	list.Name = strings.TrimSpace(list.Name)
+	if list.Name == "" {
+		return fmt.Errorf("list name cannot be empty")
+	}
+
 	query := `
 		INSERT INTO lists (
 			name,
