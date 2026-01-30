@@ -257,7 +257,7 @@ func TestGetAllLists(t *testing.T) {
 		{
 			name: "valid list (with items)",
 			setupLists: func(t *testing.T, db *sql.DB) {
-				rows, err := db.Exec(
+				res, err := db.Exec(
 					`
 						INSERT INTO lists (name, modified) 
 						VALUES (?, ?)
@@ -268,7 +268,7 @@ func TestGetAllLists(t *testing.T) {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 
-				listID, _ := rows.LastInsertId()
+				listID, _ := res.LastInsertId()
 				_, err = db.Exec(
 					`
 						INSERT INTO items (
@@ -374,6 +374,186 @@ func TestGetAllLists(t *testing.T) {
 
 				if tt.verifyList != nil {
 					tt.verifyList(t, lists)
+				}
+			}
+		})
+	}
+}
+
+func TestUpdateList(t *testing.T) {
+	tests := []struct {
+		name       string
+		setupLists func(t *testing.T, db *sql.DB) int64
+		setupList  func(id int64) model.List
+		setupCtx   func() (context.Context, context.CancelFunc)
+		wantErr    bool
+	}{
+		{
+			name: "valid update (with whitespace in title)",
+			setupLists: func(t *testing.T, db *sql.DB) int64 {
+				res, err := db.Exec(
+					`
+						INSERT INTO lists (name, modified) 
+						VALUES (?, ?)
+					`, "Old Name", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				id, _ := res.LastInsertId()
+
+				return id
+			},
+			setupList: func(id int64) model.List {
+				list := model.List{
+					ID:       id,
+					Name:     "  New Name  ",
+					Position: 5,
+					Modified: time.Now(),
+				}
+
+				return list
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty name",
+			setupLists: func(t *testing.T, db *sql.DB) int64 {
+				res, err := db.Exec(
+					`
+						INSERT INTO lists (name, modified) 
+						VALUES (?, ?)
+					`, "Valid", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				id, _ := res.LastInsertId()
+
+				return id
+			},
+			setupList: func(id int64) model.List {
+				list := model.List{
+					ID:       id,
+					Name:     "",
+					Modified: time.Now(),
+				}
+
+				return list
+			},
+			wantErr: true,
+		},
+		{
+			name: "nonexistent id",
+			setupLists: func(t *testing.T, db *sql.DB) int64 {
+				return 999
+			},
+			setupList: func(id int64) model.List {
+				list := model.List{
+					ID:       id,
+					Name:     "Valid Name",
+					Modified: time.Now(),
+				}
+
+				return list
+			},
+			wantErr: true,
+		},
+		{
+			name: "context cancellation",
+			setupLists: func(t *testing.T, db *sql.DB) int64 {
+				res, err := db.Exec(
+					`
+						INSERT INTO lists (name, modified) 
+						VALUES (?, ?)
+					`, "Valid", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				id, _ := res.LastInsertId()
+
+				return id
+			},
+			setupList: func(id int64) model.List {
+				list := model.List{
+					ID:       id,
+					Name:     "Valid Name",
+					Modified: time.Now(),
+				}
+
+				return list
+			},
+			setupCtx: func() (context.Context, context.CancelFunc) {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				return ctx, cancel
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			dbPath := filepath.Join(tmpDir, "test.db")
+
+			var ctx context.Context
+			var cancel context.CancelFunc
+
+			if tt.setupCtx != nil {
+				ctx, cancel = tt.setupCtx()
+				defer cancel()
+			} else {
+				ctx = context.Background()
+			}
+
+			store, err := sqlite.NewStore(context.Background(), dbPath)
+			if err != nil {
+				t.Fatalf("failed to create store: %v", err)
+			}
+
+			db, err := sql.Open("sqlite3", dbPath)
+			if err != nil {
+				t.Fatalf("failed to open db for setup: %v", err)
+			}
+
+			defer db.Close()
+
+			id := tt.setupLists(t, db)
+			list := tt.setupList(id)
+
+			err = store.UpdateList(ctx, list)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("UpdateList() expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("UpdateList() unexpected error: %v", err)
+				}
+
+				// Verify Update
+				var name string
+				var position int
+				err = db.QueryRow("SELECT name, position FROM lists WHERE id = ?", id).Scan(&name, &position)
+				if err != nil {
+					t.Fatalf("failed to query list: %v", err)
+				}
+
+				expectedName := strings.TrimSpace(list.Name)
+				if name != expectedName {
+					t.Errorf("expected name %q, got %q", expectedName, name)
+				}
+				if position != list.Position {
+					t.Errorf("expected position %d, got %d", list.Position, position)
 				}
 			}
 		})

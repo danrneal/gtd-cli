@@ -164,6 +164,46 @@ func (s *Store) GetAllLists(ctx context.Context) ([]model.List, error) {
 	return lists, nil
 }
 
+// UpdateList updates an existing list in the database.
+func (s *Store) UpdateList(ctx context.Context, list model.List) error {
+	list.Name = strings.TrimSpace(list.Name)
+	if list.Name == "" {
+		return fmt.Errorf("list name cannot be empty")
+	}
+
+	query := `
+                UPDATE lists SET
+                        name = ?,
+                        position = ?,
+                        modified = ?,
+                        external_id = ?
+                WHERE id = ?;
+        `
+
+	res, err := s.db.ExecContext(ctx, query,
+		list.Name,
+		list.Position,
+		list.Modified,
+		list.ExternalID,
+		list.ID,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to update list %d: %w", list.ID, err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("list with id %d not found", list.ID)
+	}
+
+	return nil
+}
+
 // CreateItem inserts a new item into the database.
 func (s *Store) CreateItem(ctx context.Context, item model.Item) error {
 	item.Title = strings.TrimSpace(item.Title)
