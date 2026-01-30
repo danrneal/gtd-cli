@@ -20,6 +20,23 @@ This project consists of three main components:
 
 *(Coming soon)*
 
+## Usage
+
+The `gtd` binary is the core backend. It can be configured via flags:
+
+```bash
+./gtd --db path/to/gtd.db --adapters google_tasks --credentials creds.json
+```
+
+### Flags
+
+| Flag | Default | Description |
+| :--- | :--- | :--- |
+| `--db` | `gtd.db` | Path to the SQLite database file. |
+| `--adapters` | *empty* | Comma-separated list of sync adapters to enable. Supported: `google_tasks`. |
+| `--credentials` | `credentials.json` | Path to Google Cloud credentials JSON file (required for `google_tasks`). |
+| `--token` | `token.json` | Path to Google OAuth token file (generated after first login). |
+
 ## Development
 
 We follow strict development practices:
