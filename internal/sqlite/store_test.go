@@ -3,6 +3,7 @@ package sqlite_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,11 +12,9 @@ import (
 
 	"github.com/danrneal/gtd.nvim/internal/model"
 	"github.com/danrneal/gtd.nvim/internal/sqlite"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
-
-func stringPtr(s string) *string {
-	return &s
-}
 
 func TestNewStore(t *testing.T) {
 	tests := []struct {
@@ -38,13 +37,28 @@ func TestNewStore(t *testing.T) {
 
 				defer db.Close()
 
-				wantTables := []string{"lists", "items"}
-				for _, tbl := range wantTables {
+				rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+				if err != nil {
+					t.Fatalf("failed to query tables: %v", err)
+				}
+
+				defer rows.Close()
+
+				var gotTables []string
+				for rows.Next() {
 					var name string
-					err := db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name=?", tbl).Scan(&name)
-					if err != nil {
-						t.Errorf("table %q not found in database: %v", tbl, err)
+					if err := rows.Scan(&name); err != nil {
+						t.Fatalf("failed to scan table name: %v", err)
 					}
+
+					if name != "sqlite_sequence" {
+						gotTables = append(gotTables, name)
+					}
+				}
+
+				wantTables := []string{"items", "lists"}
+				if diff := cmp.Diff(wantTables, gotTables); diff != "" {
+					t.Errorf("database tables mismatch (-want +got):\n%s", diff)
 				}
 			},
 		},
@@ -116,6 +130,7 @@ func TestCreateList(t *testing.T) {
 		name     string
 		list     model.List
 		setupCtx func() (context.Context, context.CancelFunc)
+		wantList *model.List
 		wantErr  bool
 	}{
 		{
@@ -125,6 +140,10 @@ func TestCreateList(t *testing.T) {
 				Position: 0,
 				Modified: time.Now(),
 			},
+			wantList: &model.List{
+				Name:     "Inbox",
+				Position: 0,
+			},
 			wantErr: false,
 		},
 		{
@@ -133,6 +152,11 @@ func TestCreateList(t *testing.T) {
 				Name:       "Work",
 				Position:   1,
 				Modified:   time.Now(),
+				ExternalID: stringPtr("ext-123"),
+			},
+			wantList: &model.List{
+				Name:       "Work",
+				Position:   1,
 				ExternalID: stringPtr("ext-123"),
 			},
 			wantErr: false,
@@ -198,15 +222,24 @@ func TestCreateList(t *testing.T) {
 
 				defer db.Close()
 
-				var count int
-				wantName := strings.TrimSpace(tt.list.Name)
-				err = db.QueryRow("SELECT COUNT(*) FROM lists WHERE name = ?", wantName).Scan(&count)
-				if err != nil {
-					t.Fatalf("failed to query list: %v", err)
-				}
+				if tt.wantList != nil {
+					var gotList model.List
+					wantName := strings.TrimSpace(tt.list.Name)
+					err = db.QueryRow(
+						"SELECT id, name, position, external_id FROM lists WHERE name = ?", wantName,
+					).Scan(&gotList.ID, &gotList.Name, &gotList.Position, &gotList.ExternalID)
 
-				if count != 1 {
-					t.Errorf("expected 1 list with name %q, got %d", wantName, count)
+					if err != nil {
+						t.Fatalf("failed to query list: %v", err)
+					}
+
+					opts := []cmp.Option{
+						cmpopts.IgnoreFields(model.List{}, "ID", "Modified", "Items"),
+					}
+
+					if diff := cmp.Diff(tt.wantList, &gotList, opts...); diff != "" {
+						t.Errorf("CreateList() mismatch (-want +got):\n%s", diff)
+					}
 				}
 			}
 		})
@@ -215,18 +248,16 @@ func TestCreateList(t *testing.T) {
 
 func TestGetAllLists(t *testing.T) {
 	tests := []struct {
-		name       string
-		setupDB    func(t *testing.T, db *sql.DB)
-		setupCtx   func() (context.Context, context.CancelFunc)
-		wantCount  int
-		verifyList func(t *testing.T, lists []model.List)
-		wantErr    bool
+		name      string
+		setupDB   func(t *testing.T, db *sql.DB)
+		setupCtx  func() (context.Context, context.CancelFunc)
+		wantLists []model.List
+		wantErr   bool
 	}{
 		{
-			name:      "empty db",
-			setupDB:   nil,
-			wantCount: 0,
-			wantErr:   false,
+			name:    "empty db",
+			setupDB: nil,
+			wantErr: false,
 		},
 		{
 			name: "valid list (empty items)",
@@ -242,15 +273,11 @@ func TestGetAllLists(t *testing.T) {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 			},
-			wantCount: 1,
-			verifyList: func(t *testing.T, lists []model.List) {
-				if len(lists) != 1 {
-					t.Fatalf("expected 1 list, got %d", len(lists))
-				}
-
-				if lists[0].Items == nil || len(lists[0].Items) != 0 {
-					t.Errorf("expected empty non-nil items slice, got: %v", lists[0].Items)
-				}
+			wantLists: []model.List{
+				{
+					Name:  "Inbox",
+					Items: []model.Item{},
+				},
 			},
 			wantErr: false,
 		},
@@ -286,19 +313,16 @@ func TestGetAllLists(t *testing.T) {
 					t.Fatalf("failed to insert item: %v", err)
 				}
 			},
-			wantCount: 1,
-			verifyList: func(t *testing.T, lists []model.List) {
-				if len(lists) != 1 {
-					t.Fatalf("expected 1 list, got %d", len(lists))
-				}
-
-				if len(lists[0].Items) != 1 {
-					t.Errorf("expected 1 item in list, got %d", len(lists[0].Items))
-				}
-
-				if lists[0].Items[0].Title != "Task 1" {
-					t.Errorf("expected item title 'Task 1', got %q", lists[0].Items[0].Title)
-				}
+			wantLists: []model.List{
+				{
+					Name: "Work",
+					Items: []model.Item{
+						{
+							Title: "Task 1",
+							Tags:  []string{},
+						},
+					},
+				},
 			},
 			wantErr: false,
 		},
@@ -321,8 +345,7 @@ func TestGetAllLists(t *testing.T) {
 				cancel()
 				return ctx, cancel
 			},
-			wantCount: 0,
-			wantErr:   true,
+			wantErr: true,
 		},
 	}
 
@@ -368,12 +391,13 @@ func TestGetAllLists(t *testing.T) {
 					t.Errorf("GetAllLists() unexpected error: %v", err)
 				}
 
-				if len(lists) != tt.wantCount {
-					t.Errorf("GetAllLists() count mismatch: want %d, got %d", tt.wantCount, len(lists))
+				opts := []cmp.Option{
+					cmpopts.IgnoreFields(model.List{}, "Modified", "ID"),
+					cmpopts.IgnoreFields(model.Item{}, "Modified", "Created", "Snoozed", "Due", "ID", "ListID"),
 				}
 
-				if tt.verifyList != nil {
-					tt.verifyList(t, lists)
+				if diff := cmp.Diff(tt.wantLists, lists, opts...); diff != "" {
+					t.Errorf("GetAllLists() mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
@@ -386,6 +410,7 @@ func TestUpdateList(t *testing.T) {
 		setupDB   func(t *testing.T, db *sql.DB) int64
 		setupList func(id int64) model.List
 		setupCtx  func() (context.Context, context.CancelFunc)
+		wantList  *model.List
 		wantErr   bool
 	}{
 		{
@@ -416,6 +441,10 @@ func TestUpdateList(t *testing.T) {
 
 				return list
 			},
+			wantList: &model.List{
+				Name:     "New Name",
+				Position: 5,
+			},
 			wantErr: false,
 		},
 		{
@@ -445,7 +474,8 @@ func TestUpdateList(t *testing.T) {
 
 				return list
 			},
-			wantErr: true,
+			wantList: nil,
+			wantErr:  true,
 		},
 		{
 			name: "nonexistent id",
@@ -461,7 +491,8 @@ func TestUpdateList(t *testing.T) {
 
 				return list
 			},
-			wantErr: true,
+			wantList: nil,
+			wantErr:  true,
 		},
 		{
 			name: "context cancellation",
@@ -495,7 +526,8 @@ func TestUpdateList(t *testing.T) {
 				cancel()
 				return ctx, cancel
 			},
-			wantErr: true,
+			wantList: nil,
+			wantErr:  true,
 		},
 	}
 
@@ -540,26 +572,27 @@ func TestUpdateList(t *testing.T) {
 					t.Errorf("UpdateList() unexpected error: %v", err)
 				}
 
-				var name string
-				var position int
+				var gotList model.List
 				err = db.QueryRow(
 					`
 						SELECT name, position 
 						FROM lists 
 						WHERE id = ?
 					`, id,
-				).Scan(&name, &position)
+				).Scan(&gotList.Name, &gotList.Position)
 
 				if err != nil {
 					t.Fatalf("failed to query list: %v", err)
 				}
 
-				expectedName := strings.TrimSpace(list.Name)
-				if name != expectedName {
-					t.Errorf("expected name %q, got %q", expectedName, name)
+				gotList.ID = id
+
+				opts := []cmp.Option{
+					cmpopts.IgnoreFields(model.List{}, "Modified", "ID", "ExternalID", "Items"),
 				}
-				if position != list.Position {
-					t.Errorf("expected position %d, got %d", list.Position, position)
+
+				if diff := cmp.Diff(*tt.wantList, gotList, opts...); diff != "" {
+					t.Errorf("UpdateList() mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
@@ -571,8 +604,9 @@ func TestDeleteList(t *testing.T) {
 		name      string
 		setupDB   func(t *testing.T, db *sql.DB) int64
 		setupCtx  func() (context.Context, context.CancelFunc)
+		wantLists []model.List
+		wantItems []model.Item
 		wantErr   bool
-		wantItems int
 	}{
 		{
 			name: "valid delete with cascade",
@@ -607,8 +641,7 @@ func TestDeleteList(t *testing.T) {
 
 				return listID
 			},
-			wantItems: 0,
-			wantErr:   false,
+			wantErr: false,
 		},
 		{
 			name: "nonexistent id",
@@ -684,25 +717,22 @@ func TestDeleteList(t *testing.T) {
 					t.Errorf("DeleteList() unexpected error: %v", err)
 				}
 
-				var count int
-				err = db.QueryRow("SELECT COUNT(*) FROM lists WHERE id = ?", id).Scan(&count)
+				lists, err := store.GetAllLists(context.Background())
 				if err != nil {
-					t.Fatalf("failed to query list count: %v", err)
+					t.Fatalf("failed to get all lists: %v", err)
 				}
 
-				if count != 0 {
-					t.Errorf("expected list to be deleted, found %d", count)
+				if diff := cmp.Diff(tt.wantLists, lists); diff != "" {
+					t.Errorf("DeleteList() lists mismatch (-want +got):\n%s", diff)
 				}
 
-				if tt.name == "valid delete with cascade" {
-					err = db.QueryRow("SELECT COUNT(*) FROM items WHERE list_id = ?", id).Scan(&count)
-					if err != nil {
-						t.Fatalf("failed to query item count: %v", err)
-					}
+				items, err := store.GetAllItems(context.Background())
+				if err != nil {
+					t.Fatalf("failed to get all items: %v", err)
+				}
 
-					if count != tt.wantItems {
-						t.Errorf("expected %d items (cascade), found %d", tt.wantItems, count)
-					}
+				if diff := cmp.Diff(tt.wantItems, items); diff != "" {
+					t.Errorf("DeleteList() items mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
@@ -715,7 +745,7 @@ func TestCreateItem(t *testing.T) {
 		setupDB  func(t *testing.T, db *sql.DB)
 		item     model.Item
 		setupCtx func() (context.Context, context.CancelFunc)
-		wantDesc string
+		wantItem *model.Item
 		wantErr  bool
 	}{
 		{
@@ -753,8 +783,16 @@ func TestCreateItem(t *testing.T) {
 				Modified:    time.Now(),
 				Created:     time.Now(),
 			},
-			wantDesc: "Line 1\nLine 2\n  Line 3",
-			wantErr:  false,
+			wantItem: &model.Item{
+				ListID:      1,
+				Title:       "Complex Task",
+				Description: "Line 1\nLine 2\n  Line 3",
+				Completed:   true,
+				ProjectID:   stringPtr("proj-1"),
+				WaitingOn:   stringPtr("Alice"),
+				Tags:        []string{"work", "urgent"},
+			},
+			wantErr: false,
 		},
 		{
 			name:    "empty title",
@@ -834,15 +872,31 @@ func TestCreateItem(t *testing.T) {
 					t.Errorf("expected 1 item with title %q, got %d", wantTitle, count)
 				}
 
-				if tt.wantDesc != "" {
-					var desc string
-					err = db.QueryRow("SELECT description FROM items WHERE title = ?", wantTitle).Scan(&desc)
+				if tt.wantItem != nil {
+					var gotItem model.Item
+					var tagsJSON string
+					err = db.QueryRow(
+						`SELECT list_id, title, COALESCE(description, ''), completed, tags, project_id, waiting_on 
+						FROM items WHERE title = ?`, wantTitle,
+					).Scan(&gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Completed, &tagsJSON, &gotItem.ProjectID, &gotItem.WaitingOn)
 					if err != nil {
-						t.Fatalf("failed to query description: %v", err)
+						t.Fatalf("failed to query item: %v", err)
 					}
 
-					if desc != tt.wantDesc {
-						t.Errorf("Description mismatch.\nWant:\n%q\nGot:\n%q", tt.wantDesc, desc)
+					if err := json.Unmarshal([]byte(tagsJSON), &gotItem.Tags); err != nil {
+						t.Fatalf("failed to unmarshal tags: %v", err)
+					}
+
+					if gotItem.Tags == nil {
+						gotItem.Tags = []string{}
+					}
+
+					opts := []cmp.Option{
+						cmpopts.IgnoreFields(model.Item{}, "ID", "Modified", "Created", "Snoozed", "Due", "ExternalID"),
+					}
+
+					if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {
+						t.Errorf("CreateItem() mismatch (-want +got):\n%s", diff)
 					}
 				}
 			}
@@ -855,14 +909,13 @@ func TestGetAllItems(t *testing.T) {
 		name      string
 		setupDB   func(t *testing.T, db *sql.DB)
 		setupCtx  func() (context.Context, context.CancelFunc)
-		wantCount int
+		wantItems []model.Item
 		wantErr   bool
 	}{
 		{
-			name:      "empty db",
-			setupDB:   nil,
-			wantCount: 0,
-			wantErr:   false,
+			name:    "empty db",
+			setupDB: nil,
+			wantErr: false,
 		},
 		{
 			name: "valid items (no tags)",
@@ -884,8 +937,16 @@ func TestGetAllItems(t *testing.T) {
 					t.Fatalf("failed to insert item: %v", err)
 				}
 			},
-			wantCount: 1,
-			wantErr:   false,
+			wantItems: []model.Item{
+				{
+					ID:          1,
+					Title:       "Item 1",
+					ListID:      1,
+					Description: "",
+					Tags:        []string{},
+				},
+			},
+			wantErr: false,
 		},
 		{
 			name: "valid items (with tags)",
@@ -908,8 +969,16 @@ func TestGetAllItems(t *testing.T) {
 					t.Fatalf("failed to insert item: %v", err)
 				}
 			},
-			wantCount: 1,
-			wantErr:   false,
+			wantItems: []model.Item{
+				{
+					ID:          2,
+					Title:       "Item 2",
+					ListID:      1,
+					Description: "desc",
+					Tags:        []string{"work", "urgent"},
+				},
+			},
+			wantErr: false,
 		},
 		{
 			name: "corrupt data (bad tags json)",
@@ -930,8 +999,7 @@ func TestGetAllItems(t *testing.T) {
 					t.Fatalf("failed to insert item: %v", err)
 				}
 			},
-			wantCount: 0,
-			wantErr:   true,
+			wantErr: true,
 		},
 		{
 			name: "context cancellation",
@@ -958,8 +1026,7 @@ func TestGetAllItems(t *testing.T) {
 				cancel()
 				return ctx, cancel
 			},
-			wantCount: 0,
-			wantErr:   true,
+			wantErr: true,
 		},
 	}
 
@@ -1016,8 +1083,12 @@ func TestGetAllItems(t *testing.T) {
 					t.Errorf("GetAllItems() unexpected error: %v", err)
 				}
 
-				if len(items) != tt.wantCount {
-					t.Errorf("GetAllItems() count mismatch: want %d, got %d", tt.wantCount, len(items))
+				opts := []cmp.Option{
+					cmpopts.IgnoreFields(model.Item{}, "Modified", "Created", "Snoozed", "Due", "ID", "ListID"),
+				}
+
+				if diff := cmp.Diff(tt.wantItems, items, opts...); diff != "" {
+					t.Errorf("GetAllItems() mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
@@ -1030,7 +1101,7 @@ func TestUpdateItem(t *testing.T) {
 		setupDB   func(t *testing.T, db *sql.DB) int64
 		setupItem func(id int64) model.Item
 		setupCtx  func() (context.Context, context.CancelFunc)
-		wantDesc  string
+		wantItem  *model.Item
 		wantErr   bool
 	}{
 		{
@@ -1082,6 +1153,13 @@ func TestUpdateItem(t *testing.T) {
 				}
 
 				return item
+			},
+			wantItem: &model.Item{
+				ListID:      1,
+				Title:       "Updated Title",
+				Description: "Line 1\n  Line 2",
+				Completed:   true,
+				Tags:        []string{"updated", "tag"},
 			},
 			wantErr: false,
 		},
@@ -1246,39 +1324,36 @@ func TestUpdateItem(t *testing.T) {
 					t.Errorf("UpdateItem() unexpected error: %v", err)
 				}
 
-				var title, desc, tagsJSON string
-				var completed bool
+				var gotItem model.Item
+				var tagsJSON string
 				err = db.QueryRow(
 					`
-						SELECT title, COALESCE(description, ''), tags, completed 
+						SELECT id, list_id, title, COALESCE(description, ''), completed, tags 
 						FROM items 
 						WHERE id = ?
 					`, id,
-				).Scan(&title, &desc, &tagsJSON, &completed)
+				).Scan(&gotItem.ID, &gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Completed, &tagsJSON)
 
 				if err != nil {
 					t.Fatalf("failed to query item: %v", err)
 				}
 
-				wantTitle := strings.TrimSpace(item.Title)
-				if title != wantTitle {
-					t.Errorf("expected title %q, got %q", wantTitle, title)
+				if err := json.Unmarshal([]byte(tagsJSON), &gotItem.Tags); err != nil {
+					t.Fatalf("failed to unmarshal tags: %v", err)
 				}
 
-				if tt.wantDesc != "" {
-					if desc != tt.wantDesc {
-						t.Errorf("Description mismatch.\nWant:\n%q\nGot:\n%q", tt.wantDesc, desc)
-					}
+				if gotItem.Tags == nil {
+					gotItem.Tags = []string{}
 				}
 
-				if completed != item.Completed {
-					t.Errorf("expected completed %v, got %v", item.Completed, completed)
+				tt.wantItem.ID = id
+
+				opts := []cmp.Option{
+					cmpopts.IgnoreFields(model.Item{}, "Modified", "Created", "Snoozed", "Due", "ProjectID", "WaitingOn", "ExternalID"),
 				}
 
-				if len(item.Tags) > 0 {
-					if !strings.Contains(tagsJSON, "updated") {
-						t.Errorf("tags JSON expected to contain 'updated', got %s", tagsJSON)
-					}
+				if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {
+					t.Errorf("UpdateItem() mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
@@ -1422,16 +1497,19 @@ func TestDeleteItem(t *testing.T) {
 					t.Errorf("DeleteItem() unexpected error: %v", err)
 				}
 
-				var count int
-				err = db.QueryRow("SELECT COUNT(*) FROM items WHERE id = ?", id).Scan(&count)
+				items, err := store.GetAllItems(context.Background())
 				if err != nil {
-					t.Fatalf("failed to query item: %v", err)
+					t.Fatalf("failed to get all items: %v", err)
 				}
 
-				if count != 0 {
-					t.Errorf("expected 0 items, got %d", count)
+				if diff := cmp.Diff([]model.Item(nil), items); diff != "" {
+					t.Errorf("DeleteItem() items mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
 	}
+}
+
+func stringPtr(s string) *string {
+	return &s
 }

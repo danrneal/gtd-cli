@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"golang.org/x/oauth2"
 )
 
@@ -76,11 +78,8 @@ func TestTokenFromFile(t *testing.T) {
 					t.Errorf("tokenFromFile() unexpected error: %v", err)
 				}
 
-				if gotToken.AccessToken != tt.wantToken.AccessToken {
-					t.Errorf("got AccessToken %q, want %q", gotToken.AccessToken, tt.wantToken.AccessToken)
-				}
-				if !gotToken.Expiry.Equal(tt.wantToken.Expiry) {
-					t.Errorf("got Expiry %v, want %v", gotToken.Expiry, tt.wantToken.Expiry)
+				if diff := cmp.Diff(tt.wantToken, gotToken, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
+					t.Errorf("tokenFromFile() mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
@@ -141,16 +140,8 @@ func TestSaveToken(t *testing.T) {
 					t.Fatalf("failed to unmarshal saved token: %v", err)
 				}
 
-				if savedToken.AccessToken != tt.token.AccessToken {
-					t.Errorf("got AccessToken %q, want %q", savedToken.AccessToken, tt.token.AccessToken)
-				}
-
-				if savedToken.RefreshToken != tt.token.RefreshToken {
-					t.Errorf("got RefreshToken %q, want %q", savedToken.RefreshToken, tt.token.RefreshToken)
-				}
-
-				if !savedToken.Expiry.Equal(tt.token.Expiry) {
-					t.Errorf("got Expiry %v, want %v", savedToken.Expiry, tt.token.Expiry)
+				if diff := cmp.Diff(*tt.token, savedToken, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
+					t.Errorf("saveToken() mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
@@ -240,8 +231,8 @@ func TestFileTokenSource_Token(t *testing.T) {
 					t.Errorf("Token() unexpected error: %v", err)
 				}
 
-				if got.AccessToken != tt.wantToken.AccessToken {
-					t.Errorf("got token %v, want %v", got, tt.wantToken)
+				if diff := cmp.Diff(tt.wantToken, got, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
+					t.Errorf("Token() mismatch (-want +got):\n%s", diff)
 				}
 
 				content, _ := os.ReadFile(tokenFile)
@@ -249,12 +240,14 @@ func TestFileTokenSource_Token(t *testing.T) {
 				_ = json.Unmarshal(content, &savedToken)
 
 				if tt.wantSave {
-					if savedToken.AccessToken != tt.wantToken.AccessToken {
-						t.Errorf("saved token %q, want %q", savedToken.AccessToken, tt.wantToken.AccessToken)
+					if diff := cmp.Diff(*tt.wantToken, savedToken, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
+						t.Errorf("File save mismatch (-want +got):\n%s", diff)
 					}
 				} else {
-					if savedToken.AccessToken != tt.token.AccessToken {
-						t.Errorf("unexpected save: file has %q, expected old %q", savedToken.AccessToken, tt.token.AccessToken)
+					if tt.token != nil {
+						if diff := cmp.Diff(*tt.token, savedToken, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
+							t.Errorf("File save mismatch (should match old) (-want +got):\n%s", diff)
+						}
 					}
 				}
 			}
