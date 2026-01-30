@@ -326,6 +326,68 @@ func (s *Store) GetAllItems(ctx context.Context) ([]model.Item, error) {
 	return items, nil
 }
 
+// UpdateItem updates an existing item in the database.
+func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
+	item.Title = strings.TrimSpace(item.Title)
+	if item.Title == "" {
+		return fmt.Errorf("item title cannot be empty")
+	}
+
+	item.Description = multilineTrim(item.Description)
+	tagsJSON, err := json.Marshal(item.Tags)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tags: %w", err)
+	}
+
+	query := `
+                UPDATE items SET
+                        list_id = ?,
+                        position = ?,
+                        completed = ?,
+                        title = ?,
+                        description = ?,
+                        project_id = ?,
+                        waiting_on = ?,
+                        snoozed = ?,
+                        due = ?,
+                        tags = ?,
+                        modified = ?,
+                        external_id = ?
+                WHERE id = ?;
+        `
+
+	res, err := s.db.ExecContext(ctx, query,
+		item.ListID,
+		item.Position,
+		item.Completed,
+		item.Title,
+		item.Description,
+		item.ProjectID,
+		item.WaitingOn,
+		item.Snoozed,
+		item.Due,
+		string(tagsJSON),
+		item.Modified,
+		item.ExternalID,
+		item.ID,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to update item %d: %w", item.ID, err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("item with id %d not found", item.ID)
+	}
+
+	return nil
+}
+
 func multilineTrim(s string) string {
 	s = strings.TrimSpace(s)
 	lines := strings.Split(s, "\n")

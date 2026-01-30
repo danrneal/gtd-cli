@@ -216,7 +216,7 @@ func TestCreateList(t *testing.T) {
 func TestGetAllLists(t *testing.T) {
 	tests := []struct {
 		name       string
-		setupLists func(t *testing.T, db *sql.DB)
+		setupDB func(t *testing.T, db *sql.DB)
 		setupCtx   func() (context.Context, context.CancelFunc)
 		wantCount  int
 		verifyList func(t *testing.T, lists []model.List)
@@ -224,13 +224,13 @@ func TestGetAllLists(t *testing.T) {
 	}{
 		{
 			name:       "empty db",
-			setupLists: nil,
+			setupDB: nil,
 			wantCount:  0,
 			wantErr:    false,
 		},
 		{
 			name: "valid list (empty items)",
-			setupLists: func(t *testing.T, db *sql.DB) {
+			setupDB: func(t *testing.T, db *sql.DB) {
 				_, err := db.Exec(
 					`
 						INSERT INTO lists (name, modified) 
@@ -256,7 +256,7 @@ func TestGetAllLists(t *testing.T) {
 		},
 		{
 			name: "valid list (with items)",
-			setupLists: func(t *testing.T, db *sql.DB) {
+			setupDB: func(t *testing.T, db *sql.DB) {
 				res, err := db.Exec(
 					`
 						INSERT INTO lists (name, modified) 
@@ -304,7 +304,7 @@ func TestGetAllLists(t *testing.T) {
 		},
 		{
 			name: "context cancellation",
-			setupLists: func(t *testing.T, db *sql.DB) {
+			setupDB: func(t *testing.T, db *sql.DB) {
 				_, err := db.Exec(
 					`
 						INSERT INTO lists (name, modified) 
@@ -353,8 +353,8 @@ func TestGetAllLists(t *testing.T) {
 
 			defer db.Close()
 
-			if tt.setupLists != nil {
-				tt.setupLists(t, db)
+			if tt.setupDB != nil {
+				tt.setupDB(t, db)
 			}
 
 			lists, err := store.GetAllLists(ctx)
@@ -383,14 +383,14 @@ func TestGetAllLists(t *testing.T) {
 func TestUpdateList(t *testing.T) {
 	tests := []struct {
 		name       string
-		setupLists func(t *testing.T, db *sql.DB) int64
+		setupDB func(t *testing.T, db *sql.DB) int64
 		setupList  func(id int64) model.List
 		setupCtx   func() (context.Context, context.CancelFunc)
 		wantErr    bool
 	}{
 		{
 			name: "valid update (with whitespace in title)",
-			setupLists: func(t *testing.T, db *sql.DB) int64 {
+			setupDB: func(t *testing.T, db *sql.DB) int64 {
 				res, err := db.Exec(
 					`
 						INSERT INTO lists (name, modified) 
@@ -420,7 +420,7 @@ func TestUpdateList(t *testing.T) {
 		},
 		{
 			name: "empty name",
-			setupLists: func(t *testing.T, db *sql.DB) int64 {
+			setupDB: func(t *testing.T, db *sql.DB) int64 {
 				res, err := db.Exec(
 					`
 						INSERT INTO lists (name, modified) 
@@ -449,7 +449,7 @@ func TestUpdateList(t *testing.T) {
 		},
 		{
 			name: "nonexistent id",
-			setupLists: func(t *testing.T, db *sql.DB) int64 {
+			setupDB: func(t *testing.T, db *sql.DB) int64 {
 				return 999
 			},
 			setupList: func(id int64) model.List {
@@ -465,7 +465,7 @@ func TestUpdateList(t *testing.T) {
 		},
 		{
 			name: "context cancellation",
-			setupLists: func(t *testing.T, db *sql.DB) int64 {
+			setupDB: func(t *testing.T, db *sql.DB) int64 {
 				res, err := db.Exec(
 					`
 						INSERT INTO lists (name, modified) 
@@ -526,7 +526,7 @@ func TestUpdateList(t *testing.T) {
 
 			defer db.Close()
 
-			id := tt.setupLists(t, db)
+			id := tt.setupDB(t, db)
 			list := tt.setupList(id)
 
 			err = store.UpdateList(ctx, list)
@@ -540,10 +540,16 @@ func TestUpdateList(t *testing.T) {
 					t.Errorf("UpdateList() unexpected error: %v", err)
 				}
 
-				// Verify Update
 				var name string
 				var position int
-				err = db.QueryRow("SELECT name, position FROM lists WHERE id = ?", id).Scan(&name, &position)
+				err = db.QueryRow(
+					`
+						SELECT name, position 
+						FROM lists 
+						WHERE id = ?
+					`, id,
+				).Scan(&name, &position)
+
 				if err != nil {
 					t.Fatalf("failed to query list: %v", err)
 				}
@@ -563,6 +569,7 @@ func TestUpdateList(t *testing.T) {
 func TestCreateItem(t *testing.T) {
 	tests := []struct {
 		name     string
+		setupDB  func(t *testing.T, db *sql.DB)
 		item     model.Item
 		setupCtx func() (context.Context, context.CancelFunc)
 		wantDesc string
@@ -570,6 +577,12 @@ func TestCreateItem(t *testing.T) {
 	}{
 		{
 			name: "valid item minimal fields (auto-trimmed title)",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				_, err := db.Exec(`INSERT INTO lists (name, modified) VALUES (?, ?)`, "Inbox", time.Now())
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+			},
 			item: model.Item{
 				ListID:   1,
 				Title:    "  Buy Milk  ",
@@ -580,6 +593,12 @@ func TestCreateItem(t *testing.T) {
 		},
 		{
 			name: "valid item complex fields (multiline desc)",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				_, err := db.Exec(`INSERT INTO lists (name, modified) VALUES (?, ?)`, "Inbox", time.Now())
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+			},
 			item: model.Item{
 				ListID:      1,
 				Title:       "Complex Task",
@@ -595,7 +614,8 @@ func TestCreateItem(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "empty title",
+			name:    "empty title",
+			setupDB: nil, 
 			item: model.Item{
 				ListID: 1,
 				Title:  "",
@@ -603,7 +623,8 @@ func TestCreateItem(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "cancelled context",
+			name:    "cancelled context",
+			setupDB: nil, 
 			item: model.Item{
 				ListID: 1,
 				Title:  "Cancelled",
@@ -637,9 +658,15 @@ func TestCreateItem(t *testing.T) {
 				t.Fatalf("failed to create store: %v", err)
 			}
 
-			list := model.List{Name: "Inbox", Modified: time.Now()}
-			if err := store.CreateList(context.Background(), list); err != nil {
-				t.Fatalf("failed to create prerequisite list: %v", err)
+			db, err := sql.Open("sqlite3", dbPath)
+			if err != nil {
+				t.Fatalf("failed to open db for setup: %v", err)
+			}
+
+			defer db.Close()
+
+			if tt.setupDB != nil {
+				tt.setupDB(t, db)
 			}
 
 			err = store.CreateItem(ctx, tt.item)
@@ -652,13 +679,6 @@ func TestCreateItem(t *testing.T) {
 				if err != nil {
 					t.Errorf("CreateItem() unexpected error: %v", err)
 				}
-
-				db, err := sql.Open("sqlite3", dbPath)
-				if err != nil {
-					t.Fatalf("failed to open db for verification: %v", err)
-				}
-
-				defer db.Close()
 
 				var count int
 				wantTitle := strings.TrimSpace(tt.item.Title)
@@ -690,20 +710,20 @@ func TestCreateItem(t *testing.T) {
 func TestGetAllItems(t *testing.T) {
 	tests := []struct {
 		name       string
-		setupItems func(t *testing.T, db *sql.DB)
+		setupDB func(t *testing.T, db *sql.DB)
 		setupCtx   func() (context.Context, context.CancelFunc)
 		wantCount  int
 		wantErr    bool
 	}{
 		{
 			name:       "empty db",
-			setupItems: nil,
+			setupDB: nil,
 			wantCount:  0,
 			wantErr:    false,
 		},
 		{
 			name: "valid items (no tags)",
-			setupItems: func(t *testing.T, db *sql.DB) {
+			setupDB: func(t *testing.T, db *sql.DB) {
 				_, err := db.Exec(
 					`
 						INSERT INTO items (
@@ -726,7 +746,7 @@ func TestGetAllItems(t *testing.T) {
 		},
 		{
 			name: "valid items (with tags)",
-			setupItems: func(t *testing.T, db *sql.DB) {
+			setupDB: func(t *testing.T, db *sql.DB) {
 				tags := `["work", "urgent"]`
 				_, err := db.Exec(
 					`
@@ -750,7 +770,7 @@ func TestGetAllItems(t *testing.T) {
 		},
 		{
 			name: "corrupt data (bad tags json)",
-			setupItems: func(t *testing.T, db *sql.DB) {
+			setupDB: func(t *testing.T, db *sql.DB) {
 				_, err := db.Exec(
 					`
 						INSERT INTO items (
@@ -772,7 +792,7 @@ func TestGetAllItems(t *testing.T) {
 		},
 		{
 			name: "context cancellation",
-			setupItems: func(t *testing.T, db *sql.DB) {
+			setupDB: func(t *testing.T, db *sql.DB) {
 				_, err := db.Exec(
 					`
 						INSERT INTO items (
@@ -838,8 +858,8 @@ func TestGetAllItems(t *testing.T) {
 				t.Fatalf("failed to create list: %v", err)
 			}
 
-			if tt.setupItems != nil {
-				tt.setupItems(t, db)
+			if tt.setupDB != nil {
+				tt.setupDB(t, db)
 			}
 
 			items, err := store.GetAllItems(ctx)
@@ -855,6 +875,267 @@ func TestGetAllItems(t *testing.T) {
 
 				if len(items) != tt.wantCount {
 					t.Errorf("GetAllItems() count mismatch: want %d, got %d", tt.wantCount, len(items))
+				}
+			}
+		})
+	}
+}
+
+func TestUpdateItem(t *testing.T) {
+	tests := []struct {
+		name       string
+		setupDB    func(t *testing.T, db *sql.DB) int64
+		setupItem  func(id int64) model.Item
+		setupCtx   func() (context.Context, context.CancelFunc)
+		wantDesc   string
+		wantErr    bool
+	}{
+		{
+			name: "valid update (complex fields)",
+			setupDB: func(t *testing.T, db *sql.DB) int64 {
+				res, err := db.Exec(
+					`
+						INSERT INTO lists (name, modified) 
+						VALUES (?, ?)
+					`, "Inbox", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				listID, _ := res.LastInsertId()
+				res, err = db.Exec(
+					`
+						INSERT INTO items (
+							title, 
+							description, 
+							list_id, 
+							tags, 
+							modified, 
+							created
+						) VALUES (?, ?, ?, '[]', ?, ?)
+					`, "Original", "", listID, time.Now(), time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
+				
+				id, _ := res.LastInsertId()
+
+				return id
+			},
+			setupItem: func(id int64) model.Item {
+				item := model.Item{
+					ID:          id,
+					ListID:      1,
+					Title:       "  Updated Title  ",
+					Description: "  Line 1  \n  Line 2",
+					Completed:   true,
+					Tags:        []string{"updated", "tag"},
+					Modified:    time.Now(),
+					Created:     time.Now(),
+				}
+
+				return item
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty title",
+			setupDB: func(t *testing.T, db *sql.DB) int64 {
+				res, err := db.Exec(
+					`
+						INSERT INTO lists (name, modified) 
+						VALUES (?, ?)
+					`, "Inbox", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				listID, _ := res.LastInsertId()
+				res, err = db.Exec(
+					`
+						INSERT INTO items (
+							title, 
+							description, 
+							list_id, 
+							tags, 
+							modified, 
+							created
+						) VALUES (?, ?, ?, '[]', ?, ?)
+					`, "Valid", "", listID, time.Now(), time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
+				
+				id, _ := res.LastInsertId()
+
+				return id
+			},
+			setupItem: func(id int64) model.Item {
+				item := model.Item{
+					ID: id, 
+					ListID: 1, 
+					Title: "", 
+					Modified: time.Now(),
+				}
+
+				return item
+			},
+			wantErr: true,
+		},
+		{
+			name: "nonexistent id",
+			setupDB: func(t *testing.T, db *sql.DB) int64 {
+				return 999
+			},
+			setupItem: func(id int64) model.Item {
+				item := model.Item{
+					ID: id, 
+					ListID: 1, 
+					Title: "Valid", 
+					Modified: time.Now(),
+				}
+
+				return item
+			},
+			wantErr: true,
+		},
+		{
+			name: "context cancellation",
+			setupDB: func(t *testing.T, db *sql.DB) int64 {
+				res, err := db.Exec(
+					`
+						INSERT INTO lists (name, modified) 
+						VALUES (?, ?)
+					`, "Inbox", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				listID, _ := res.LastInsertId()
+				res, err = db.Exec(
+					`
+						INSERT INTO items (
+							title, 
+							description, 
+							list_id, 
+							tags, 
+							modified, 
+							created
+						) VALUES (?, ?, ?, '[]', ?, ?)
+					`, "Valid", "", listID, time.Now(), time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
+				
+				id, _ := res.LastInsertId()
+
+				return id
+			},
+			setupItem: func(id int64) model.Item {
+				item := model.Item{
+					ID: id, 
+					ListID: 1, 
+					Title: "Valid", 
+					Modified: time.Now(),
+				}
+
+				return item
+			},
+			setupCtx: func() (context.Context, context.CancelFunc) {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				return ctx, cancel
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			dbPath := filepath.Join(tmpDir, "test.db")
+
+			var ctx context.Context
+			var cancel context.CancelFunc
+
+			if tt.setupCtx != nil {
+				ctx, cancel = tt.setupCtx()
+				defer cancel()
+			} else {
+				ctx = context.Background()
+			}
+
+			store, err := sqlite.NewStore(context.Background(), dbPath)
+			if err != nil {
+				t.Fatalf("failed to create store: %v", err)
+			}
+
+			db, err := sql.Open("sqlite3", dbPath)
+			if err != nil {
+				t.Fatalf("failed to open db for setup: %v", err)
+			}
+
+			defer db.Close()
+
+			id := tt.setupDB(t, db)
+			item := tt.setupItem(id)
+
+			err = store.UpdateItem(ctx, item)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("UpdateItem() expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("UpdateItem() unexpected error: %v", err)
+				}
+
+				var title, desc, tagsJSON string
+				var completed bool
+				err = db.QueryRow(
+					`
+						SELECT title, COALESCE(description, ''), tags, completed 
+						FROM items 
+						WHERE id = ?
+					`, id,
+				).Scan(&title, &desc, &tagsJSON, &completed)
+
+				if err != nil {
+					t.Fatalf("failed to query item: %v", err)
+				}
+
+				wantTitle := strings.TrimSpace(item.Title)
+				if title != wantTitle {
+					t.Errorf("expected title %q, got %q", wantTitle, title)
+				}
+				
+				if tt.wantDesc != "" {
+					if desc != tt.wantDesc {
+						t.Errorf("Description mismatch.\nWant:\n%q\nGot:\n%q", tt.wantDesc, desc)
+					}
+				}
+
+				if completed != item.Completed {
+					t.Errorf("expected completed %v, got %v", item.Completed, completed)
+				}
+				
+				if len(item.Tags) > 0 {
+					if !strings.Contains(tagsJSON, "updated") {
+						t.Errorf("tags JSON expected to contain 'updated', got %s", tagsJSON)
+					}
 				}
 			}
 		})
