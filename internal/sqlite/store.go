@@ -103,6 +103,67 @@ func (s *Store) CreateList(ctx context.Context, list model.List) error {
 	return nil
 }
 
+// GetAllLists returns all lists from the database, populated with their items.
+func (s *Store) GetAllLists(ctx context.Context) ([]model.List, error) {
+	items, err := s.GetAllItems(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	itemsByListID := make(map[int64][]model.Item)
+	for _, item := range items {
+		itemsByListID[item.ListID] = append(itemsByListID[item.ListID], item)
+	}
+
+	query := `
+		SELECT
+			id,
+			name,
+			position,
+			modified,
+			external_id
+		FROM lists
+		ORDER BY position
+	`
+
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query lists: %w", err)
+	}
+
+	defer rows.Close()
+
+	var lists []model.List
+	for rows.Next() {
+		var list model.List
+		err := rows.Scan(
+			&list.ID,
+			&list.Name,
+			&list.Position,
+			&list.Modified,
+			&list.ExternalID,
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan list: %w", err)
+		}
+
+		if items, ok := itemsByListID[list.ID]; ok {
+			list.Items = items
+		} else {
+			list.Items = []model.Item{}
+		}
+
+		lists = append(lists, list)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration failed: %w", err)
+	}
+
+	return lists, nil
+}
+
 // CreateItem inserts a new item into the database.
 func (s *Store) CreateItem(ctx context.Context, item model.Item) error {
 	item.Title = strings.TrimSpace(item.Title)

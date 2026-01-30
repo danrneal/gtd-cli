@@ -213,6 +213,173 @@ func TestCreateList(t *testing.T) {
 	}
 }
 
+func TestGetAllLists(t *testing.T) {
+	tests := []struct {
+		name       string
+		setupLists func(t *testing.T, db *sql.DB)
+		setupCtx   func() (context.Context, context.CancelFunc)
+		wantCount  int
+		verifyList func(t *testing.T, lists []model.List)
+		wantErr    bool
+	}{
+		{
+			name:       "empty db",
+			setupLists: nil,
+			wantCount:  0,
+			wantErr:    false,
+		},
+		{
+			name: "valid list (empty items)",
+			setupLists: func(t *testing.T, db *sql.DB) {
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (name, modified) 
+						VALUES (?, ?)
+					`, "Inbox", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+			},
+			wantCount: 1,
+			verifyList: func(t *testing.T, lists []model.List) {
+				if len(lists) != 1 {
+					t.Fatalf("expected 1 list, got %d", len(lists))
+				}
+
+				if lists[0].Items == nil || len(lists[0].Items) != 0 {
+					t.Errorf("expected empty non-nil items slice, got: %v", lists[0].Items)
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid list (with items)",
+			setupLists: func(t *testing.T, db *sql.DB) {
+				rows, err := db.Exec(
+					`
+						INSERT INTO lists (name, modified) 
+						VALUES (?, ?)
+					`, "Work", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				listID, _ := rows.LastInsertId()
+				_, err = db.Exec(
+					`
+						INSERT INTO items (
+							title, 
+							description, 
+							list_id, 
+							tags, 
+							modified, 
+							created
+						) VALUES (?, ?, ?, '[]', ?, ?)
+					`, "Task 1", "", listID, time.Now(), time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
+			},
+			wantCount: 1,
+			verifyList: func(t *testing.T, lists []model.List) {
+				if len(lists) != 1 {
+					t.Fatalf("expected 1 list, got %d", len(lists))
+				}
+
+				if len(lists[0].Items) != 1 {
+					t.Errorf("expected 1 item in list, got %d", len(lists[0].Items))
+				}
+
+				if lists[0].Items[0].Title != "Task 1" {
+					t.Errorf("expected item title 'Task 1', got %q", lists[0].Items[0].Title)
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "context cancellation",
+			setupLists: func(t *testing.T, db *sql.DB) {
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (name, modified) 
+						VALUES (?, ?)
+					`, "Inbox", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+			},
+			setupCtx: func() (context.Context, context.CancelFunc) {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				return ctx, cancel
+			},
+			wantCount: 0,
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			dbPath := filepath.Join(tmpDir, "test.db")
+
+			var ctx context.Context
+			var cancel context.CancelFunc
+
+			if tt.setupCtx != nil {
+				ctx, cancel = tt.setupCtx()
+				defer cancel()
+			} else {
+				ctx = context.Background()
+			}
+
+			store, err := sqlite.NewStore(context.Background(), dbPath)
+			if err != nil {
+				t.Fatalf("failed to create store: %v", err)
+			}
+
+			db, err := sql.Open("sqlite3", dbPath)
+			if err != nil {
+				t.Fatalf("failed to open db for setup: %v", err)
+			}
+
+			defer db.Close()
+
+			if tt.setupLists != nil {
+				tt.setupLists(t, db)
+			}
+
+			lists, err := store.GetAllLists(ctx)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("GetAllLists() expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("GetAllLists() unexpected error: %v", err)
+				}
+
+				if len(lists) != tt.wantCount {
+					t.Errorf("GetAllLists() count mismatch: want %d, got %d", tt.wantCount, len(lists))
+				}
+
+				if tt.verifyList != nil {
+					tt.verifyList(t, lists)
+				}
+			}
+		})
+	}
+}
+
 func TestCreateItem(t *testing.T) {
 	tests := []struct {
 		name     string
