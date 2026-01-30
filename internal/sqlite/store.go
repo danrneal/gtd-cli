@@ -3,8 +3,10 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
 	_ "github.com/mattn/go-sqlite3"
@@ -99,4 +101,69 @@ func (s *Store) CreateList(ctx context.Context, list model.List) error {
 	}
 
 	return nil
+}
+
+// CreateItem inserts a new item into the database.
+func (s *Store) CreateItem(ctx context.Context, item model.Item) error {
+	item.Title = strings.TrimSpace(item.Title)
+	if item.Title == "" {
+		return fmt.Errorf("item title cannot be empty")
+	}
+
+	item.Description = multilineTrim(item.Description)
+	tagsJSON, err := json.Marshal(item.Tags)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tags: %w", err)
+	}
+
+	query := `
+                INSERT INTO items (
+                        list_id,
+                        position,
+                        completed,
+                        title,
+                        description,
+                        project_id,
+                        waiting_on,
+                        snoozed,
+                        due,
+                        tags,
+                        modified,
+                        created,
+                        external_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        `
+
+	if _, err := s.db.ExecContext(ctx, query,
+		item.ListID,
+		item.Position,
+		item.Completed,
+		item.Title,
+		item.Description,
+		item.ProjectID,
+		item.WaitingOn,
+		item.Snoozed,
+		item.Due,
+		string(tagsJSON),
+		item.Modified,
+		item.Created,
+		item.ExternalID,
+	); err != nil {
+		return fmt.Errorf("failed to insert item: %w", err)
+	}
+
+	return nil
+}
+
+func multilineTrim(s string) string {
+	s = strings.TrimSpace(s)
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		line = strings.TrimRightFunc(line, unicode.IsSpace)
+		lines[i] = line
+	}
+
+	s = strings.Join(lines, "\n")
+
+	return s
 }

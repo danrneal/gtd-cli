@@ -13,6 +13,10 @@ import (
 	"github.com/danrneal/gtd.nvim/internal/sqlite"
 )
 
+func stringPtr(s string) *string {
+	return &s
+}
+
 func TestNewStore(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -209,6 +213,129 @@ func TestCreateList(t *testing.T) {
 	}
 }
 
-func stringPtr(s string) *string {
-	return &s
+func TestCreateItem(t *testing.T) {
+	tests := []struct {
+		name     string
+		item     model.Item
+		setupCtx func() (context.Context, context.CancelFunc)
+		wantDesc string
+		wantErr  bool
+	}{
+		{
+			name: "valid item minimal fields (auto-trimmed title)",
+			item: model.Item{
+				ListID:   1,
+				Title:    "  Buy Milk  ",
+				Modified: time.Now(),
+				Created:  time.Now(),
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid item complex fields (multiline desc)",
+			item: model.Item{
+				ListID:      1,
+				Title:       "Complex Task",
+				Description: "  Line 1   \nLine 2   \n  Line 3",
+				Completed:   true,
+				ProjectID:   stringPtr("proj-1"),
+				WaitingOn:   stringPtr("Alice"),
+				Tags:        []string{"work", "urgent"},
+				Modified:    time.Now(),
+				Created:     time.Now(),
+			},
+			wantDesc: "Line 1\nLine 2\n  Line 3",
+			wantErr:  false,
+		},
+		{
+			name: "empty title",
+			item: model.Item{
+				ListID: 1,
+				Title:  "",
+			},
+			wantErr: true,
+		},
+		{
+			name: "cancelled context",
+			item: model.Item{
+				ListID: 1,
+				Title:  "Cancelled",
+			},
+			setupCtx: func() (context.Context, context.CancelFunc) {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				return ctx, cancel
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			dbPath := filepath.Join(tmpDir, "test.db")
+
+			var ctx context.Context
+			var cancel context.CancelFunc
+
+			if tt.setupCtx != nil {
+				ctx, cancel = tt.setupCtx()
+				defer cancel()
+			} else {
+				ctx = context.Background()
+			}
+
+			store, err := sqlite.NewStore(context.Background(), dbPath)
+			if err != nil {
+				t.Fatalf("failed to create store: %v", err)
+			}
+
+			list := model.List{Name: "Inbox", Modified: time.Now()}
+			if err := store.CreateList(context.Background(), list); err != nil {
+				t.Fatalf("failed to create prerequisite list: %v", err)
+			}
+
+			err = store.CreateItem(ctx, tt.item)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("CreateItem() expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("CreateItem() unexpected error: %v", err)
+				}
+
+				db, err := sql.Open("sqlite3", dbPath)
+				if err != nil {
+					t.Fatalf("failed to open db for verification: %v", err)
+				}
+
+				defer db.Close()
+
+				var count int
+				wantTitle := strings.TrimSpace(tt.item.Title)
+				err = db.QueryRow("SELECT COUNT(*) FROM items WHERE title = ?", wantTitle).Scan(&count)
+				if err != nil {
+					t.Fatalf("failed to query item: %v", err)
+				}
+
+				if count != 1 {
+					t.Errorf("expected 1 item with title %q, got %d", wantTitle, count)
+				}
+
+				if tt.wantDesc != "" {
+					var desc string
+					err = db.QueryRow("SELECT description FROM items WHERE title = ?", wantTitle).Scan(&desc)
+					if err != nil {
+						t.Fatalf("failed to query description: %v", err)
+					}
+
+					if desc != tt.wantDesc {
+						t.Errorf("Description mismatch.\nWant:\n%q\nGot:\n%q", tt.wantDesc, desc)
+					}
+				}
+			}
+		})
+	}
 }
