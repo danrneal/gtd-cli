@@ -339,3 +339,177 @@ func TestCreateItem(t *testing.T) {
 		})
 	}
 }
+
+func TestGetAllItems(t *testing.T) {
+	tests := []struct {
+		name       string
+		setupItems func(t *testing.T, db *sql.DB)
+		setupCtx   func() (context.Context, context.CancelFunc)
+		wantCount  int
+		wantErr    bool
+	}{
+		{
+			name:       "empty db",
+			setupItems: nil,
+			wantCount:  0,
+			wantErr:    false,
+		},
+		{
+			name: "valid items (no tags)",
+			setupItems: func(t *testing.T, db *sql.DB) {
+				_, err := db.Exec(
+					`
+						INSERT INTO items (
+							title, 
+							description, 
+							list_id, 
+							tags, 
+							modified, 
+							created
+						) VALUES (?, ?, ?, '[]', ?, ?)
+					`, "Item 1", "", 1, time.Now(), time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
+			},
+			wantCount: 1,
+			wantErr:   false,
+		},
+		{
+			name: "valid items (with tags)",
+			setupItems: func(t *testing.T, db *sql.DB) {
+				tags := `["work", "urgent"]`
+				_, err := db.Exec(
+					`
+						INSERT INTO items (
+							title, 
+							description, 
+							list_id, 
+							tags, 
+							modified, 
+							created
+						) VALUES (?, ?, ?, ?, ?, ?)
+					`, "Item 2", "desc", 1, tags, time.Now(), time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
+			},
+			wantCount: 1,
+			wantErr:   false,
+		},
+		{
+			name: "corrupt data (bad tags json)",
+			setupItems: func(t *testing.T, db *sql.DB) {
+				_, err := db.Exec(
+					`
+						INSERT INTO items (
+							title, 
+							description, 
+							list_id, tags, 
+							modified, 
+							created
+						) VALUES (?, ?, ?, '{bad-json', ?, ?)
+					`, "Item 3", "", 1, time.Now(), time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
+			},
+			wantCount: 0,
+			wantErr:   true,
+		},
+		{
+			name: "context cancellation",
+			setupItems: func(t *testing.T, db *sql.DB) {
+				_, err := db.Exec(
+					`
+						INSERT INTO items (
+							title, 
+							description, 
+							list_id, 
+							tags, 
+							modified, 
+							created
+						) VALUES (?, ?, ?, '[]', ?, ?)
+					`, "Item 4", "", 1, time.Now(), time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
+			},
+			setupCtx: func() (context.Context, context.CancelFunc) {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				return ctx, cancel
+			},
+			wantCount: 0,
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			dbPath := filepath.Join(tmpDir, "test.db")
+
+			var ctx context.Context
+			var cancel context.CancelFunc
+
+			if tt.setupCtx != nil {
+				ctx, cancel = tt.setupCtx()
+				defer cancel()
+			} else {
+				ctx = context.Background()
+			}
+
+			store, err := sqlite.NewStore(context.Background(), dbPath)
+			if err != nil {
+				t.Fatalf("failed to create store: %v", err)
+			}
+
+			db, err := sql.Open("sqlite3", dbPath)
+			if err != nil {
+				t.Fatalf("failed to open db for setup: %v", err)
+			}
+
+			defer db.Close()
+
+			_, err = db.Exec(
+				`
+					INSERT INTO lists (name, modified) 
+					VALUES (?, ?)
+				`, "Inbox", time.Now(),
+			)
+
+			if err != nil {
+				t.Fatalf("failed to create list: %v", err)
+			}
+
+			if tt.setupItems != nil {
+				tt.setupItems(t, db)
+			}
+
+			items, err := store.GetAllItems(ctx)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("GetAllItems() expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("GetAllItems() unexpected error: %v", err)
+				}
+
+				if len(items) != tt.wantCount {
+					t.Errorf("GetAllItems() count mismatch: want %d, got %d", tt.wantCount, len(items))
+				}
+			}
+		})
+	}
+}

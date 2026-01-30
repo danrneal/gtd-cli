@@ -155,6 +155,76 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item) error {
 	return nil
 }
 
+// GetAllItems returns all items from the database.
+func (s *Store) GetAllItems(ctx context.Context) ([]model.Item, error) {
+	query := `
+		SELECT
+			id,
+			list_id,
+			position,
+			completed,
+			title,
+			description,
+			project_id,
+			waiting_on,
+			snoozed,
+			due,
+			tags,
+			modified,
+			created,
+			external_id
+		FROM items
+		ORDER BY position
+	`
+
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query items: %w", err)
+	}
+
+	defer rows.Close()
+
+	var items []model.Item
+	for rows.Next() {
+		var item model.Item
+		var tagsJSON string
+		err := rows.Scan(
+			&item.ID,
+			&item.ListID,
+			&item.Position,
+			&item.Completed,
+			&item.Title,
+			&item.Description,
+			&item.ProjectID,
+			&item.WaitingOn,
+			&item.Snoozed,
+			&item.Due,
+			&tagsJSON,
+			&item.Modified,
+			&item.Created,
+			&item.ExternalID,
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan item: %w", err)
+		}
+
+		if tagsJSON != "" {
+			if err := json.Unmarshal([]byte(tagsJSON), &item.Tags); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal tags for item %d: %w", item.ID, err)
+			}
+		}
+
+		items = append(items, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration failed: %w", err)
+	}
+
+	return items, nil
+}
+
 func multilineTrim(s string) string {
 	s = strings.TrimSpace(s)
 	lines := strings.Split(s, "\n")
