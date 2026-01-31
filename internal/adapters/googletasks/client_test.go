@@ -23,41 +23,193 @@ func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return m.roundTripFunc(req)
 }
 
-func TestGetAllItems(t *testing.T) {
+func TestListLists(t *testing.T) {
 	tests := []struct {
-		name           string
-		lists          []model.List
-		mockResponse   string
-		mockStatusCode int
-		wantItems      []model.Item
-		wantErr        bool
+		name      string
+		handler   func(req *http.Request) *http.Response
+		wantLists []model.List
+		wantErr   bool
+	}{
+		{
+			name: "success with items",
+			handler: func(req *http.Request) *http.Response {
+				if req.URL.Path == "/tasks/v1/users/@me/lists" {
+					resp := &http.Response{
+						StatusCode: 200,
+						Body: io.NopCloser(bytes.NewBufferString(`{
+							"items": [
+								{
+									"id": "L1", 
+									"title": "Inbox",
+									"updated": "2024-01-01T12:00:00Z"
+								}
+							]
+						}`)),
+						Header: make(http.Header),
+					}
+
+					return resp
+				}
+
+				if req.URL.Path == "/tasks/v1/lists/L1/tasks" {
+					resp := &http.Response{
+						StatusCode: 200,
+						Body: io.NopCloser(bytes.NewBufferString(`{
+							"items": [
+								{
+									"id": "T1", 
+									"title": "Task 1", 
+									"position": "0001"
+								}
+							]
+						}`)),
+						Header: make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 404,
+					Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantLists: []model.List{
+				{
+					Name:       "Inbox",
+					ExternalID: stringPtr("L1"),
+					Modified:   rfc3339("2024-01-01T12:00:00Z"),
+					Items: []model.Item{
+						{
+							Title:      "Task 1",
+							ExternalID: stringPtr("T1"),
+							Position:   0,
+							ListID:     0,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "tasklists list failure",
+			handler: func(req *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: 500,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantLists: nil,
+			wantErr:   true,
+		},
+		{
+			name: "list items failure",
+			handler: func(req *http.Request) *http.Response {
+				if req.URL.Path == "/tasks/v1/users/@me/lists" {
+					resp := &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(bytes.NewBufferString(`{"items":[{"id":"L1","title":"Inbox"}]}`)),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 500,
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"error": "internal",
+						}
+					`)),
+					Header: make(http.Header),
+				}
+
+				return resp
+			},
+			wantLists: nil,
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &http.Client{
+				Transport: &mockTransport{
+					roundTripFunc: func(req *http.Request) (*http.Response, error) {
+						return tt.handler(req), nil
+					},
+				},
+			}
+
+			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
+			client := NewClient(tasksService)
+
+			got, err := client.ListLists(context.Background())
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("ListLists() expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("ListLists() unexpected error: %v", err)
+				return
+			}
+
+			if diff := cmp.Diff(tt.wantLists, got); diff != "" {
+				t.Errorf("ListLists() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestListItems(t *testing.T) {
+	tests := []struct {
+		name      string
+		list      model.List
+		handler   func(req *http.Request) *http.Response
+		wantItems []model.Item
+		wantErr   bool
 	}{
 		{
 			name: "basic properties (unsorted, position sort)",
-			lists: []model.List{
-				{
-					ID:         1,
-					Name:       "Inbox",
-					ExternalID: stringPtr("L1"),
-				},
+			list: model.List{
+				ID:         1,
+				Name:       "Inbox",
+				ExternalID: stringPtr("L1"),
 			},
-			mockResponse: `{
-				"items": [
-					{
-						"id": "t2", 
-						"title": "Task 2", 
-						"position": "0002", 
-						"status": "needsAction"
-					},
-					{
-						"id": "t1", 
-						"title": "Task 1", 
-						"position": "0001", 
-						"status": "needsAction"
-					}
-				]
-			}`,
-			mockStatusCode: 200,
+			handler: func(req *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: 200,
+					Body: io.NopCloser(bytes.NewBufferString(`{
+						"items": [
+							{
+								"id": "t2", 
+								"title": "Task 2", 
+								"position": "0002", 
+								"status": "needsAction"
+							},
+							{
+								"id": "t1", 
+								"title": "Task 1", 
+								"position": "0001", 
+								"status": "needsAction"
+							}
+						]
+					}`)),
+					Header: make(http.Header),
+				}
+
+				return resp
+			},
 			wantItems: []model.Item{
 				{
 					ListID:     1,
@@ -75,23 +227,28 @@ func TestGetAllItems(t *testing.T) {
 		},
 		{
 			name: "waiting for parsing",
-			lists: []model.List{
-				{
-					ID:         1,
-					Name:       "Waiting For",
-					ExternalID: stringPtr("L1"),
-				},
+			list: model.List{
+				ID:         1,
+				Name:       "Waiting For",
+				ExternalID: stringPtr("L1"),
 			},
-			mockResponse: `{
-				"items": [
-					{
-						"id": "t1", 
-						"title": "Alice - Send Mail - Jan 23", 
-						"position": "0001"
-					}
-				]
-			}`,
-			mockStatusCode: 200,
+			handler: func(req *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: 200,
+					Body: io.NopCloser(bytes.NewBufferString(`{
+						"items": [
+							{
+								"id": "t1", 
+								"title": "Alice - Send Mail - Jan 23", 
+								"position": "0001"
+							}
+						]
+					}`)),
+					Header: make(http.Header),
+				}
+
+				return resp
+			},
 			wantItems: []model.Item{
 				{
 					ListID:     1,
@@ -103,23 +260,28 @@ func TestGetAllItems(t *testing.T) {
 		},
 		{
 			name: "project parsing",
-			lists: []model.List{
-				{
-					ID:         1,
-					Name:       "Inbox",
-					ExternalID: stringPtr("L1"),
-				},
+			list: model.List{
+				ID:         1,
+				Name:       "Inbox",
+				ExternalID: stringPtr("L1"),
 			},
-			mockResponse: `{
-				"items": [
-					{
-						"id": "t1", 
-						"title": "Task +ProjectA", 
-						"position": "0001"
-					}
-				]
-			}`,
-			mockStatusCode: 200,
+			handler: func(req *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: 200,
+					Body: io.NopCloser(bytes.NewBufferString(`{
+						"items": [
+							{
+								"id": "t1", 
+								"title": "Task +ProjectA", 
+								"position": "0001"
+							}
+						]
+					}`)),
+					Header: make(http.Header),
+				}
+
+				return resp
+			},
 			wantItems: []model.Item{
 				{
 					ListID:     1,
@@ -131,23 +293,28 @@ func TestGetAllItems(t *testing.T) {
 		},
 		{
 			name: "due date parsing (title)",
-			lists: []model.List{
-				{
-					ID:         1,
-					Name:       "Inbox",
-					ExternalID: stringPtr("L1"),
-				},
+			list: model.List{
+				ID:         1,
+				Name:       "Inbox",
+				ExternalID: stringPtr("L1"),
 			},
-			mockResponse: `{
-				"items": [
-					{
-						"id": "t1", 
-						"title": "Task due:2024-01-01", 
-						"position": "0001"
-					}
-				]
-			}`,
-			mockStatusCode: 200,
+			handler: func(req *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: 200,
+					Body: io.NopCloser(bytes.NewBufferString(`{
+						"items": [
+							{
+								"id": "t1", 
+								"title": "Task due:2024-01-01", 
+								"position": "0001"
+							}
+						]
+					}`)),
+					Header: make(http.Header),
+				}
+
+				return resp
+			},
 			wantItems: []model.Item{
 				{
 					ListID:     1,
@@ -158,23 +325,28 @@ func TestGetAllItems(t *testing.T) {
 		},
 		{
 			name: "multiple tags",
-			lists: []model.List{
-				{
-					ID:         1,
-					Name:       "Inbox",
-					ExternalID: stringPtr("L1"),
-				},
+			list: model.List{
+				ID:         1,
+				Name:       "Inbox",
+				ExternalID: stringPtr("L1"),
 			},
-			mockResponse: `{
-				"items": [
-					{
-						"id": "t1", 
-						"title": "Task #tag1 #tag2", 
-						"position": "0001"
-					}
-				]
-			}`,
-			mockStatusCode: 200,
+			handler: func(req *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: 200,
+					Body: io.NopCloser(bytes.NewBufferString(`{
+						"items": [
+							{
+								"id": "t1", 
+								"title": "Task #tag1 #tag2", 
+								"position": "0001"
+							}
+						]
+					}`)),
+					Header: make(http.Header),
+				}
+
+				return resp
+			},
 			wantItems: []model.Item{
 				{
 					ListID:     1,
@@ -186,23 +358,29 @@ func TestGetAllItems(t *testing.T) {
 		},
 		{
 			name: "completed task",
-			lists: []model.List{
-				{
-					ID: 1, Name: "Inbox",
-					ExternalID: stringPtr("L1"),
-				},
+			list: model.List{
+				ID:         1,
+				Name:       "Inbox",
+				ExternalID: stringPtr("L1"),
 			},
-			mockResponse: `{
-				"items": [
-					{
-						"id": "t1", 
-						"title": "Task", 
-						"status": "completed", 
-						"position": "0001"
-					}
-				]
-			}`,
-			mockStatusCode: 200,
+			handler: func(req *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: 200,
+					Body: io.NopCloser(bytes.NewBufferString(`{
+						"items": [
+							{
+								"id": "t1", 
+								"title": "Task", 
+								"status": "completed", 
+								"position": "0001"
+							}
+						]
+					}`)),
+					Header: make(http.Header),
+				}
+
+				return resp
+			},
 			wantItems: []model.Item{
 				{
 					ListID:     1,
@@ -214,24 +392,29 @@ func TestGetAllItems(t *testing.T) {
 		},
 		{
 			name: "description included",
-			lists: []model.List{
-				{
-					ID:         1,
-					Name:       "Inbox",
-					ExternalID: stringPtr("L1"),
-				},
+			list: model.List{
+				ID:         1,
+				Name:       "Inbox",
+				ExternalID: stringPtr("L1"),
 			},
-			mockResponse: `{
-				"items": [
-					{
-						"id": "t1", 
-						"title": "Task", 
-						"notes": "My notes", 
-						"position": "0001"
-					}
-				]
-			}`,
-			mockStatusCode: 200,
+			handler: func(req *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: 200,
+					Body: io.NopCloser(bytes.NewBufferString(`{
+						"items": [
+							{
+								"id": "t1", 
+								"title": "Task", 
+								"notes": "My notes", 
+								"position": "0001"
+							}
+						]
+					}`)),
+					Header: make(http.Header),
+				}
+
+				return resp
+			},
 			wantItems: []model.Item{
 				{
 					ListID:      1,
@@ -243,24 +426,29 @@ func TestGetAllItems(t *testing.T) {
 		},
 		{
 			name: "native due date (snoozed)",
-			lists: []model.List{
-				{
-					ID:         1,
-					Name:       "Inbox",
-					ExternalID: stringPtr("L1"),
-				},
+			list: model.List{
+				ID:         1,
+				Name:       "Inbox",
+				ExternalID: stringPtr("L1"),
 			},
-			mockResponse: `{
-				"items": [
-					{
-						"id": "t1", 
-						"title": "Task", 
-						"due": "2024-01-01T00:00:00Z", 
-						"position": "0001"
-					}
-				]
-			}`,
-			mockStatusCode: 200,
+			handler: func(req *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: 200,
+					Body: io.NopCloser(bytes.NewBufferString(`{
+						"items": [
+							{
+								"id": "t1", 
+								"title": "Task", 
+								"due": "2024-01-01T00:00:00Z", 
+								"position": "0001"
+							}
+						]
+					}`)),
+					Header: make(http.Header),
+				}
+
+				return resp
+			},
 			wantItems: []model.Item{
 				{
 					ListID:     1,
@@ -272,24 +460,29 @@ func TestGetAllItems(t *testing.T) {
 		},
 		{
 			name: "updated timestamp",
-			lists: []model.List{
-				{
-					ID:         1,
-					Name:       "Inbox",
-					ExternalID: stringPtr("L1"),
-				},
+			list: model.List{
+				ID:         1,
+				Name:       "Inbox",
+				ExternalID: stringPtr("L1"),
 			},
-			mockResponse: `{
-				"items": [
-					{
-						"id": "t1", 
-						"title": "Task", 
-						"updated": "2024-01-01T12:00:00Z", 
-						"position": "0001"
-					}
-				]
-			}`,
-			mockStatusCode: 200,
+			handler: func(req *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: 200,
+					Body: io.NopCloser(bytes.NewBufferString(`{
+						"items": [
+							{
+								"id": "t1", 
+								"title": "Task", 
+								"updated": "2024-01-01T12:00:00Z", 
+								"position": "0001"
+							}
+						]
+					}`)),
+					Header: make(http.Header),
+				}
+
+				return resp
+			},
 			wantItems: []model.Item{
 				{
 					ListID:     1,
@@ -301,17 +494,26 @@ func TestGetAllItems(t *testing.T) {
 		},
 		{
 			name: "api error",
-			lists: []model.List{
-				{
-					ID:         1,
-					Name:       "Inbox",
-					ExternalID: stringPtr("L1"),
-				},
+			list: model.List{
+				ID:         1,
+				Name:       "Inbox",
+				ExternalID: stringPtr("L1"),
 			},
-			mockResponse:   `{"error": "internal"}`,
-			mockStatusCode: 500,
-			wantItems:      nil,
-			wantErr:        true,
+			handler: func(req *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: 500,
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"error": "internal",
+						}
+					`)),
+					Header: make(http.Header),
+				}
+
+				return resp
+			},
+			wantItems: nil,
+			wantErr:   true,
 		},
 	}
 
@@ -320,35 +522,31 @@ func TestGetAllItems(t *testing.T) {
 			mockClient := &http.Client{
 				Transport: &mockTransport{
 					roundTripFunc: func(req *http.Request) (*http.Response, error) {
-						return &http.Response{
-							StatusCode: tt.mockStatusCode,
-							Body:       io.NopCloser(bytes.NewBufferString(tt.mockResponse)),
-							Header:     make(http.Header),
-						}, nil
+						return tt.handler(req), nil
 					},
 				},
 			}
 
-			svc, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
-			client := NewClient(svc)
+			tasksSerice, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
+			client := NewClient(tasksSerice)
 
-			got, err := client.GetAllItems(context.Background(), tt.lists)
+			got, err := client.ListItems(context.Background(), tt.list)
 
 			if tt.wantErr {
 				if err == nil {
-					t.Error("GetAllItems() expected error, got nil")
+					t.Error("ListItems() expected error, got nil")
 				}
 
 				return
 			}
 
 			if err != nil {
-				t.Errorf("GetAllItems() unexpected error: %v", err)
+				t.Errorf("ListItems() unexpected error: %v", err)
 				return
 			}
 
 			if diff := cmp.Diff(tt.wantItems, got); diff != "" {
-				t.Errorf("GetAllItems() mismatch (-want +got):\n%s", diff)
+				t.Errorf("ListItems() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

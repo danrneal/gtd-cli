@@ -23,43 +23,74 @@ func NewClient(service *tasks.Service) *Client {
 	return client
 }
 
-// GetAllItems retrieves all tasks from the specified lists and converts them to internal Items.
-// It handles fetching, sorting, and parsing metadata from task titles.
-func (c *Client) GetAllItems(ctx context.Context, lists []model.List) ([]model.Item, error) {
-	var items []model.Item
-	for _, list := range lists {
-		tasks, err := c.service.Tasks.List(*list.ExternalID).ShowHidden(true).MaxResults(100).Context(ctx).Do()
+// ListLists retrieves all task lists from Google Tasks.
+func (c *Client) ListLists(ctx context.Context) ([]model.List, error) {
+	taskLists, err := c.service.Tasklists.List().Context(ctx).Do()
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve task lists: %w", err)
+	}
+
+	var lists []model.List
+	for i, tasklist := range taskLists.Items {
+		list := model.List{
+			Name:       tasklist.Title,
+			Position:   i,
+			ExternalID: &tasklist.Id,
+		}
+
+		if tasklist.Updated != "" {
+			if updated, err := time.Parse(time.RFC3339, tasklist.Updated); err == nil {
+				list.Modified = updated
+			}
+		}
+
+		items, err := c.ListItems(ctx, list)
 		if err != nil {
-			return nil, fmt.Errorf("unable to retrieve tasks for list %q: %w", list.Name, err)
+			return nil, err
 		}
 
-		sort.Slice(tasks.Items, func(i, j int) bool {
-			return tasks.Items[i].Position < tasks.Items[j].Position
-		})
+		list.Items = items
+		lists = append(lists, list)
+	}
 
-		for i, task := range tasks.Items {
-			waitingFor := list.Name == "Waiting For"
-			item := parseTitle(task.Title, waitingFor)
-			item.ListID = list.ID
-			item.Position = i
-			item.Completed = task.Status == "completed"
-			item.Description = task.Notes
-			if task.Due != "" {
-				if due, err := time.Parse(time.RFC3339, task.Due); err == nil {
-					item.Snoozed = &due
-				}
+	return lists, nil
+}
+
+// ListItems retrieves all tasks from the specified list and converts them to internal Items.
+// It handles fetching, sorting, and parsing metadata from task titles.
+func (c *Client) ListItems(ctx context.Context, list model.List) ([]model.Item, error) {
+	tasks, err := c.service.Tasks.List(*list.ExternalID).ShowHidden(true).MaxResults(100).Context(ctx).Do()
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve tasks for list %q: %w", list.Name, err)
+	}
+
+	sort.Slice(tasks.Items, func(i, j int) bool {
+		return tasks.Items[i].Position < tasks.Items[j].Position
+	})
+
+	var items []model.Item
+	for i, task := range tasks.Items {
+		waitingFor := list.Name == "Waiting For"
+		item := parseTitle(task.Title, waitingFor)
+		item.ListID = list.ID
+		item.Position = i
+		item.Completed = task.Status == "completed"
+		item.Description = task.Notes
+		if task.Due != "" {
+			if due, err := time.Parse(time.RFC3339, task.Due); err == nil {
+				item.Snoozed = &due
 			}
-
-			if task.Updated != "" {
-				if updated, err := time.Parse(time.RFC3339, task.Updated); err == nil {
-					item.Modified = updated
-				}
-			}
-
-			externalID := task.Id
-			item.ExternalID = &externalID
-			items = append(items, item)
 		}
+
+		if task.Updated != "" {
+			if updated, err := time.Parse(time.RFC3339, task.Updated); err == nil {
+				item.Modified = updated
+			}
+		}
+
+		externalID := task.Id
+		item.ExternalID = &externalID
+		items = append(items, item)
 	}
 
 	return items, nil
