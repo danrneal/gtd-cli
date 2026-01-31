@@ -97,7 +97,7 @@ func (c *Client) DeleteList(ctx context.Context, listID string) error {
 func (c *Client) CreateItem(ctx context.Context, listID string, item model.Item, previousItemID string) error {
 	title := renderTitle(item)
 	status := "needsAction"
-	if item.Completed {
+	if item.Status == model.StatusDone {
 		status = "completed"
 	}
 
@@ -143,7 +143,12 @@ func (c *Client) ListItems(ctx context.Context, list model.List) ([]model.Item, 
 		item := parseTitle(task.Title, waitingFor)
 		item.ListID = list.ID
 		item.Position = i
-		item.Completed = task.Status == "completed"
+		if task.Status == "completed" {
+			item.Status = model.StatusDone
+		} else {
+			item.Status = model.StatusOpen
+		}
+
 		item.Description = task.Notes
 		if task.Due != "" {
 			if due, err := time.Parse(time.RFC3339, task.Due); err == nil {
@@ -169,7 +174,7 @@ func (c *Client) ListItems(ctx context.Context, list model.List) ([]model.Item, 
 func (c *Client) UpdateItem(ctx context.Context, listID string, item model.Item) error {
 	title := renderTitle(item)
 	status := "needsAction"
-	if item.Completed {
+	if item.Status == model.StatusDone {
 		status = "completed"
 	}
 

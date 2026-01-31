@@ -2,12 +2,22 @@ package model
 
 import "time"
 
+type Status string
+
+const (
+	StatusOpen       Status = "open"
+	StatusNotStarted Status = "not_started"
+	StatusInProgress Status = "in_progress"
+	StatusDone       Status = "done"
+	StatusDeleted    Status = "deleted"
+)
+
 // Item represents a single task or action item within a List.
 type Item struct {
 	ID          int64      `json:"id"`
 	ListID      int64      `json:"list_id"`
 	Position    int        `json:"position"`
-	Completed   bool       `json:"completed"`
+	Status      Status     `json:"status"`
 	Title       string     `json:"title"`
 	Description string     `json:"description"`
 	ProjectID   *string    `json:"project_id"`

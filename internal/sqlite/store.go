@@ -55,7 +55,7 @@ func (s *Store) createTables(ctx context.Context) error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			list_id INTEGER NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
 			position INTEGER NOT NULL DEFAULT 0,
-			completed BOOLEAN NOT NULL DEFAULT 0,
+			status TEXT NOT NULL DEFAULT 'not_started',
 			title TEXT NOT NULL,
 			description TEXT,
 			project_id TEXT,
@@ -227,6 +227,10 @@ func (s *Store) DeleteList(ctx context.Context, id int64) error {
 
 // CreateItem inserts a new item into the database.
 func (s *Store) CreateItem(ctx context.Context, item model.Item) error {
+	if !isValidStatus(item.Status) {
+		return fmt.Errorf("invalid status: %q", item.Status)
+	}
+
 	item.Title = strings.TrimSpace(item.Title)
 	if item.Title == "" {
 		return fmt.Errorf("item title cannot be empty")
@@ -242,7 +246,7 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item) error {
                 INSERT INTO items (
                         list_id,
                         position,
-                        completed,
+                        status,
                         title,
                         description,
                         project_id,
@@ -259,7 +263,7 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item) error {
 	if _, err := s.db.ExecContext(ctx, query,
 		item.ListID,
 		item.Position,
-		item.Completed,
+		item.Status,
 		item.Title,
 		item.Description,
 		item.ProjectID,
@@ -284,7 +288,7 @@ func (s *Store) GetAllItems(ctx context.Context) ([]model.Item, error) {
 			id,
 			list_id,
 			position,
-			completed,
+			status,
 			title,
 			description,
 			project_id,
@@ -314,7 +318,7 @@ func (s *Store) GetAllItems(ctx context.Context) ([]model.Item, error) {
 			&item.ID,
 			&item.ListID,
 			&item.Position,
-			&item.Completed,
+			&item.Status,
 			&item.Title,
 			&item.Description,
 			&item.ProjectID,
@@ -349,6 +353,10 @@ func (s *Store) GetAllItems(ctx context.Context) ([]model.Item, error) {
 
 // UpdateItem updates an existing item in the database.
 func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
+	if !isValidStatus(item.Status) {
+		return fmt.Errorf("invalid status: %q", item.Status)
+	}
+
 	item.Title = strings.TrimSpace(item.Title)
 	if item.Title == "" {
 		return fmt.Errorf("item title cannot be empty")
@@ -364,7 +372,7 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
                 UPDATE items SET
                         list_id = ?,
                         position = ?,
-                        completed = ?,
+                        status = ?,
                         title = ?,
                         description = ?,
                         project_id = ?,
@@ -380,7 +388,7 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
 	res, err := s.db.ExecContext(ctx, query,
 		item.ListID,
 		item.Position,
-		item.Completed,
+		item.Status,
 		item.Title,
 		item.Description,
 		item.ProjectID,
@@ -429,6 +437,16 @@ func (s *Store) DeleteItem(ctx context.Context, id int64) error {
 	return nil
 }
 
+// isValidStatus checks if the provided status is a valid enum value.
+func isValidStatus(status model.Status) bool {
+	switch status {
+	case model.StatusNotStarted, model.StatusInProgress, model.StatusDone, model.StatusDeleted:
+		return true
+	default:
+		return false
+	}
+}
+
 // multilineTrim trims whitespace from the beginning of the first line and the end of all lines.
 func multilineTrim(s string) string {
 	s = strings.TrimSpace(s)
@@ -442,3 +460,5 @@ func multilineTrim(s string) string {
 
 	return s
 }
+
+

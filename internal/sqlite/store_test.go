@@ -319,6 +319,7 @@ func TestGetAllLists(t *testing.T) {
 					Items: []model.Item{
 						{
 							Title: "Task 1",
+							Status: model.StatusNotStarted,
 							Tags:  []string{},
 						},
 					},
@@ -759,6 +760,7 @@ func TestCreateItem(t *testing.T) {
 			item: model.Item{
 				ListID:   1,
 				Title:    "  Buy Milk  ",
+				Status:   model.StatusNotStarted,
 				Modified: time.Now(),
 				Created:  time.Now(),
 			},
@@ -776,7 +778,7 @@ func TestCreateItem(t *testing.T) {
 				ListID:      1,
 				Title:       "Complex Task",
 				Description: "  Line 1   \nLine 2   \n  Line 3",
-				Completed:   true,
+				Status: model.StatusDone,
 				ProjectID:   stringPtr("proj-1"),
 				WaitingOn:   stringPtr("Alice"),
 				Tags:        []string{"work", "urgent"},
@@ -787,12 +789,22 @@ func TestCreateItem(t *testing.T) {
 				ListID:      1,
 				Title:       "Complex Task",
 				Description: "Line 1\nLine 2\n  Line 3",
-				Completed:   true,
+				Status: model.StatusDone,
 				ProjectID:   stringPtr("proj-1"),
 				WaitingOn:   stringPtr("Alice"),
 				Tags:        []string{"work", "urgent"},
 			},
 			wantErr: false,
+		},
+		{
+			name:    "invalid status",
+			setupDB: nil,
+			item: model.Item{
+				ListID: 1,
+				Title:  "Invalid Status",
+				Status: "bad_status",
+			},
+			wantErr: true,
 		},
 		{
 			name:    "empty title",
@@ -876,9 +888,9 @@ func TestCreateItem(t *testing.T) {
 					var gotItem model.Item
 					var tagsJSON string
 					err = db.QueryRow(
-						`SELECT list_id, title, COALESCE(description, ''), completed, tags, project_id, waiting_on 
+						`SELECT list_id, title, COALESCE(description, ''), status, tags, project_id, waiting_on 
 						FROM items WHERE title = ?`, wantTitle,
-					).Scan(&gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Completed, &tagsJSON, &gotItem.ProjectID, &gotItem.WaitingOn)
+					).Scan(&gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Status, &tagsJSON, &gotItem.ProjectID, &gotItem.WaitingOn)
 					if err != nil {
 						t.Fatalf("failed to query item: %v", err)
 					}
@@ -943,6 +955,7 @@ func TestGetAllItems(t *testing.T) {
 					Title:       "Item 1",
 					ListID:      1,
 					Description: "",
+					Status:      model.StatusNotStarted,
 					Tags:        []string{},
 				},
 			},
@@ -975,6 +988,7 @@ func TestGetAllItems(t *testing.T) {
 					Title:       "Item 2",
 					ListID:      1,
 					Description: "desc",
+					Status:      model.StatusNotStarted,
 					Tags:        []string{"work", "urgent"},
 				},
 			},
@@ -1146,7 +1160,7 @@ func TestUpdateItem(t *testing.T) {
 					ListID:      1,
 					Title:       "  Updated Title  ",
 					Description: "  Line 1  \n  Line 2",
-					Completed:   true,
+					Status: model.StatusDone,
 					Tags:        []string{"updated", "tag"},
 					Modified:    time.Now(),
 					Created:     time.Now(),
@@ -1158,10 +1172,59 @@ func TestUpdateItem(t *testing.T) {
 				ListID:      1,
 				Title:       "Updated Title",
 				Description: "Line 1\n  Line 2",
-				Completed:   true,
+				Status: model.StatusDone,
 				Tags:        []string{"updated", "tag"},
 			},
 			wantErr: false,
+		},
+		{
+			name: "invalid status",
+			setupDB: func(t *testing.T, db *sql.DB) int64 {
+				res, err := db.Exec(
+					`
+						INSERT INTO lists (name, modified) 
+						VALUES (?, ?)
+					`, "Inbox", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				listID, _ := res.LastInsertId()
+				res, err = db.Exec(
+					`
+						INSERT INTO items (
+							title, 
+							description, 
+							list_id, 
+							tags, 
+							modified, 
+							created
+						) VALUES (?, ?, ?, '[]', ?, ?)
+					`, "Valid", "", listID, time.Now(), time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
+
+				id, _ := res.LastInsertId()
+
+				return id
+			},
+			setupItem: func(id int64) model.Item {
+				item := model.Item{
+					ID:       id,
+					ListID:   1,
+					Title:    "Valid",
+					Status:   "bad_status",
+					Modified: time.Now(),
+				}
+
+				return item
+			},
+			wantErr: true,
 		},
 		{
 			name: "empty title",
@@ -1328,11 +1391,11 @@ func TestUpdateItem(t *testing.T) {
 				var tagsJSON string
 				err = db.QueryRow(
 					`
-						SELECT id, list_id, title, COALESCE(description, ''), completed, tags 
+						SELECT id, list_id, title, COALESCE(description, ''), status, tags 
 						FROM items 
 						WHERE id = ?
 					`, id,
-				).Scan(&gotItem.ID, &gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Completed, &tagsJSON)
+				).Scan(&gotItem.ID, &gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Status, &tagsJSON)
 
 				if err != nil {
 					t.Fatalf("failed to query item: %v", err)
