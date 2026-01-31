@@ -376,6 +376,85 @@ func TestUpdateList(t *testing.T) {
 	}
 }
 
+func TestDeleteList(t *testing.T) {
+	tests := []struct {
+		name    string
+		listID  string
+		handler func(req *http.Request) *http.Response
+		wantErr bool
+	}{
+		{
+			name:   "success",
+			listID: "L1",
+			handler: func(req *http.Request) *http.Response {
+				if req.Method != "DELETE" {
+					resp := &http.Response{
+						StatusCode: 405,
+						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				if req.URL.Path != "/tasks/v1/users/@me/lists/L1" {
+					resp := &http.Response{
+						StatusCode: 404,
+						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 204,
+					Body:       io.NopCloser(bytes.NewBufferString("")),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
+			name:   "api error",
+			listID: "L1",
+			handler: func(req *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: 500,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &http.Client{
+				Transport: &mockTransport{
+					roundTripFunc: func(req *http.Request) (*http.Response, error) {
+						return tt.handler(req), nil
+					},
+				},
+			}
+
+			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
+			tasksClient := NewClient(tasksService)
+
+			err := tasksClient.DeleteList(context.Background(), tt.listID)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("DeleteList() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestCreateItem(t *testing.T) {
 	tests := []struct {
 		name           string

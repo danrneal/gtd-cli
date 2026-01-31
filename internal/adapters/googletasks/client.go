@@ -82,6 +82,15 @@ func (c *Client) UpdateList(ctx context.Context, list model.List) error {
 	return nil
 }
 
+// DeleteList deletes a task list from Google Tasks.
+func (c *Client) DeleteList(ctx context.Context, listID string) error {
+	if err := c.service.Tasklists.Delete(listID).Context(ctx).Do(); err != nil {
+		return fmt.Errorf("failed to delete tasklist: %w", err)
+	}
+
+	return nil
+}
+
 // CreateItem creates a new task in the specified Google Task list.
 // If previousItemID is provided, the task is inserted after that item.
 // It renders the item's title to include metadata (project, tags, due date) compatible with the parser.
@@ -196,6 +205,15 @@ func (c *Client) MoveItem(ctx context.Context, listID, itemID, previousItemID, d
 
 	if _, err := tasksMoveCall.Context(ctx).Do(); err != nil {
 		return fmt.Errorf("failed to move task: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteItem deletes a task from the specified Google Task list.
+func (c *Client) DeleteItem(ctx context.Context, listID, itemID string) error {
+	if err := c.service.Tasks.Delete(listID, itemID).Context(ctx).Do(); err != nil {
+		return fmt.Errorf("failed to delete task: %w", err)
 	}
 
 	return nil
