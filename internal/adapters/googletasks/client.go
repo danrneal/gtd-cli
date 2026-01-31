@@ -177,6 +177,24 @@ func (c *Client) UpdateItem(ctx context.Context, listID string, item model.Item)
 	return nil
 }
 
+// MoveItem moves a task to a new position, potentially in a different list.
+func (c *Client) MoveItem(ctx context.Context, listID, itemID, previousItemID, destinationListID string) error {
+	tasksMoveCall := c.service.Tasks.Move(listID, itemID)
+	if previousItemID != "" {
+		tasksMoveCall.Previous(previousItemID)
+	}
+
+	if destinationListID != "" {
+		tasksMoveCall.DestinationTasklist(destinationListID)
+	}
+
+	if _, err := tasksMoveCall.Context(ctx).Do(); err != nil {
+		return fmt.Errorf("failed to move task: %w", err)
+	}
+
+	return nil
+}
+
 // renderTitle constructs the task title string by combining the title with metadata fields (project, tags, due date, waiting on).
 func renderTitle(item model.Item) string {
 	titleParts := []string{item.Title}

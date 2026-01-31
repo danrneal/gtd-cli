@@ -1117,6 +1117,173 @@ func TestUpdateItem(t *testing.T) {
 	}
 }
 
+func TestMoveItem(t *testing.T) {
+	tests := []struct {
+		name              string
+		listID            string
+		itemID            string
+		previousItemID    string
+		destinationListID string
+		handler           func(req *http.Request) *http.Response
+		wantErr           bool
+	}{
+		{
+			name:           "move (reorder only)",
+			listID:         "L1",
+			itemID:         "T1",
+			previousItemID: "P1",
+			handler: func(req *http.Request) *http.Response {
+				if req.Method != "POST" {
+					resp := &http.Response{
+						StatusCode: 405,
+						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				if req.URL.Path != "/tasks/v1/lists/L1/tasks/T1/move" {
+					resp := &http.Response{
+						StatusCode: 404,
+						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				if req.URL.Query().Get("previous") != "P1" {
+					resp := &http.Response{
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Bad Previous")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				if req.URL.Query().Get("destinationTasklist") != "" {
+					resp := &http.Response{
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Bad Destination")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
+			name:              "move (relocate only)",
+			listID:            "L1",
+			itemID:            "T1",
+			destinationListID: "L2",
+			handler: func(req *http.Request) *http.Response {
+				if req.URL.Query().Get("destinationTasklist") != "L2" {
+					resp := &http.Response{
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Bad Destination")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
+			name:              "move (both)",
+			listID:            "L1",
+			itemID:            "T1",
+			previousItemID:    "P1",
+			destinationListID: "L2",
+			handler: func(req *http.Request) *http.Response {
+				if req.URL.Query().Get("previous") != "P1" {
+					resp := &http.Response{
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Bad Previous")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+				if req.URL.Query().Get("destinationTasklist") != "L2" {
+					resp := &http.Response{
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Bad Destination")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
+			name:   "api error",
+			listID: "L1",
+			itemID: "T1",
+			handler: func(req *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: 500,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &http.Client{
+				Transport: &mockTransport{
+					roundTripFunc: func(req *http.Request) (*http.Response, error) {
+						return tt.handler(req), nil
+					},
+				},
+			}
+
+			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
+			tasksClient := NewClient(tasksService)
+
+			err := tasksClient.MoveItem(context.Background(), tt.listID, tt.itemID, tt.previousItemID, tt.destinationListID)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("MoveItem() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestRenderTitle(t *testing.T) {
 	tests := []struct {
 		name      string
