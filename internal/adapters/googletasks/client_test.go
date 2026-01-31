@@ -23,6 +23,98 @@ func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return m.roundTripFunc(req)
 }
 
+func TestCreateList(t *testing.T) {
+	tests := []struct {
+		name    string
+		list    model.List
+		handler func(req *http.Request) *http.Response
+		wantErr bool
+	}{
+		{
+			name: "success",
+			list: model.List{
+				Name: "New List",
+			},
+			handler: func(req *http.Request) *http.Response {
+				if req.Method != "POST" {
+					resp := &http.Response{
+						StatusCode: 405,
+						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				if req.URL.Path != "/tasks/v1/users/@me/lists" {
+					resp := &http.Response{
+						StatusCode: 404,
+						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 200,
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"id": "new-list-id", 
+							"title": "New List"
+						}
+					`)),
+					Header: make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
+			name: "api error",
+			list: model.List{
+				Name: "Fail List",
+			},
+			handler: func(req *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: 500,
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"error": "internal"
+						}
+					`)),
+					Header: make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &http.Client{
+				Transport: &mockTransport{
+					roundTripFunc: func(req *http.Request) (*http.Response, error) {
+						return tt.handler(req), nil
+					},
+				},
+			}
+
+			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
+			tasksClient := NewClient(tasksService)
+
+			err := tasksClient.CreateList(context.Background(), tt.list)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CreateList() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestListLists(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -36,15 +128,17 @@ func TestListLists(t *testing.T) {
 				if req.URL.Path == "/tasks/v1/users/@me/lists" {
 					resp := &http.Response{
 						StatusCode: 200,
-						Body: io.NopCloser(bytes.NewBufferString(`{
-							"items": [
-								{
-									"id": "L1", 
-									"title": "Inbox",
-									"updated": "2024-01-01T12:00:00Z"
-								}
-							]
-						}`)),
+						Body: io.NopCloser(bytes.NewBufferString(`
+							{
+								"items": [
+									{
+										"id": "L1", 
+										"title": "Inbox",
+										"updated": "2024-01-01T12:00:00Z"
+									}
+								]
+							}
+						`)),
 						Header: make(http.Header),
 					}
 
@@ -54,15 +148,17 @@ func TestListLists(t *testing.T) {
 				if req.URL.Path == "/tasks/v1/lists/L1/tasks" {
 					resp := &http.Response{
 						StatusCode: 200,
-						Body: io.NopCloser(bytes.NewBufferString(`{
-							"items": [
-								{
-									"id": "T1", 
-									"title": "Task 1", 
-									"position": "0001"
-								}
-							]
-						}`)),
+						Body: io.NopCloser(bytes.NewBufferString(`
+							{
+								"items": [
+									{
+										"id": "T1", 
+										"title": "Task 1", 
+										"position": "0001"
+									}
+								]
+							}
+						`)),
 						Header: make(http.Header),
 					}
 
@@ -98,8 +194,12 @@ func TestListLists(t *testing.T) {
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: 500,
-					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
-					Header:     make(http.Header),
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"error": "internal"
+						}
+					`)),
+					Header: make(http.Header),
 				}
 
 				return resp
@@ -113,8 +213,17 @@ func TestListLists(t *testing.T) {
 				if req.URL.Path == "/tasks/v1/users/@me/lists" {
 					resp := &http.Response{
 						StatusCode: 200,
-						Body:       io.NopCloser(bytes.NewBufferString(`{"items":[{"id":"L1","title":"Inbox"}]}`)),
-						Header:     make(http.Header),
+						Body: io.NopCloser(bytes.NewBufferString(`
+							{
+								"items": [
+									{
+										"id":"L1",
+										"title":"Inbox"
+									}
+								]
+							}
+						`)),
+						Header: make(http.Header),
 					}
 
 					return resp
@@ -124,7 +233,7 @@ func TestListLists(t *testing.T) {
 					StatusCode: 500,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
-							"error": "internal",
+							"error": "internal"
 						}
 					`)),
 					Header: make(http.Header),
@@ -148,9 +257,9 @@ func TestListLists(t *testing.T) {
 			}
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
-			client := NewClient(tasksService)
+			tasksClient := NewClient(tasksService)
 
-			got, err := client.ListLists(context.Background())
+			got, err := tasksClient.ListLists(context.Background())
 
 			if tt.wantErr {
 				if err == nil {
@@ -189,22 +298,24 @@ func TestListItems(t *testing.T) {
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: 200,
-					Body: io.NopCloser(bytes.NewBufferString(`{
-						"items": [
-							{
-								"id": "t2", 
-								"title": "Task 2", 
-								"position": "0002", 
-								"status": "needsAction"
-							},
-							{
-								"id": "t1", 
-								"title": "Task 1", 
-								"position": "0001", 
-								"status": "needsAction"
-							}
-						]
-					}`)),
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"items": [
+								{
+									"id": "t2", 
+									"title": "Task 2", 
+									"position": "0002", 
+									"status": "needsAction"
+								},
+								{
+									"id": "t1", 
+									"title": "Task 1", 
+									"position": "0001", 
+									"status": "needsAction"
+								}
+							]
+						}
+					`)),
 					Header: make(http.Header),
 				}
 
@@ -235,15 +346,17 @@ func TestListItems(t *testing.T) {
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: 200,
-					Body: io.NopCloser(bytes.NewBufferString(`{
-						"items": [
-							{
-								"id": "t1", 
-								"title": "Alice - Send Mail - Jan 23", 
-								"position": "0001"
-							}
-						]
-					}`)),
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"items": [
+								{
+									"id": "t1", 
+									"title": "Alice - Send Mail - Jan 23", 
+									"position": "0001"
+								}
+							]
+						}
+					`)),
 					Header: make(http.Header),
 				}
 
@@ -268,15 +381,17 @@ func TestListItems(t *testing.T) {
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: 200,
-					Body: io.NopCloser(bytes.NewBufferString(`{
-						"items": [
-							{
-								"id": "t1", 
-								"title": "Task +ProjectA", 
-								"position": "0001"
-							}
-						]
-					}`)),
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"items": [
+								{
+									"id": "t1", 
+									"title": "Task +ProjectA", 
+									"position": "0001"
+								}
+							]
+						}
+					`)),
 					Header: make(http.Header),
 				}
 
@@ -301,15 +416,17 @@ func TestListItems(t *testing.T) {
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: 200,
-					Body: io.NopCloser(bytes.NewBufferString(`{
-						"items": [
-							{
-								"id": "t1", 
-								"title": "Task due:2024-01-01", 
-								"position": "0001"
-							}
-						]
-					}`)),
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"items": [
+								{
+									"id": "t1", 
+									"title": "Task due:2024-01-01", 
+									"position": "0001"
+								}
+							]
+						}
+					`)),
 					Header: make(http.Header),
 				}
 
@@ -333,15 +450,17 @@ func TestListItems(t *testing.T) {
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: 200,
-					Body: io.NopCloser(bytes.NewBufferString(`{
-						"items": [
-							{
-								"id": "t1", 
-								"title": "Task #tag1 #tag2", 
-								"position": "0001"
-							}
-						]
-					}`)),
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"items": [
+								{
+									"id": "t1", 
+									"title": "Task #tag1 #tag2", 
+									"position": "0001"
+								}
+							]
+						}
+					`)),
 					Header: make(http.Header),
 				}
 
@@ -366,16 +485,18 @@ func TestListItems(t *testing.T) {
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: 200,
-					Body: io.NopCloser(bytes.NewBufferString(`{
-						"items": [
-							{
-								"id": "t1", 
-								"title": "Task", 
-								"status": "completed", 
-								"position": "0001"
-							}
-						]
-					}`)),
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"items": [
+								{
+									"id": "t1", 
+									"title": "Task", 
+									"status": "completed", 
+									"position": "0001"
+								}
+							]
+						}
+					`)),
 					Header: make(http.Header),
 				}
 
@@ -400,16 +521,18 @@ func TestListItems(t *testing.T) {
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: 200,
-					Body: io.NopCloser(bytes.NewBufferString(`{
-						"items": [
-							{
-								"id": "t1", 
-								"title": "Task", 
-								"notes": "My notes", 
-								"position": "0001"
-							}
-						]
-					}`)),
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"items": [
+								{
+									"id": "t1", 
+									"title": "Task", 
+									"notes": "My notes", 
+									"position": "0001"
+								}
+							]
+						}
+					`)),
 					Header: make(http.Header),
 				}
 
@@ -434,16 +557,18 @@ func TestListItems(t *testing.T) {
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: 200,
-					Body: io.NopCloser(bytes.NewBufferString(`{
-						"items": [
-							{
-								"id": "t1", 
-								"title": "Task", 
-								"due": "2024-01-01T00:00:00Z", 
-								"position": "0001"
-							}
-						]
-					}`)),
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"items": [
+								{
+									"id": "t1", 
+									"title": "Task", 
+									"due": "2024-01-01T00:00:00Z", 
+									"position": "0001"
+								}
+							]
+						}
+					`)),
 					Header: make(http.Header),
 				}
 
@@ -468,16 +593,18 @@ func TestListItems(t *testing.T) {
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: 200,
-					Body: io.NopCloser(bytes.NewBufferString(`{
-						"items": [
-							{
-								"id": "t1", 
-								"title": "Task", 
-								"updated": "2024-01-01T12:00:00Z", 
-								"position": "0001"
-							}
-						]
-					}`)),
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"items": [
+								{
+									"id": "t1", 
+									"title": "Task", 
+									"updated": "2024-01-01T12:00:00Z", 
+									"position": "0001"
+								}
+							]
+						}
+					`)),
 					Header: make(http.Header),
 				}
 
@@ -504,7 +631,7 @@ func TestListItems(t *testing.T) {
 					StatusCode: 500,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
-							"error": "internal",
+							"error": "internal"
 						}
 					`)),
 					Header: make(http.Header),
@@ -528,9 +655,9 @@ func TestListItems(t *testing.T) {
 			}
 
 			tasksSerice, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
-			client := NewClient(tasksSerice)
+			tasksClient := NewClient(tasksSerice)
 
-			got, err := client.ListItems(context.Background(), tt.list)
+			got, err := tasksClient.ListItems(context.Background(), tt.list)
 
 			if tt.wantErr {
 				if err == nil {

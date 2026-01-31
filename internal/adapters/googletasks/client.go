@@ -23,11 +23,24 @@ func NewClient(service *tasks.Service) *Client {
 	return client
 }
 
+// CreateList creates a new task list on the Google Tasks service.
+func (c *Client) CreateList(ctx context.Context, list model.List) error {
+	tasklist := &tasks.TaskList{
+		Title: list.Name,
+	}
+
+	if _, err := c.service.Tasklists.Insert(tasklist).Context(ctx).Do(); err != nil {
+		return fmt.Errorf("failed to create tasklist %s: %w", tasklist.Title, err)
+	}
+
+	return nil
+}
+
 // ListLists retrieves all task lists from Google Tasks.
 func (c *Client) ListLists(ctx context.Context) ([]model.List, error) {
 	taskLists, err := c.service.Tasklists.List().Context(ctx).Do()
 	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve task lists: %w", err)
+		return nil, fmt.Errorf("unable to retrieve tasklists: %w", err)
 	}
 
 	var lists []model.List
