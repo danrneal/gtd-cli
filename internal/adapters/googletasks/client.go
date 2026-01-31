@@ -150,6 +150,33 @@ func (c *Client) ListItems(ctx context.Context, list model.List) ([]model.Item, 
 	return items, nil
 }
 
+// UpdateItem updates an existing task in the specified Google Task list.
+func (c *Client) UpdateItem(ctx context.Context, listID string, item model.Item) error {
+	title := renderTitle(item)
+	status := "needsAction"
+	if item.Completed {
+		status = "completed"
+	}
+
+	var due string
+	if item.Snoozed != nil {
+		due = item.Snoozed.Format(time.RFC3339)
+	}
+
+	task := &tasks.Task{
+		Title:  title,
+		Notes:  item.Description,
+		Status: status,
+		Due:    due,
+	}
+
+	if _, err := c.service.Tasks.Patch(listID, *item.ExternalID, task).Context(ctx).Do(); err != nil {
+		return fmt.Errorf("failed to update task: %w", err)
+	}
+
+	return nil
+}
+
 // renderTitle constructs the task title string by combining the title with metadata fields (project, tags, due date, waiting on).
 func renderTitle(item model.Item) string {
 	titleParts := []string{item.Title}
