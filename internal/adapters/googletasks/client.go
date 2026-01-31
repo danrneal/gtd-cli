@@ -83,8 +83,9 @@ func (c *Client) UpdateList(ctx context.Context, list model.List) error {
 }
 
 // CreateItem creates a new task in the specified Google Task list.
+// If previousItemID is provided, the task is inserted after that item.
 // It renders the item's title to include metadata (project, tags, due date) compatible with the parser.
-func (c *Client) CreateItem(ctx context.Context, listID string, item model.Item) error {
+func (c *Client) CreateItem(ctx context.Context, listID string, item model.Item, previousItemID string) error {
 	title := renderTitle(item)
 	status := "needsAction"
 	if item.Completed {
@@ -103,7 +104,12 @@ func (c *Client) CreateItem(ctx context.Context, listID string, item model.Item)
 		Due:    due,
 	}
 
-	if _, err := c.service.Tasks.Insert(listID, task).Context(ctx).Do(); err != nil {
+	tasksInsertCall := c.service.Tasks.Insert(listID, task)
+	if previousItemID != "" {
+		tasksInsertCall.Previous(previousItemID)
+	}
+
+	if _, err := tasksInsertCall.Context(ctx).Do(); err != nil {
 		return fmt.Errorf("failed to insert task: %w", err)
 	}
 

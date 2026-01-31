@@ -378,11 +378,12 @@ func TestUpdateList(t *testing.T) {
 
 func TestCreateItem(t *testing.T) {
 	tests := []struct {
-		name    string
-		listID  string
-		item    model.Item
-		handler func(req *http.Request) *http.Response
-		wantErr bool
+		name           string
+		listID         string
+		item           model.Item
+		previousItemID string
+		handler        func(req *http.Request) *http.Response
+		wantErr        bool
 	}{
 		{
 			name:   "simple item",
@@ -501,6 +502,34 @@ func TestCreateItem(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name:   "item with previous",
+			listID: "L1",
+			item: model.Item{
+				Title: "Task",
+			},
+			previousItemID: "P1",
+			handler: func(req *http.Request) *http.Response {
+				if req.URL.Query().Get("previous") != "P1" {
+					resp := &http.Response{
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Bad Previous")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "T1"}`)),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
 			name:   "api error",
 			listID: "L1",
 			item: model.Item{
@@ -532,7 +561,7 @@ func TestCreateItem(t *testing.T) {
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			tasksClient := NewClient(tasksService)
 
-			err := tasksClient.CreateItem(context.Background(), tt.listID, tt.item)
+			err := tasksClient.CreateItem(context.Background(), tt.listID, tt.item, tt.previousItemID)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateItem() error = %v, wantErr %v", err, tt.wantErr)
