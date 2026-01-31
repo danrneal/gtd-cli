@@ -69,6 +69,19 @@ func (c *Client) ListLists(ctx context.Context) ([]model.List, error) {
 	return lists, nil
 }
 
+// UpdateList updates an existing task list on Google Tasks.
+func (c *Client) UpdateList(ctx context.Context, list model.List) error {
+	tasklist := &tasks.TaskList{
+		Title: list.Name,
+	}
+
+	if _, err := c.service.Tasklists.Patch(*list.ExternalID, tasklist).Context(ctx).Do(); err != nil {
+		return fmt.Errorf("failed to update tasklist %s: %w", tasklist.Title, err)
+	}
+
+	return nil
+}
+
 // CreateItem creates a new task in the specified Google Task list.
 // It renders the item's title to include metadata (project, tags, due date) compatible with the parser.
 func (c *Client) CreateItem(ctx context.Context, listID string, item model.Item) error {
