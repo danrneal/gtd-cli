@@ -280,6 +280,288 @@ func TestListLists(t *testing.T) {
 	}
 }
 
+func TestCreateItem(t *testing.T) {
+	tests := []struct {
+		name    string
+		listID  string
+		item    model.Item
+		handler func(req *http.Request) *http.Response
+		wantErr bool
+	}{
+		{
+			name:   "simple item",
+			listID: "L1",
+			item: model.Item{
+				Title: "Simple",
+			},
+			handler: func(req *http.Request) *http.Response {
+				if req.Method != "POST" {
+					resp := &http.Response{
+						StatusCode: 405,
+						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				if req.URL.Path != "/tasks/v1/lists/L1/tasks" {
+					resp := &http.Response{
+						StatusCode: 404,
+						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				body, _ := io.ReadAll(req.Body)
+				if !bytes.Contains(body, []byte(`"title":"Simple"`)) {
+					resp := &http.Response{
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Bad Title")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				if !bytes.Contains(body, []byte(`"status":"needsAction"`)) {
+					resp := &http.Response{
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Bad Status")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "T1"}`)),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
+			name:   "item with projectID",
+			listID: "L1",
+			item: model.Item{
+				Title:     "Task",
+				ProjectID: stringPtr("Proj"),
+			},
+			handler: func(req *http.Request) *http.Response {
+				body, _ := io.ReadAll(req.Body)
+				if !bytes.Contains(body, []byte(`"title":"Task +Proj"`)) {
+					resp := &http.Response{
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Bad Title")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "T1"}`)),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
+			name:   "item with due date",
+			listID: "L1",
+			item: model.Item{
+				Title: "Task",
+				Due:   date("2024-01-01"),
+			},
+			handler: func(req *http.Request) *http.Response {
+				body, _ := io.ReadAll(req.Body)
+				if !bytes.Contains(body, []byte(`"title":"Task due:2024-01-01"`)) {
+					resp := &http.Response{
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Bad Title")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "T1"}`)),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
+			name:   "item with multiple tags",
+			listID: "L1",
+			item: model.Item{
+				Title: "Task",
+				Tags:  []string{"tag1", "tag2"},
+			},
+			handler: func(req *http.Request) *http.Response {
+				body, _ := io.ReadAll(req.Body)
+				if !bytes.Contains(body, []byte(`"title":"Task #tag1 #tag2"`)) {
+					resp := &http.Response{
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Bad Title")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "T1"}`)),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
+			name:   "item with waitingon",
+			listID: "L1",
+			item: model.Item{
+				Title:     "Task",
+				WaitingOn: stringPtr("Alice"),
+				Created:   rfc3339("2024-01-02T10:00:00Z"),
+			},
+			handler: func(req *http.Request) *http.Response {
+				body, _ := io.ReadAll(req.Body)
+				if !bytes.Contains(body, []byte(`"title":"Alice - Task - Jan 2"`)) {
+					resp := &http.Response{
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Bad Title")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "T1"}`)),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
+			name:   "completed item",
+			listID: "L1",
+			item: model.Item{
+				Title:     "Done",
+				Completed: true,
+			},
+			handler: func(req *http.Request) *http.Response {
+				body, _ := io.ReadAll(req.Body)
+				if !bytes.Contains(body, []byte(`"status":"completed"`)) {
+					resp := &http.Response{
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Bad Status")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "T1"}`)),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
+			name:   "snoozed item",
+			listID: "L1",
+			item: model.Item{
+				Title:   "Snoozed",
+				Snoozed: date("2024-01-01"),
+			},
+			handler: func(req *http.Request) *http.Response {
+				body, _ := io.ReadAll(req.Body)
+				if !bytes.Contains(body, []byte(`"due":"2024-01-01T00:00:00Z"`)) {
+					resp := &http.Response{
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Bad Due Date")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "T1"}`)),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
+			name:   "api error",
+			listID: "L1",
+			item: model.Item{
+				Title: "Fail",
+			},
+			handler: func(req *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: 500,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &http.Client{
+				Transport: &mockTransport{
+					roundTripFunc: func(req *http.Request) (*http.Response, error) {
+						return tt.handler(req), nil
+					},
+				},
+			}
+
+			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
+			tasksClient := NewClient(tasksService)
+
+			err := tasksClient.CreateItem(context.Background(), tt.listID, tt.item)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CreateItem() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestListItems(t *testing.T) {
 	tests := []struct {
 		name      string

@@ -69,6 +69,34 @@ func (c *Client) ListLists(ctx context.Context) ([]model.List, error) {
 	return lists, nil
 }
 
+// CreateItem creates a new task in the specified Google Task list.
+// It renders the item's title to include metadata (project, tags, due date) compatible with the parser.
+func (c *Client) CreateItem(ctx context.Context, listID string, item model.Item) error {
+	title := renderTitle(item)
+	status := "needsAction"
+	if item.Completed {
+		status = "completed"
+	}
+
+	var due string
+	if item.Snoozed != nil {
+		due = item.Snoozed.Format(time.RFC3339)
+	}
+
+	task := &tasks.Task{
+		Title:  title,
+		Notes:  item.Description,
+		Status: status,
+		Due:    due,
+	}
+
+	if _, err := c.service.Tasks.Insert(listID, task).Context(ctx).Do(); err != nil {
+		return fmt.Errorf("failed to insert task: %w", err)
+	}
+
+	return nil
+}
+
 // ListItems retrieves all tasks from the specified list and converts them to internal Items.
 // It handles fetching, sorting, and parsing metadata from task titles.
 func (c *Client) ListItems(ctx context.Context, list model.List) ([]model.Item, error) {
@@ -107,6 +135,34 @@ func (c *Client) ListItems(ctx context.Context, list model.List) ([]model.Item, 
 	}
 
 	return items, nil
+}
+
+// renderTitle constructs the task title string by combining the title with metadata fields (project, tags, due date, waiting on).
+func renderTitle(item model.Item) string {
+	titleParts := []string{item.Title}
+	if item.ProjectID != nil {
+		projectIDStr := fmt.Sprintf("+%s", *item.ProjectID)
+		titleParts = append(titleParts, projectIDStr)
+	}
+
+	if item.Due != nil {
+		dueStr := fmt.Sprintf("due:%s", item.Due.Format("2006-01-02"))
+		titleParts = append(titleParts, dueStr)
+	}
+
+	for _, tag := range item.Tags {
+		tagStr := fmt.Sprintf("#%s", tag)
+		titleParts = append(titleParts, tagStr)
+	}
+
+	title := strings.Join(titleParts, " ")
+
+	if item.WaitingOn != nil {
+		createdStr := item.Created.Format("Jan 2")
+		title = fmt.Sprintf("%s - %s - %s", *item.WaitingOn, title, createdStr)
+	}
+
+	return title
 }
 
 // parseTitle extracts metadata (project, tags, due date) from the task title string.
