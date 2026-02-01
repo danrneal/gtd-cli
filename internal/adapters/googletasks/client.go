@@ -24,16 +24,17 @@ func NewClient(service *tasks.Service) *Client {
 }
 
 // CreateList creates a new task list on the Google Tasks service.
-func (c *Client) CreateList(ctx context.Context, list model.List) error {
+func (c *Client) CreateList(ctx context.Context, list model.List) (string, error) {
 	tasklist := &tasks.TaskList{
 		Title: list.Name,
 	}
 
-	if _, err := c.service.Tasklists.Insert(tasklist).Context(ctx).Do(); err != nil {
-		return fmt.Errorf("failed to create tasklist %s: %w", tasklist.Title, err)
+	taskList, err := c.service.Tasklists.Insert(tasklist).Context(ctx).Do()
+	if err != nil {
+		return "", fmt.Errorf("failed to create tasklist %s: %w", tasklist.Title, err)
 	}
 
-	return nil
+	return taskList.Id, nil
 }
 
 // ListLists retrieves all task lists from Google Tasks.
@@ -94,7 +95,7 @@ func (c *Client) DeleteList(ctx context.Context, listID string) error {
 // CreateItem creates a new task in the specified Google Task list.
 // If previousItemID is provided, the task is inserted after that item.
 // It renders the item's title to include metadata (project, tags, due date) compatible with the parser.
-func (c *Client) CreateItem(ctx context.Context, listID string, item model.Item, previousItemID string) error {
+func (c *Client) CreateItem(ctx context.Context, listID string, item model.Item, previousItemID string) (string, error) {
 	title := renderTitle(item)
 	status := "needsAction"
 	if item.Status == model.StatusDone {
@@ -118,11 +119,12 @@ func (c *Client) CreateItem(ctx context.Context, listID string, item model.Item,
 		tasksInsertCall.Previous(previousItemID)
 	}
 
-	if _, err := tasksInsertCall.Context(ctx).Do(); err != nil {
-		return fmt.Errorf("failed to insert task: %w", err)
+	task, err := tasksInsertCall.Context(ctx).Do()
+	if err != nil {
+		return "", fmt.Errorf("failed to insert task: %w", err)
 	}
 
-	return nil
+	return task.Id, nil
 }
 
 // ListItems retrieves all tasks from the specified list and converts them to internal Items.

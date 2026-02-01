@@ -29,6 +29,7 @@ func TestCreateList(t *testing.T) {
 		list    model.List
 		handler func(req *http.Request) *http.Response
 		wantErr bool
+		wantID  string
 	}{
 		{
 			name: "success",
@@ -70,6 +71,7 @@ func TestCreateList(t *testing.T) {
 				return resp
 			},
 			wantErr: false,
+			wantID:  "new-list-id",
 		},
 		{
 			name: "api error",
@@ -106,10 +108,14 @@ func TestCreateList(t *testing.T) {
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			tasksClient := NewClient(tasksService)
 
-			err := tasksClient.CreateList(context.Background(), tt.list)
+			gotID, err := tasksClient.CreateList(context.Background(), tt.list)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateList() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && gotID != tt.wantID {
+				t.Errorf("CreateList() gotID = %v, want %v", gotID, tt.wantID)
 			}
 		})
 	}
@@ -464,6 +470,7 @@ func TestCreateItem(t *testing.T) {
 		previousItemID string
 		handler        func(req *http.Request) *http.Response
 		wantErr        bool
+		wantID         string
 	}{
 		{
 			name:   "simple item",
@@ -522,6 +529,7 @@ func TestCreateItem(t *testing.T) {
 				return resp
 			},
 			wantErr: false,
+			wantID:  "T1",
 		},
 		{
 			name:   "completed item",
@@ -551,6 +559,7 @@ func TestCreateItem(t *testing.T) {
 				return resp
 			},
 			wantErr: false,
+			wantID:  "T1",
 		},
 		{
 			name:   "snoozed item",
@@ -580,6 +589,7 @@ func TestCreateItem(t *testing.T) {
 				return resp
 			},
 			wantErr: false,
+			wantID:  "T1",
 		},
 		{
 			name:   "item with previous",
@@ -608,6 +618,7 @@ func TestCreateItem(t *testing.T) {
 				return resp
 			},
 			wantErr: false,
+			wantID:  "T1",
 		},
 		{
 			name:   "api error",
@@ -641,10 +652,14 @@ func TestCreateItem(t *testing.T) {
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			tasksClient := NewClient(tasksService)
 
-			err := tasksClient.CreateItem(context.Background(), tt.listID, tt.item, tt.previousItemID)
+			gotID, err := tasksClient.CreateItem(context.Background(), tt.listID, tt.item, tt.previousItemID)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateItem() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && gotID != tt.wantID {
+				t.Errorf("CreateItem() gotID = %v, want %v", gotID, tt.wantID)
 			}
 		})
 	}
