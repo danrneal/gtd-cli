@@ -1423,6 +1423,185 @@ func TestUpdateItem(t *testing.T) {
 	}
 }
 
+func TestMoveItem(t *testing.T) {
+	tests := []struct {
+		name     string
+		setupDB  func(t *testing.T, db *sql.DB) (int64, int64)
+		listID   int64
+		position int
+		setupCtx func() (context.Context, context.CancelFunc)
+		wantItem *model.Item
+		wantErr  bool
+	}{
+		{
+			name: "valid move (new list and position)",
+			setupDB: func(t *testing.T, db *sql.DB) (int64, int64) {
+				_, _ = db.Exec(
+					`
+						INSERT INTO lists (name, modified) 
+						VALUES (?, ?)
+					`, "List 1", time.Now(),
+				)
+
+				res, _ := db.Exec(
+					`
+						INSERT INTO lists (name, modified) 
+						VALUES (?, ?)
+					`, "List 2", time.Now(),
+				)
+
+				targetListID, _ := res.LastInsertId()
+				res, _ = db.Exec(
+					`
+						INSERT INTO items (
+							title, 
+							list_id, 
+							position, 
+							status, 
+							modified, 
+							created
+						) VALUES (?, ?, ?, ?, ?, ?)
+					`, "Item 1", 1, 0, "not_started", time.Now(), time.Now(),
+				)
+
+				id, _ := res.LastInsertId()
+
+				return id, targetListID
+			},
+			listID:   2,
+			position: 5,
+			wantErr:  false,
+			wantItem: &model.Item{
+				ListID:   2,
+				Position: 5,
+				Title:    "Item 1",
+				Status:   model.StatusNotStarted,
+				Tags:     []string{},
+			},
+		},
+		{
+			name: "nonexistent id",
+			setupDB: func(t *testing.T, db *sql.DB) (int64, int64) {
+				return 999, 1
+			},
+			listID:   1,
+			position: 0,
+			wantErr:  true,
+		},
+		{
+			name: "context cancellation",
+			setupDB: func(t *testing.T, db *sql.DB) (int64, int64) {
+				res, _ := db.Exec(
+					`
+						INSERT INTO lists (name, modified) 
+						VALUES (?, ?)
+					`, "List 1", time.Now(),
+				)
+
+				listID, _ := res.LastInsertId()
+				res, _ = db.Exec(
+					`
+						INSERT INTO items (
+							title, 
+							list_id, 
+							position, 
+							status, 
+							modified, 
+							created
+						) VALUES (?, ?, ?, ?, ?, ?)
+					`, "Item 1", listID, 0, "not_started", time.Now(), time.Now(),
+				)
+
+				id, _ := res.LastInsertId()
+
+				return id, listID
+			},
+			listID:   1,
+			position: 1,
+			setupCtx: func() (context.Context, context.CancelFunc) {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				return ctx, cancel
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			dbPath := filepath.Join(tmpDir, "test.db")
+
+			var ctx context.Context
+			var cancel context.CancelFunc
+
+			if tt.setupCtx != nil {
+				ctx, cancel = tt.setupCtx()
+				defer cancel()
+			} else {
+				ctx = context.Background()
+			}
+
+			store, err := sqlite.NewStore(context.Background(), dbPath)
+			if err != nil {
+				t.Fatalf("failed to create store: %v", err)
+			}
+
+			db, err := sql.Open("sqlite3", dbPath)
+			if err != nil {
+				t.Fatalf("failed to open db for setup: %v", err)
+			}
+
+			defer db.Close()
+
+			itemID, _ := tt.setupDB(t, db)
+
+			err = store.MoveItem(ctx, itemID, tt.listID, tt.position)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("MoveItem() expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("MoveItem() unexpected error: %v", err)
+				}
+
+				var gotItem model.Item
+				var tagsJSON string
+				err = db.QueryRow(
+					`
+						SELECT id, list_id, title, COALESCE(description, ''), status, tags, position
+						FROM items 
+						WHERE id = ?
+					`, itemID,
+				).Scan(&gotItem.ID, &gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Status, &tagsJSON, &gotItem.Position)
+
+				if err != nil {
+					t.Fatalf("failed to query item: %v", err)
+				}
+
+				if err := json.Unmarshal([]byte(tagsJSON), &gotItem.Tags); err != nil {
+					t.Fatalf("failed to unmarshal tags: %v", err)
+				}
+				if gotItem.Tags == nil {
+					gotItem.Tags = []string{}
+				}
+
+				tt.wantItem.ID = itemID
+
+				opts := []cmp.Option{
+					cmpopts.IgnoreFields(model.Item{}, "Modified", "Created", "Snoozed", "Due", "ProjectID", "WaitingOn", "ExternalID"),
+				}
+
+				if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {
+					t.Errorf("MoveItem() mismatch (-want +got):\n%s", diff)
+				}
+			}
+		})
+	}
+}
+
 func TestDeleteItem(t *testing.T) {
 	tests := []struct {
 		name     string

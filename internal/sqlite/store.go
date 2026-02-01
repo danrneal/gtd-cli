@@ -417,6 +417,37 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
 	return nil
 }
 
+// MoveItem updates the list_id and position of an item without modifying its content.
+func (s *Store) MoveItem(ctx context.Context, id int64, listID int64, position int) error {
+	query := `
+		UPDATE items SET 
+			list_id = ?, 
+			position = ? 
+		WHERE id = ?;
+	`
+
+	res, err := s.db.ExecContext(ctx, query, 
+		listID, 
+		position, 
+		id,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to move item %d: %w", id, err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("item with id %d not found", id)
+	}
+
+	return nil
+}
+
 // DeleteItem deletes an item from the database.
 func (s *Store) DeleteItem(ctx context.Context, id int64) error {
 	query := `DELETE FROM items WHERE id = ?;`
