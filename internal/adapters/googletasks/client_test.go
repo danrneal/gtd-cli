@@ -189,7 +189,7 @@ func TestListLists(t *testing.T) {
 							Title:      "Task 1",
 							ExternalID: stringPtr("T1"),
 							Position:   0,
-							ListID:     "0",
+							ListID:     "",
 							Status:     model.StatusOpen,
 						},
 					},

@@ -204,7 +204,7 @@ func TestCreateList(t *testing.T) {
 				t.Fatalf("failed to create store: %v", err)
 			}
 
-			err = store.CreateList(ctx, tt.list)
+			gotID, err := store.CreateList(ctx, tt.list)
 
 			if tt.wantErr {
 				if err == nil {
@@ -213,6 +213,10 @@ func TestCreateList(t *testing.T) {
 			} else {
 				if err != nil {
 					t.Errorf("CreateList() unexpected error: %v", err)
+				}
+
+				if gotID == "" {
+					t.Error("CreateList() returned empty ID")
 				}
 
 				db, err := sql.Open("sqlite3", dbPath)
@@ -858,7 +862,7 @@ func TestCreateItem(t *testing.T) {
 				tt.setupDB(t, db)
 			}
 
-			err = store.CreateItem(ctx, tt.item)
+			gotID, err := store.CreateItem(ctx, tt.item)
 
 			if tt.wantErr {
 				if err == nil {
@@ -867,6 +871,10 @@ func TestCreateItem(t *testing.T) {
 			} else {
 				if err != nil {
 					t.Errorf("CreateItem() unexpected error: %v", err)
+				}
+
+				if gotID == "" {
+					t.Error("CreateItem() returned empty ID")
 				}
 
 				var count int

@@ -78,11 +78,11 @@ func (s *Store) createTables(ctx context.Context) error {
 }
 
 // CreateList inserts a new list into the database.
-func (s *Store) CreateList(ctx context.Context, list model.List) error {
+func (s *Store) CreateList(ctx context.Context, list model.List) (string, error) {
 	list.ID = uuid.NewString()[:8]
 	list.Name = strings.TrimSpace(list.Name)
 	if list.Name == "" {
-		return fmt.Errorf("list name cannot be empty")
+		return "", fmt.Errorf("list name cannot be empty")
 	}
 
 	query := `
@@ -102,10 +102,10 @@ func (s *Store) CreateList(ctx context.Context, list model.List) error {
 		list.Modified,
 		list.ExternalID,
 	); err != nil {
-		return fmt.Errorf("failed to insert list: %w", err)
+		return "", fmt.Errorf("failed to insert list: %w", err)
 	}
 
-	return nil
+	return list.ID, nil
 }
 
 // GetAllLists returns all lists from the database, populated with their items.
@@ -230,21 +230,21 @@ func (s *Store) DeleteList(ctx context.Context, id string) error {
 }
 
 // CreateItem inserts a new item into the database.
-func (s *Store) CreateItem(ctx context.Context, item model.Item) error {
+func (s *Store) CreateItem(ctx context.Context, item model.Item) (string, error) {
 	item.ID = uuid.NewString()[:8]
 	if !isValidStatus(item.Status) {
-		return fmt.Errorf("invalid status: %q", item.Status)
+		return "", fmt.Errorf("invalid status: %q", item.Status)
 	}
 
 	item.Title = strings.TrimSpace(item.Title)
 	if item.Title == "" {
-		return fmt.Errorf("item title cannot be empty")
+		return "", fmt.Errorf("item title cannot be empty")
 	}
 
 	item.Description = multilineTrim(item.Description)
 	tagsJSON, err := json.Marshal(item.Tags)
 	if err != nil {
-		return fmt.Errorf("failed to marshal tags: %w", err)
+		return "", fmt.Errorf("failed to marshal tags: %w", err)
 	}
 
 	query := `
@@ -282,10 +282,10 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item) error {
 		item.Created,
 		item.ExternalID,
 	); err != nil {
-		return fmt.Errorf("failed to insert item: %w", err)
+		return "", fmt.Errorf("failed to insert item: %w", err)
 	}
 
-	return nil
+	return item.ID, nil
 }
 
 // GetAllItems returns all items from the database.
