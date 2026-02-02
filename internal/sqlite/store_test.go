@@ -250,7 +250,7 @@ func TestCreateList(t *testing.T) {
 	}
 }
 
-func TestGetAllLists(t *testing.T) {
+func TestListLists(t *testing.T) {
 	tests := []struct {
 		name      string
 		setupDB   func(t *testing.T, db *sql.DB)
@@ -389,15 +389,15 @@ func TestGetAllLists(t *testing.T) {
 				tt.setupDB(t, db)
 			}
 
-			lists, err := store.GetAllLists(ctx)
+			lists, err := store.ListLists(ctx)
 
 			if tt.wantErr {
 				if err == nil {
-					t.Error("GetAllLists() expected error, got nil")
+					t.Error("ListLists() expected error, got nil")
 				}
 			} else {
 				if err != nil {
-					t.Errorf("GetAllLists() unexpected error: %v", err)
+					t.Errorf("ListLists() unexpected error: %v", err)
 				}
 
 				opts := []cmp.Option{
@@ -406,7 +406,7 @@ func TestGetAllLists(t *testing.T) {
 				}
 
 				if diff := cmp.Diff(tt.wantLists, lists, opts...); diff != "" {
-					t.Errorf("GetAllLists() mismatch (-want +got):\n%s", diff)
+					t.Errorf("ListLists() mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
@@ -718,7 +718,7 @@ func TestDeleteList(t *testing.T) {
 					t.Errorf("DeleteList() unexpected error: %v", err)
 				}
 
-				lists, err := store.GetAllLists(context.Background())
+				lists, err := store.ListLists(context.Background())
 				if err != nil {
 					t.Fatalf("failed to get all lists: %v", err)
 				}
@@ -727,7 +727,7 @@ func TestDeleteList(t *testing.T) {
 					t.Errorf("DeleteList() lists mismatch (-want +got):\n%s", diff)
 				}
 
-				items, err := store.GetAllItems(context.Background())
+				items, err := store.ListAllItems(context.Background())
 				if err != nil {
 					t.Fatalf("failed to get all items: %v", err)
 				}
@@ -920,7 +920,7 @@ func TestCreateItem(t *testing.T) {
 	}
 }
 
-func TestGetAllItems(t *testing.T) {
+func TestListAllItems(t *testing.T) {
 	tests := []struct {
 		name      string
 		setupDB   func(t *testing.T, db *sql.DB)
@@ -1094,15 +1094,15 @@ func TestGetAllItems(t *testing.T) {
 				tt.setupDB(t, db)
 			}
 
-			items, err := store.GetAllItems(ctx)
+			items, err := store.ListAllItems(ctx)
 
 			if tt.wantErr {
 				if err == nil {
-					t.Error("GetAllItems() expected error, got nil")
+					t.Error("ListAllItems() expected error, got nil")
 				}
 			} else {
 				if err != nil {
-					t.Errorf("GetAllItems() unexpected error: %v", err)
+					t.Errorf("ListAllItems() unexpected error: %v", err)
 				}
 
 				opts := []cmp.Option{
@@ -1110,7 +1110,7 @@ func TestGetAllItems(t *testing.T) {
 				}
 
 				if diff := cmp.Diff(tt.wantItems, items, opts...); diff != "" {
-					t.Errorf("GetAllItems() mismatch (-want +got):\n%s", diff)
+					t.Errorf("ListAllItems() mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
@@ -1741,7 +1741,7 @@ func TestDeleteItem(t *testing.T) {
 					t.Errorf("DeleteItem() unexpected error: %v", err)
 				}
 
-				items, err := store.GetAllItems(context.Background())
+				items, err := store.ListAllItems(context.Background())
 				if err != nil {
 					t.Fatalf("failed to get all items: %v", err)
 				}
