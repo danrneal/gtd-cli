@@ -264,9 +264,9 @@ func TestGetAllLists(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) {
 				_, err := db.Exec(
 					`
-						INSERT INTO lists (name, modified) 
-						VALUES (?, ?)
-					`, "Inbox", time.Now(),
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
 				)
 
 				if err != nil {
@@ -275,6 +275,7 @@ func TestGetAllLists(t *testing.T) {
 			},
 			wantLists: []model.List{
 				{
+					ID:    "list-1",
 					Name:  "Inbox",
 					Items: []model.Item{},
 				},
@@ -284,29 +285,29 @@ func TestGetAllLists(t *testing.T) {
 		{
 			name: "valid list (with items)",
 			setupDB: func(t *testing.T, db *sql.DB) {
-				res, err := db.Exec(
+				_, err := db.Exec(
 					`
-						INSERT INTO lists (name, modified) 
-						VALUES (?, ?)
-					`, "Work", time.Now(),
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-2", "Work", time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 
-				listID, _ := res.LastInsertId()
 				_, err = db.Exec(
 					`
 						INSERT INTO items (
+							id,
 							title, 
 							description, 
 							list_id, 
 							tags, 
 							modified, 
 							created
-						) VALUES (?, ?, ?, '[]', ?, ?)
-					`, "Task 1", "", listID, time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Task 1", "", "list-2", time.Now(), time.Now(),
 				)
 
 				if err != nil {
@@ -315,12 +316,15 @@ func TestGetAllLists(t *testing.T) {
 			},
 			wantLists: []model.List{
 				{
+					ID:   "list-2",
 					Name: "Work",
 					Items: []model.Item{
 						{
-							Title: "Task 1",
+							ID:     "item-1",
+							ListID: "list-2",
+							Title:  "Task 1",
 							Status: model.StatusNotStarted,
-							Tags:  []string{},
+							Tags:   []string{},
 						},
 					},
 				},
@@ -408,31 +412,29 @@ func TestGetAllLists(t *testing.T) {
 func TestUpdateList(t *testing.T) {
 	tests := []struct {
 		name      string
-		setupDB   func(t *testing.T, db *sql.DB) int64
-		setupList func(id int64) model.List
+		setupDB   func(t *testing.T, db *sql.DB) string
+		setupList func(id string) model.List
 		setupCtx  func() (context.Context, context.CancelFunc)
 		wantList  *model.List
 		wantErr   bool
 	}{
 		{
 			name: "valid update (with whitespace in title)",
-			setupDB: func(t *testing.T, db *sql.DB) int64 {
-				res, err := db.Exec(
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
 					`
-						INSERT INTO lists (name, modified) 
-						VALUES (?, ?)
-					`, "Old Name", time.Now(),
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Old Name", time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 
-				id, _ := res.LastInsertId()
-
-				return id
+				return "list-1"
 			},
-			setupList: func(id int64) model.List {
+			setupList: func(id string) model.List {
 				list := model.List{
 					ID:       id,
 					Name:     "  New Name  ",
@@ -450,23 +452,21 @@ func TestUpdateList(t *testing.T) {
 		},
 		{
 			name: "empty name",
-			setupDB: func(t *testing.T, db *sql.DB) int64 {
-				res, err := db.Exec(
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
 					`
-						INSERT INTO lists (name, modified) 
-						VALUES (?, ?)
-					`, "Valid", time.Now(),
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Valid", time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 
-				id, _ := res.LastInsertId()
-
-				return id
+				return "list-1"
 			},
-			setupList: func(id int64) model.List {
+			setupList: func(id string) model.List {
 				list := model.List{
 					ID:       id,
 					Name:     "",
@@ -480,10 +480,10 @@ func TestUpdateList(t *testing.T) {
 		},
 		{
 			name: "nonexistent id",
-			setupDB: func(t *testing.T, db *sql.DB) int64 {
-				return 999
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				return "non-existent"
 			},
-			setupList: func(id int64) model.List {
+			setupList: func(id string) model.List {
 				list := model.List{
 					ID:       id,
 					Name:     "Valid Name",
@@ -497,23 +497,21 @@ func TestUpdateList(t *testing.T) {
 		},
 		{
 			name: "context cancellation",
-			setupDB: func(t *testing.T, db *sql.DB) int64 {
-				res, err := db.Exec(
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
 					`
-						INSERT INTO lists (name, modified) 
-						VALUES (?, ?)
-					`, "Valid", time.Now(),
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Valid", time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 
-				id, _ := res.LastInsertId()
-
-				return id
+				return "list-1"
 			},
-			setupList: func(id int64) model.List {
+			setupList: func(id string) model.List {
 				list := model.List{
 					ID:       id,
 					Name:     "Valid Name",
@@ -603,7 +601,7 @@ func TestUpdateList(t *testing.T) {
 func TestDeleteList(t *testing.T) {
 	tests := []struct {
 		name      string
-		setupDB   func(t *testing.T, db *sql.DB) int64
+		setupDB   func(t *testing.T, db *sql.DB) string
 		setupCtx  func() (context.Context, context.CancelFunc)
 		wantLists []model.List
 		wantItems []model.Item
@@ -611,63 +609,61 @@ func TestDeleteList(t *testing.T) {
 	}{
 		{
 			name: "valid delete with cascade",
-			setupDB: func(t *testing.T, db *sql.DB) int64 {
-				res, err := db.Exec(
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
 					`
-						INSERT INTO lists (name, modified) 
-						VALUES (?, ?)
-					`, "To Delete", time.Now(),
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "To Delete", time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 
-				listID, _ := res.LastInsertId()
 				_, err = db.Exec(
 					`
 						INSERT INTO items (
+							id,
 							title, 
 							list_id, 
 							tags, 
 							modified, 
 							created
-						) VALUES (?, ?, '[]', ?, ?)
-					`, "Linked Item", listID, time.Now(), time.Now(),
+						) VALUES (?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Linked Item", "list-1", time.Now(), time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
 
-				return listID
+				return "list-1"
 			},
 			wantErr: false,
 		},
 		{
 			name: "nonexistent id",
-			setupDB: func(t *testing.T, db *sql.DB) int64 {
-				return 999
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				return "non-existent"
 			},
 			wantErr: true,
 		},
 		{
 			name: "context cancellation",
-			setupDB: func(t *testing.T, db *sql.DB) int64 {
-				res, err := db.Exec(
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
 					`
-						INSERT INTO lists (name, modified) 
-						VALUES (?, ?)
-					`, "To Delete", time.Now(),
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "To Delete", time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 
-				id, _ := res.LastInsertId()
-
-				return id
+				return "list-1"
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())
@@ -752,13 +748,13 @@ func TestCreateItem(t *testing.T) {
 		{
 			name: "valid item minimal fields (auto-trimmed title)",
 			setupDB: func(t *testing.T, db *sql.DB) {
-				_, err := db.Exec(`INSERT INTO lists (name, modified) VALUES (?, ?)`, "Inbox", time.Now())
+				_, err := db.Exec(`INSERT INTO lists (id, name, modified) VALUES (?, ?, ?)`, "list-1", "Inbox", time.Now())
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 			},
 			item: model.Item{
-				ListID:   1,
+				ListID:   "list-1",
 				Title:    "  Buy Milk  ",
 				Status:   model.StatusNotStarted,
 				Modified: time.Now(),
@@ -769,16 +765,16 @@ func TestCreateItem(t *testing.T) {
 		{
 			name: "valid item complex fields (multiline desc)",
 			setupDB: func(t *testing.T, db *sql.DB) {
-				_, err := db.Exec(`INSERT INTO lists (name, modified) VALUES (?, ?)`, "Inbox", time.Now())
+				_, err := db.Exec(`INSERT INTO lists (id, name, modified) VALUES (?, ?, ?)`, "list-1", "Inbox", time.Now())
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 			},
 			item: model.Item{
-				ListID:      1,
+				ListID:      "list-1",
 				Title:       "Complex Task",
 				Description: "  Line 1   \nLine 2   \n  Line 3",
-				Status: model.StatusDone,
+				Status:      model.StatusDone,
 				ProjectID:   stringPtr("proj-1"),
 				WaitingOn:   stringPtr("Alice"),
 				Tags:        []string{"work", "urgent"},
@@ -786,10 +782,10 @@ func TestCreateItem(t *testing.T) {
 				Created:     time.Now(),
 			},
 			wantItem: &model.Item{
-				ListID:      1,
+				ListID:      "list-1",
 				Title:       "Complex Task",
 				Description: "Line 1\nLine 2\n  Line 3",
-				Status: model.StatusDone,
+				Status:      model.StatusDone,
 				ProjectID:   stringPtr("proj-1"),
 				WaitingOn:   stringPtr("Alice"),
 				Tags:        []string{"work", "urgent"},
@@ -800,7 +796,7 @@ func TestCreateItem(t *testing.T) {
 			name:    "invalid status",
 			setupDB: nil,
 			item: model.Item{
-				ListID: 1,
+				ListID: "list-1",
 				Title:  "Invalid Status",
 				Status: "bad_status",
 			},
@@ -810,7 +806,7 @@ func TestCreateItem(t *testing.T) {
 			name:    "empty title",
 			setupDB: nil,
 			item: model.Item{
-				ListID: 1,
+				ListID: "list-1",
 				Title:  "",
 			},
 			wantErr: true,
@@ -819,7 +815,7 @@ func TestCreateItem(t *testing.T) {
 			name:    "cancelled context",
 			setupDB: nil,
 			item: model.Item{
-				ListID: 1,
+				ListID: "list-1",
 				Title:  "Cancelled",
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
@@ -935,14 +931,15 @@ func TestGetAllItems(t *testing.T) {
 				_, err := db.Exec(
 					`
 						INSERT INTO items (
+							id,
 							title, 
 							description, 
 							list_id, 
 							tags, 
 							modified, 
 							created
-						) VALUES (?, ?, ?, '[]', ?, ?)
-					`, "Item 1", "", 1, time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Item 1", "", "list-1", time.Now(), time.Now(),
 				)
 
 				if err != nil {
@@ -951,9 +948,9 @@ func TestGetAllItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ID:          1,
+					ID:          "item-1",
 					Title:       "Item 1",
-					ListID:      1,
+					ListID:      "list-1",
 					Description: "",
 					Status:      model.StatusNotStarted,
 					Tags:        []string{},
@@ -968,14 +965,15 @@ func TestGetAllItems(t *testing.T) {
 				_, err := db.Exec(
 					`
 						INSERT INTO items (
+							id,
 							title, 
 							description, 
 							list_id, 
 							tags, 
 							modified, 
 							created
-						) VALUES (?, ?, ?, ?, ?, ?)
-					`, "Item 2", "desc", 1, tags, time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, ?, ?, ?)
+					`, "item-2", "Item 2", "desc", "list-1", tags, time.Now(), time.Now(),
 				)
 
 				if err != nil {
@@ -984,9 +982,9 @@ func TestGetAllItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ID:          2,
+					ID:          "item-2",
 					Title:       "Item 2",
-					ListID:      1,
+					ListID:      "list-1",
 					Description: "desc",
 					Status:      model.StatusNotStarted,
 					Tags:        []string{"work", "urgent"},
@@ -1000,13 +998,14 @@ func TestGetAllItems(t *testing.T) {
 				_, err := db.Exec(
 					`
 						INSERT INTO items (
+							id,
 							title, 
 							description, 
 							list_id, tags, 
 							modified, 
 							created
-						) VALUES (?, ?, ?, '{bad-json', ?, ?)
-					`, "Item 3", "", 1, time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, '{bad-json', ?, ?)
+					`, "item-3", "Item 3", "", "list-1", time.Now(), time.Now(),
 				)
 
 				if err != nil {
@@ -1021,14 +1020,15 @@ func TestGetAllItems(t *testing.T) {
 				_, err := db.Exec(
 					`
 						INSERT INTO items (
+							id,
 							title, 
 							description, 
 							list_id, 
 							tags, 
 							modified, 
 							created
-						) VALUES (?, ?, ?, '[]', ?, ?)
-					`, "Item 4", "", 1, time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, '[]', ?, ?)
+					`, "item-4", "Item 4", "", "list-1", time.Now(), time.Now(),
 				)
 
 				if err != nil {
@@ -1073,9 +1073,9 @@ func TestGetAllItems(t *testing.T) {
 
 			_, err = db.Exec(
 				`
-					INSERT INTO lists (name, modified) 
-					VALUES (?, ?)
-				`, "Inbox", time.Now(),
+					INSERT INTO lists (id, name, modified) 
+					VALUES (?, ?, ?)
+				`, "list-1", "Inbox", time.Now(),
 			)
 
 			if err != nil {
@@ -1112,55 +1112,53 @@ func TestGetAllItems(t *testing.T) {
 func TestUpdateItem(t *testing.T) {
 	tests := []struct {
 		name      string
-		setupDB   func(t *testing.T, db *sql.DB) int64
-		setupItem func(id int64) model.Item
+		setupDB   func(t *testing.T, db *sql.DB) string
+		setupItem func(id string) model.Item
 		setupCtx  func() (context.Context, context.CancelFunc)
 		wantItem  *model.Item
 		wantErr   bool
 	}{
 		{
 			name: "valid update (complex fields)",
-			setupDB: func(t *testing.T, db *sql.DB) int64 {
-				res, err := db.Exec(
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
 					`
-						INSERT INTO lists (name, modified) 
-						VALUES (?, ?)
-					`, "Inbox", time.Now(),
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 
-				listID, _ := res.LastInsertId()
-				res, err = db.Exec(
+				_, err = db.Exec(
 					`
 						INSERT INTO items (
+							id,
 							title, 
 							description, 
 							list_id, 
 							tags, 
 							modified, 
 							created
-						) VALUES (?, ?, ?, '[]', ?, ?)
-					`, "Original", "", listID, time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Original", "", "list-1", time.Now(), time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
 
-				id, _ := res.LastInsertId()
-
-				return id
+				return "item-1"
 			},
-			setupItem: func(id int64) model.Item {
+			setupItem: func(id string) model.Item {
 				item := model.Item{
 					ID:          id,
-					ListID:      1,
+					ListID:      "list-1",
 					Title:       "  Updated Title  ",
 					Description: "  Line 1  \n  Line 2",
-					Status: model.StatusDone,
+					Status:      model.StatusDone,
 					Tags:        []string{"updated", "tag"},
 					Modified:    time.Now(),
 					Created:     time.Now(),
@@ -1169,54 +1167,52 @@ func TestUpdateItem(t *testing.T) {
 				return item
 			},
 			wantItem: &model.Item{
-				ListID:      1,
+				ListID:      "list-1",
 				Title:       "Updated Title",
 				Description: "Line 1\n  Line 2",
-				Status: model.StatusDone,
+				Status:      model.StatusDone,
 				Tags:        []string{"updated", "tag"},
 			},
 			wantErr: false,
 		},
 		{
 			name: "invalid status",
-			setupDB: func(t *testing.T, db *sql.DB) int64 {
-				res, err := db.Exec(
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
 					`
-						INSERT INTO lists (name, modified) 
-						VALUES (?, ?)
-					`, "Inbox", time.Now(),
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 
-				listID, _ := res.LastInsertId()
-				res, err = db.Exec(
+				_, err = db.Exec(
 					`
 						INSERT INTO items (
+							id,
 							title, 
 							description, 
 							list_id, 
 							tags, 
 							modified, 
 							created
-						) VALUES (?, ?, ?, '[]', ?, ?)
-					`, "Valid", "", listID, time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
 
-				id, _ := res.LastInsertId()
-
-				return id
+				return "item-1"
 			},
-			setupItem: func(id int64) model.Item {
+			setupItem: func(id string) model.Item {
 				item := model.Item{
 					ID:       id,
-					ListID:   1,
+					ListID:   "list-1",
 					Title:    "Valid",
 					Status:   "bad_status",
 					Modified: time.Now(),
@@ -1228,44 +1224,42 @@ func TestUpdateItem(t *testing.T) {
 		},
 		{
 			name: "empty title",
-			setupDB: func(t *testing.T, db *sql.DB) int64 {
-				res, err := db.Exec(
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
 					`
-						INSERT INTO lists (name, modified) 
-						VALUES (?, ?)
-					`, "Inbox", time.Now(),
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 
-				listID, _ := res.LastInsertId()
-				res, err = db.Exec(
+				_, err = db.Exec(
 					`
 						INSERT INTO items (
+							id,
 							title, 
 							description, 
 							list_id, 
 							tags, 
 							modified, 
 							created
-						) VALUES (?, ?, ?, '[]', ?, ?)
-					`, "Valid", "", listID, time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
 
-				id, _ := res.LastInsertId()
-
-				return id
+				return "item-1"
 			},
-			setupItem: func(id int64) model.Item {
+			setupItem: func(id string) model.Item {
 				item := model.Item{
 					ID:       id,
-					ListID:   1,
+					ListID:   "list-1",
 					Title:    "",
 					Modified: time.Now(),
 				}
@@ -1276,13 +1270,13 @@ func TestUpdateItem(t *testing.T) {
 		},
 		{
 			name: "nonexistent id",
-			setupDB: func(t *testing.T, db *sql.DB) int64 {
-				return 999
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				return "non-existent"
 			},
-			setupItem: func(id int64) model.Item {
+			setupItem: func(id string) model.Item {
 				item := model.Item{
 					ID:       id,
-					ListID:   1,
+					ListID:   "list-1",
 					Title:    "Valid",
 					Modified: time.Now(),
 				}
@@ -1293,44 +1287,42 @@ func TestUpdateItem(t *testing.T) {
 		},
 		{
 			name: "context cancellation",
-			setupDB: func(t *testing.T, db *sql.DB) int64 {
-				res, err := db.Exec(
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
 					`
-						INSERT INTO lists (name, modified) 
-						VALUES (?, ?)
-					`, "Inbox", time.Now(),
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 
-				listID, _ := res.LastInsertId()
-				res, err = db.Exec(
+				_, err = db.Exec(
 					`
 						INSERT INTO items (
+							id,
 							title, 
 							description, 
 							list_id, 
 							tags, 
 							modified, 
 							created
-						) VALUES (?, ?, ?, '[]', ?, ?)
-					`, "Valid", "", listID, time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
 
-				id, _ := res.LastInsertId()
-
-				return id
+				return "item-1"
 			},
-			setupItem: func(id int64) model.Item {
+			setupItem: func(id string) model.Item {
 				item := model.Item{
 					ID:       id,
-					ListID:   1,
+					ListID:   "list-1",
 					Title:    "Valid",
 					Modified: time.Now(),
 				}
@@ -1426,53 +1418,57 @@ func TestUpdateItem(t *testing.T) {
 func TestMoveItem(t *testing.T) {
 	tests := []struct {
 		name     string
-		setupDB  func(t *testing.T, db *sql.DB) (int64, int64)
-		listID   int64
+		setupDB  func(t *testing.T, db *sql.DB) (string, string)
+		listID   string
 		position int
 		setupCtx func() (context.Context, context.CancelFunc)
-		wantItem *model.Item
 		wantErr  bool
+		wantItem *model.Item
 	}{
 		{
 			name: "valid move (new list and position)",
-			setupDB: func(t *testing.T, db *sql.DB) (int64, int64) {
-				_, _ = db.Exec(
+			setupDB: func(t *testing.T, db *sql.DB) (string, string) {
+				if _, err := db.Exec(
 					`
-						INSERT INTO lists (name, modified) 
-						VALUES (?, ?)
-					`, "List 1", time.Now(),
-				)
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "List 1", time.Now(),
+				); err != nil {
+					t.Fatalf("failed to insert list 1: %v", err)
+				}
 
-				res, _ := db.Exec(
+				if _, err := db.Exec(
 					`
-						INSERT INTO lists (name, modified) 
-						VALUES (?, ?)
-					`, "List 2", time.Now(),
-				)
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-2", "List 2", time.Now(),
+				); err != nil {
+					t.Fatalf("failed to insert list 2: %v", err)
+				}
 
-				targetListID, _ := res.LastInsertId()
-				res, _ = db.Exec(
+				if _, err := db.Exec(
 					`
 						INSERT INTO items (
+							id,
 							title, 
 							list_id, 
 							position, 
 							status, 
 							modified, 
 							created
-						) VALUES (?, ?, ?, ?, ?, ?)
-					`, "Item 1", 1, 0, "not_started", time.Now(), time.Now(),
-				)
+						) VALUES (?, ?, ?, ?, ?, ?, ?)
+					`, "item-1", "Item 1", "list-1", 0, "not_started", time.Now(), time.Now(),
+				); err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
 
-				id, _ := res.LastInsertId()
-
-				return id, targetListID
+				return "item-1", "list-2"
 			},
-			listID:   2,
+			listID:   "list-2",
 			position: 5,
 			wantErr:  false,
 			wantItem: &model.Item{
-				ListID:   2,
+				ListID:   "list-2",
 				Position: 5,
 				Title:    "Item 1",
 				Status:   model.StatusNotStarted,
@@ -1481,42 +1477,44 @@ func TestMoveItem(t *testing.T) {
 		},
 		{
 			name: "nonexistent id",
-			setupDB: func(t *testing.T, db *sql.DB) (int64, int64) {
-				return 999, 1
+			setupDB: func(t *testing.T, db *sql.DB) (string, string) {
+				return "non-existent", "list-1"
 			},
-			listID:   1,
+			listID:   "list-1",
 			position: 0,
 			wantErr:  true,
 		},
 		{
 			name: "context cancellation",
-			setupDB: func(t *testing.T, db *sql.DB) (int64, int64) {
-				res, _ := db.Exec(
+			setupDB: func(t *testing.T, db *sql.DB) (string, string) {
+				if _, err := db.Exec(
 					`
-						INSERT INTO lists (name, modified) 
-						VALUES (?, ?)
-					`, "List 1", time.Now(),
-				)
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "List 1", time.Now(),
+				); err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
 
-				listID, _ := res.LastInsertId()
-				res, _ = db.Exec(
+				if _, err := db.Exec(
 					`
 						INSERT INTO items (
+							id,
 							title, 
 							list_id, 
 							position, 
 							status, 
 							modified, 
 							created
-						) VALUES (?, ?, ?, ?, ?, ?)
-					`, "Item 1", listID, 0, "not_started", time.Now(), time.Now(),
-				)
+						) VALUES (?, ?, ?, ?, ?, ?, ?)
+					`, "item-1", "Item 1", "list-1", 0, "not_started", time.Now(), time.Now(),
+				); err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
 
-				id, _ := res.LastInsertId()
-
-				return id, listID
+				return "item-1", "list-1"
 			},
-			listID:   1,
+			listID:   "list-1",
 			position: 1,
 			setupCtx: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())
@@ -1605,90 +1603,86 @@ func TestMoveItem(t *testing.T) {
 func TestDeleteItem(t *testing.T) {
 	tests := []struct {
 		name     string
-		setupDB  func(t *testing.T, db *sql.DB) int64
+		setupDB  func(t *testing.T, db *sql.DB) string
 		setupCtx func() (context.Context, context.CancelFunc)
 		wantErr  bool
 	}{
 		{
 			name: "valid delete",
-			setupDB: func(t *testing.T, db *sql.DB) int64 {
-				res, err := db.Exec(
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
 					`
-						INSERT INTO lists (name, modified) 
-						VALUES (?, ?)
-					`, "Inbox", time.Now(),
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 
-				listID, _ := res.LastInsertId()
-				res, err = db.Exec(
+				_, err = db.Exec(
 					`
 						INSERT INTO items (
+							id,
 							title, 
 							description, 
 							list_id, 
 							tags, 
 							modified, 
 							created
-						) VALUES (?, ?, ?, '[]', ?, ?)
-					`, "Item to Delete", "", listID, time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Item to Delete", "", "list-1", time.Now(), time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
 
-				id, _ := res.LastInsertId()
-
-				return id
+				return "item-1"
 			},
 			wantErr: false,
 		},
 		{
 			name: "nonexistent id",
-			setupDB: func(t *testing.T, db *sql.DB) int64 {
-				return 999
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				return "non-existent"
 			},
 			wantErr: true,
 		},
 		{
 			name: "context cancellation",
-			setupDB: func(t *testing.T, db *sql.DB) int64 {
-				res, err := db.Exec(
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
 					`
-						INSERT INTO lists (name, modified) 
-						VALUES (?, ?)
-					`, "Inbox", time.Now(),
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 
-				listID, _ := res.LastInsertId()
-				res, err = db.Exec(
+				_, err = db.Exec(
 					`
 						INSERT INTO items (
+							id,
 							title, 
 							description, 
 							list_id, 
 							tags, 
 							modified, 
 							created
-						) VALUES (?, ?, ?, '[]', ?, ?)
-					`, "Valid", "", listID, time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),
 				)
 
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
 
-				id, _ := res.LastInsertId()
-
-				return id
+				return "item-1"
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())

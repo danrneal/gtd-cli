@@ -189,7 +189,7 @@ func TestListLists(t *testing.T) {
 							Title:      "Task 1",
 							ExternalID: stringPtr("T1"),
 							Position:   0,
-							ListID:     0,
+							ListID:     "0",
 							Status:     model.StatusOpen,
 						},
 					},
@@ -535,7 +535,7 @@ func TestCreateItem(t *testing.T) {
 			name:   "completed item",
 			listID: "L1",
 			item: model.Item{
-				Title:     "Done",
+				Title:  "Done",
 				Status: model.StatusDone,
 			},
 			handler: func(req *http.Request) *http.Response {
@@ -676,7 +676,7 @@ func TestListItems(t *testing.T) {
 		{
 			name: "basic properties (unsorted, position sort)",
 			list: model.List{
-				ID:         1,
+				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
@@ -708,14 +708,14 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:     1,
+					ListID:     "1",
 					Title:      "Task 1",
 					Position:   0,
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("t1"),
 				},
 				{
-					ListID:     1,
+					ListID:     "1",
 					Title:      "Task 2",
 					Position:   1,
 					Status:     model.StatusOpen,
@@ -726,7 +726,7 @@ func TestListItems(t *testing.T) {
 		{
 			name: "waiting for parsing",
 			list: model.List{
-				ID:         1,
+				ID:         "1",
 				Name:       "Waiting For",
 				ExternalID: stringPtr("L1"),
 			},
@@ -751,7 +751,7 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:     1,
+					ListID:     "1",
 					Title:      "Send Mail",
 					WaitingOn:  stringPtr("Alice"),
 					Status:     model.StatusOpen,
@@ -762,7 +762,7 @@ func TestListItems(t *testing.T) {
 		{
 			name: "project parsing",
 			list: model.List{
-				ID:         1,
+				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
@@ -787,7 +787,7 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:     1,
+					ListID:     "1",
 					Title:      "Task",
 					ProjectID:  stringPtr("ProjectA"),
 					Status:     model.StatusOpen,
@@ -798,7 +798,7 @@ func TestListItems(t *testing.T) {
 		{
 			name: "due date parsing (title)",
 			list: model.List{
-				ID:         1,
+				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
@@ -823,7 +823,7 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:     1,
+					ListID:     "1",
 					Title:      "Task",
 					Due:        iso8601ToDate("2024-01-01"),
 					Status:     model.StatusOpen,
@@ -833,7 +833,7 @@ func TestListItems(t *testing.T) {
 		{
 			name: "multiple tags",
 			list: model.List{
-				ID:         1,
+				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
@@ -858,7 +858,7 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:     1,
+					ListID:     "1",
 					Title:      "Task",
 					Tags:       []string{"tag1", "tag2"},
 					Status:     model.StatusOpen,
@@ -869,7 +869,7 @@ func TestListItems(t *testing.T) {
 		{
 			name: "completed task",
 			list: model.List{
-				ID:         1,
+				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
@@ -895,9 +895,9 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:     1,
+					ListID:     "1",
 					Title:      "Task",
-					Status: model.StatusDone,
+					Status:     model.StatusDone,
 					ExternalID: stringPtr("t1"),
 				},
 			},
@@ -905,7 +905,7 @@ func TestListItems(t *testing.T) {
 		{
 			name: "description included",
 			list: model.List{
-				ID:         1,
+				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
@@ -931,7 +931,7 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:      1,
+					ListID:      "1",
 					Title:       "Task",
 					Description: "My notes",
 					Status:      model.StatusOpen,
@@ -942,7 +942,7 @@ func TestListItems(t *testing.T) {
 		{
 			name: "native due date (snoozed)",
 			list: model.List{
-				ID:         1,
+				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
@@ -968,7 +968,7 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:     1,
+					ListID:     "1",
 					Title:      "Task",
 					Snoozed:    iso8601ToDate("2024-01-01"),
 					Status:     model.StatusOpen,
@@ -979,7 +979,7 @@ func TestListItems(t *testing.T) {
 		{
 			name: "updated timestamp",
 			list: model.List{
-				ID:         1,
+				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
@@ -1005,7 +1005,7 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:     1,
+					ListID:     "1",
 					Title:      "Task",
 					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
@@ -1016,7 +1016,7 @@ func TestListItems(t *testing.T) {
 		{
 			name: "api error",
 			list: model.List{
-				ID:         1,
+				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
@@ -1140,7 +1140,7 @@ func TestUpdateItem(t *testing.T) {
 			listID: "L1",
 			item: model.Item{
 				Title:      "Task",
-				Status: model.StatusDone,
+				Status:     model.StatusDone,
 				ExternalID: stringPtr("T1"),
 			},
 			handler: func(req *http.Request) *http.Response {

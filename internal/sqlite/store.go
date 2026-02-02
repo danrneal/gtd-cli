@@ -9,6 +9,7 @@ import (
 	"unicode"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
+	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -44,7 +45,7 @@ func NewStore(ctx context.Context, dbPath string) (*Store, error) {
 func (s *Store) createTables(ctx context.Context) error {
 	query := `
 		CREATE TABLE IF NOT EXISTS lists (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
 			position INTEGER NOT NULL DEFAULT 0,
 			modified DATETIME NOT NULL,
@@ -52,8 +53,8 @@ func (s *Store) createTables(ctx context.Context) error {
 		);
 
 		CREATE TABLE IF NOT EXISTS items (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			list_id INTEGER NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
+			id TEXT PRIMARY KEY,
+			list_id TEXT NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
 			position INTEGER NOT NULL DEFAULT 0,
 			status TEXT NOT NULL DEFAULT 'not_started',
 			title TEXT NOT NULL,
@@ -78,6 +79,7 @@ func (s *Store) createTables(ctx context.Context) error {
 
 // CreateList inserts a new list into the database.
 func (s *Store) CreateList(ctx context.Context, list model.List) error {
+	list.ID = uuid.NewString()[:8]
 	list.Name = strings.TrimSpace(list.Name)
 	if list.Name == "" {
 		return fmt.Errorf("list name cannot be empty")
@@ -85,14 +87,16 @@ func (s *Store) CreateList(ctx context.Context, list model.List) error {
 
 	query := `
 		INSERT INTO lists (
+			id,
 			name,
 			position,
 			modified,
 			external_id
-		) VALUES (?, ?, ?, ?);
+		) VALUES (?, ?, ?, ?, ?);
 	`
 
 	if _, err := s.db.ExecContext(ctx, query,
+		list.ID,
 		list.Name,
 		list.Position,
 		list.Modified,
@@ -111,7 +115,7 @@ func (s *Store) GetAllLists(ctx context.Context) ([]model.List, error) {
 		return nil, err
 	}
 
-	itemsByListID := make(map[int64][]model.Item)
+	itemsByListID := make(map[string][]model.Item)
 	for _, item := range items {
 		itemsByListID[item.ListID] = append(itemsByListID[item.ListID], item)
 	}
@@ -190,7 +194,7 @@ func (s *Store) UpdateList(ctx context.Context, list model.List) error {
 	)
 
 	if err != nil {
-		return fmt.Errorf("failed to update list %d: %w", list.ID, err)
+		return fmt.Errorf("failed to update list %s: %w", list.ID, err)
 	}
 
 	rowsAffected, err := res.RowsAffected()
@@ -199,18 +203,18 @@ func (s *Store) UpdateList(ctx context.Context, list model.List) error {
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("list with id %d not found", list.ID)
+		return fmt.Errorf("list with id %s not found", list.ID)
 	}
 
 	return nil
 }
 
 // DeleteList deletes a list from the database.
-func (s *Store) DeleteList(ctx context.Context, id int64) error {
+func (s *Store) DeleteList(ctx context.Context, id string) error {
 	query := `DELETE FROM lists WHERE id = ?;`
 	res, err := s.db.ExecContext(ctx, query, id)
 	if err != nil {
-		return fmt.Errorf("failed to delete list %d: %w", id, err)
+		return fmt.Errorf("failed to delete list %s: %w", id, err)
 	}
 
 	rows, err := res.RowsAffected()
@@ -219,7 +223,7 @@ func (s *Store) DeleteList(ctx context.Context, id int64) error {
 	}
 
 	if rows == 0 {
-		return fmt.Errorf("list with id %d not found", id)
+		return fmt.Errorf("list with id %s not found", id)
 	}
 
 	return nil
@@ -227,6 +231,7 @@ func (s *Store) DeleteList(ctx context.Context, id int64) error {
 
 // CreateItem inserts a new item into the database.
 func (s *Store) CreateItem(ctx context.Context, item model.Item) error {
+	item.ID = uuid.NewString()[:8]
 	if !isValidStatus(item.Status) {
 		return fmt.Errorf("invalid status: %q", item.Status)
 	}
@@ -244,6 +249,7 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item) error {
 
 	query := `
                 INSERT INTO items (
+                        id,
                         list_id,
                         position,
                         status,
@@ -257,10 +263,11 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item) error {
                         modified,
                         created,
                         external_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         `
 
 	if _, err := s.db.ExecContext(ctx, query,
+		item.ID,
 		item.ListID,
 		item.Position,
 		item.Status,
@@ -337,7 +344,7 @@ func (s *Store) GetAllItems(ctx context.Context) ([]model.Item, error) {
 
 		if tagsJSON != "" {
 			if err := json.Unmarshal([]byte(tagsJSON), &item.Tags); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal tags for item %d: %w", item.ID, err)
+				return nil, fmt.Errorf("failed to unmarshal tags for item %s: %w", item.ID, err)
 			}
 		}
 
@@ -402,7 +409,7 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
 	)
 
 	if err != nil {
-		return fmt.Errorf("failed to update item %d: %w", item.ID, err)
+		return fmt.Errorf("failed to update item %s: %w", item.ID, err)
 	}
 
 	rows, err := res.RowsAffected()
@@ -411,14 +418,14 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
 	}
 
 	if rows == 0 {
-		return fmt.Errorf("item with id %d not found", item.ID)
+		return fmt.Errorf("item with id %s not found", item.ID)
 	}
 
 	return nil
 }
 
 // MoveItem updates the list_id and position of an item without modifying its content.
-func (s *Store) MoveItem(ctx context.Context, id int64, listID int64, position int) error {
+func (s *Store) MoveItem(ctx context.Context, id string, listID string, position int) error {
 	query := `
 		UPDATE items SET 
 			list_id = ?, 
@@ -426,14 +433,14 @@ func (s *Store) MoveItem(ctx context.Context, id int64, listID int64, position i
 		WHERE id = ?;
 	`
 
-	res, err := s.db.ExecContext(ctx, query, 
-		listID, 
-		position, 
+	res, err := s.db.ExecContext(ctx, query,
+		listID,
+		position,
 		id,
 	)
 
 	if err != nil {
-		return fmt.Errorf("failed to move item %d: %w", id, err)
+		return fmt.Errorf("failed to move item %s: %w", id, err)
 	}
 
 	rows, err := res.RowsAffected()
@@ -442,18 +449,18 @@ func (s *Store) MoveItem(ctx context.Context, id int64, listID int64, position i
 	}
 
 	if rows == 0 {
-		return fmt.Errorf("item with id %d not found", id)
+		return fmt.Errorf("item with id %s not found", id)
 	}
 
 	return nil
 }
 
 // DeleteItem deletes an item from the database.
-func (s *Store) DeleteItem(ctx context.Context, id int64) error {
+func (s *Store) DeleteItem(ctx context.Context, id string) error {
 	query := `DELETE FROM items WHERE id = ?;`
 	res, err := s.db.ExecContext(ctx, query, id)
 	if err != nil {
-		return fmt.Errorf("failed to delete item %d: %w", id, err)
+		return fmt.Errorf("failed to delete item %s: %w", id, err)
 	}
 
 	rows, err := res.RowsAffected()
@@ -462,7 +469,7 @@ func (s *Store) DeleteItem(ctx context.Context, id int64) error {
 	}
 
 	if rows == 0 {
-		return fmt.Errorf("item with id %d not found", id)
+		return fmt.Errorf("item with id %s not found", id)
 	}
 
 	return nil
@@ -491,5 +498,3 @@ func multilineTrim(s string) string {
 
 	return s
 }
-
-

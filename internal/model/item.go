@@ -14,8 +14,8 @@ const (
 
 // Item represents a single task or action item within a List.
 type Item struct {
-	ID          int64      `json:"id"`
-	ListID      int64      `json:"list_id"`
+	ID          string     `json:"id"`
+	ListID      string     `json:"list_id"`
 	Position    int        `json:"position"`
 	Status      Status     `json:"status"`
 	Title       string     `json:"title"`
