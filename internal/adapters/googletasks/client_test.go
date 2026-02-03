@@ -1522,15 +1522,16 @@ func TestUpdateItem(t *testing.T) {
 func TestDeleteItem(t *testing.T) {
 	tests := []struct {
 		name    string
-		listID  string
-		itemID  string
+		item    model.Item
 		handler func(req *http.Request) *http.Response
 		wantErr bool
 	}{
 		{
-			name:   "success",
-			listID: "L1",
-			itemID: "T1",
+			name: "success",
+			item: model.Item{
+				ExternalID:     stringPtr("T1"),
+				ExternalListID: stringPtr("L1"),
+			},
 			handler: func(req *http.Request) *http.Response {
 				if req.Method != "DELETE" {
 					resp := &http.Response{
@@ -1563,9 +1564,11 @@ func TestDeleteItem(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:   "api error",
-			listID: "L1",
-			itemID: "T1",
+			name: "api error",
+			item: model.Item{
+				ExternalID:     stringPtr("T1"),
+				ExternalListID: stringPtr("L1"),
+			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: 500,
@@ -1592,7 +1595,7 @@ func TestDeleteItem(t *testing.T) {
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			tasksClient := NewClient(tasksService)
 
-			err := tasksClient.DeleteItem(context.Background(), tt.listID, tt.itemID)
+			err := tasksClient.DeleteItem(context.Background(), tt.item)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DeleteItem() error = %v, wantErr %v", err, tt.wantErr)

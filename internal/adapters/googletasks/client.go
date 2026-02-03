@@ -227,8 +227,8 @@ func (c *Client) moveItem(ctx context.Context, move common.Move) error {
 }
 
 // DeleteItem deletes a task from the specified Google Task list.
-func (c *Client) DeleteItem(ctx context.Context, listID, itemID string) error {
-	if err := c.service.Tasks.Delete(listID, itemID).Context(ctx).Do(); err != nil {
+func (c *Client) DeleteItem(ctx context.Context, item model.Item) error {
+	if err := c.service.Tasks.Delete(*item.ExternalListID, *item.ExternalID).Context(ctx).Do(); err != nil {
 		return fmt.Errorf("failed to delete task: %w", err)
 	}
 
