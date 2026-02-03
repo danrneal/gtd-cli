@@ -111,7 +111,7 @@ func (s *Store) CreateList(ctx context.Context, list model.List) (string, error)
 
 // ListLists returns all lists from the database, populated with their items.
 func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
-	items, err := s.ListAllItems(ctx)
+	items, err := s.listAllItems(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -297,8 +297,8 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item) (string, error)
 	return item.ID, nil
 }
 
-// ListAllItems returns all items from the database.
-func (s *Store) ListAllItems(ctx context.Context) ([]model.Item, error) {
+// listAllItems returns all items from the database.
+func (s *Store) listAllItems(ctx context.Context) ([]model.Item, error) {
 	query := `
 		SELECT
 			id,

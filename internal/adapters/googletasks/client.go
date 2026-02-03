@@ -59,7 +59,7 @@ func (c *Client) ListLists(ctx context.Context) ([]model.List, error) {
 			}
 		}
 
-		items, err := c.ListItems(ctx, list)
+		items, err := c.listItems(ctx, list)
 		if err != nil {
 			return nil, err
 		}
@@ -135,9 +135,9 @@ func (c *Client) CreateItem(ctx context.Context, item model.Item, previousItemID
 	return task.Id, nil
 }
 
-// ListItems retrieves all tasks from the specified list and converts them to internal Items.
+// listItems retrieves all tasks from the specified list and converts them to internal Items.
 // It handles fetching, sorting, and parsing metadata from task titles.
-func (c *Client) ListItems(ctx context.Context, list model.List) ([]model.Item, error) {
+func (c *Client) listItems(ctx context.Context, list model.List) ([]model.Item, error) {
 	tasks, err := c.service.Tasks.List(*list.ExternalID).ShowHidden(true).MaxResults(100).Context(ctx).Do()
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve tasks for list %q: %w", list.Name, err)

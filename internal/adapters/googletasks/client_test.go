@@ -1316,23 +1316,23 @@ func TestListItems(t *testing.T) {
 			tasksSerice, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			tasksClient := NewClient(tasksSerice)
 
-			got, err := tasksClient.ListItems(context.Background(), tt.list)
+			got, err := tasksClient.listItems(context.Background(), tt.list)
 
 			if tt.wantErr {
 				if err == nil {
-					t.Error("ListItems() expected error, got nil")
+					t.Error("listItems() expected error, got nil")
 				}
 
 				return
 			}
 
 			if err != nil {
-				t.Errorf("ListItems() unexpected error: %v", err)
+				t.Errorf("listItems() unexpected error: %v", err)
 				return
 			}
 
 			if diff := cmp.Diff(tt.wantItems, got); diff != "" {
-				t.Errorf("ListItems() mismatch (-want +got):\n%s", diff)
+				t.Errorf("listItems() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
