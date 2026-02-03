@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/danrneal/gtd.nvim/internal/adapters/common"
 	"github.com/danrneal/gtd.nvim/internal/model"
+	"github.com/danrneal/gtd.nvim/internal/providers/common"
 	"google.golang.org/api/tasks/v1"
 )
 

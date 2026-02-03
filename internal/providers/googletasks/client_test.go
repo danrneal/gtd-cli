@@ -337,13 +337,13 @@ func TestUpdateList(t *testing.T) {
 
 				resp := &http.Response{
 					StatusCode: 200,
-					Body:       io.NopCloser(bytes.NewBufferString(`
+					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"id": "L1", 
 							"title": "Updated List"
 						}
 					`)),
-					Header:     make(http.Header),
+					Header: make(http.Header),
 				}
 
 				return resp
@@ -357,15 +357,15 @@ func TestUpdateList(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 				Items: []model.Item{
 					{
-						ExternalID: stringPtr("A"), 
+						ExternalID:     stringPtr("A"),
 						ExternalListID: stringPtr("L1"),
 					},
 					{
-						ExternalID: stringPtr("B"), 
+						ExternalID:     stringPtr("B"),
 						ExternalListID: stringPtr("L1"),
 					},
 					{
-						ExternalID: stringPtr("C"), 
+						ExternalID:     stringPtr("C"),
 						ExternalListID: stringPtr("L1"),
 					},
 				},
@@ -379,13 +379,13 @@ func TestUpdateList(t *testing.T) {
 				if req.Method == "PATCH" && req.URL.Path == "/tasks/v1/users/@me/lists/L1" {
 					resp := &http.Response{
 						StatusCode: 200,
-						Body:       io.NopCloser(bytes.NewBufferString(`
+						Body: io.NopCloser(bytes.NewBufferString(`
 							{
 								"id": "L1", 
 								"title": "My List"
 							}
 						`)),
-						Header:     make(http.Header),
+						Header: make(http.Header),
 					}
 
 					return resp
@@ -428,7 +428,7 @@ func TestUpdateList(t *testing.T) {
 				ExternalID: stringPtr("L2"),
 				Items: []model.Item{
 					{
-						ExternalID: stringPtr("A"), 
+						ExternalID:     stringPtr("A"),
 						ExternalListID: stringPtr("L1"),
 					},
 				},
@@ -437,7 +437,7 @@ func TestUpdateList(t *testing.T) {
 			handler: func(req *http.Request) *http.Response {
 				if req.Method == "PATCH" && req.URL.Path == "/tasks/v1/users/@me/lists/L2" {
 					resp := &http.Response{
-						StatusCode: 200, 
+						StatusCode: 200,
 						Body: io.NopCloser(bytes.NewBufferString(`
 							{
 								"id": "L2", 
@@ -452,24 +452,24 @@ func TestUpdateList(t *testing.T) {
 				if req.Method == "POST" && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
 					if req.URL.Query().Get("destinationTasklist") == "L2" {
 						resp := &http.Response{
-							StatusCode: 200, 
-							Body: io.NopCloser(bytes.NewBufferString(`{}`)),
+							StatusCode: 200,
+							Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
 						}
 
 						return resp
 					}
 
 					resp := &http.Response{
-						StatusCode: 400, 
-						Body: io.NopCloser(bytes.NewBufferString("Wrong Destination")),
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Wrong Destination")),
 					}
 
 					return resp
 				}
 
 				resp := &http.Response{
-					StatusCode: 400, 
-					Body: io.NopCloser(bytes.NewBufferString("Unexpected Request")),
+					StatusCode: 400,
+					Body:       io.NopCloser(bytes.NewBufferString("Unexpected Request")),
 				}
 
 				return resp
@@ -483,11 +483,11 @@ func TestUpdateList(t *testing.T) {
 				ExternalID: stringPtr("L2"),
 				Items: []model.Item{
 					{
-						ExternalID: stringPtr("B"), 
+						ExternalID:     stringPtr("B"),
 						ExternalListID: stringPtr("L2"),
 					},
 					{
-						ExternalID: stringPtr("A"), 
+						ExternalID:     stringPtr("A"),
 						ExternalListID: stringPtr("L1"),
 					},
 				},
@@ -498,7 +498,7 @@ func TestUpdateList(t *testing.T) {
 			handler: func(req *http.Request) *http.Response {
 				if req.Method == "PATCH" && req.URL.Path == "/tasks/v1/users/@me/lists/L2" {
 					resp := &http.Response{
-						StatusCode: 200, 
+						StatusCode: 200,
 						Body: io.NopCloser(bytes.NewBufferString(`
 							{
 								"id": "L2", 
@@ -513,24 +513,24 @@ func TestUpdateList(t *testing.T) {
 					q := req.URL.Query()
 					if q.Get("destinationTasklist") == "L2" && q.Get("previous") == "B" {
 						resp := &http.Response{
-							StatusCode: 200, 
-							Body: io.NopCloser(bytes.NewBufferString(`{}`)),
+							StatusCode: 200,
+							Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
 						}
 
 						return resp
 					}
 
 					resp := &http.Response{
-						StatusCode: 400, 
-						Body: io.NopCloser(bytes.NewBufferString("Wrong Params")),
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Wrong Params")),
 					}
 
 					return resp
 				}
 
 				resp := &http.Response{
-					StatusCode: 400, 
-					Body: io.NopCloser(bytes.NewBufferString("Unexpected Request")),
+					StatusCode: 400,
+					Body:       io.NopCloser(bytes.NewBufferString("Unexpected Request")),
 				}
 
 				return resp
@@ -561,11 +561,11 @@ func TestUpdateList(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 				Items: []model.Item{
 					{
-						ExternalID: stringPtr("A"), 
+						ExternalID:     stringPtr("A"),
 						ExternalListID: stringPtr("L1"),
 					},
 					{
-						ExternalID: stringPtr("B"), 
+						ExternalID:     stringPtr("B"),
 						ExternalListID: stringPtr("L1"),
 					},
 				},
@@ -578,13 +578,13 @@ func TestUpdateList(t *testing.T) {
 				if req.Method == "PATCH" && req.URL.Path == "/tasks/v1/users/@me/lists/L1" {
 					resp := &http.Response{
 						StatusCode: 200,
-						Body:       io.NopCloser(bytes.NewBufferString(`
+						Body: io.NopCloser(bytes.NewBufferString(`
 							{
 								"id": "L1", 
 								"title": "My List"
 							}
 						`)),
-						Header:     make(http.Header),
+						Header: make(http.Header),
 					}
 
 					return resp
@@ -601,8 +601,8 @@ func TestUpdateList(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 400, 
-					Body: io.NopCloser(bytes.NewBufferString("Unexpected Request")),
+					StatusCode: 400,
+					Body:       io.NopCloser(bytes.NewBufferString("Unexpected Request")),
 				}
 
 				return resp
