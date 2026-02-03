@@ -186,11 +186,12 @@ func TestListLists(t *testing.T) {
 					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
 					Items: []model.Item{
 						{
-							Title:      "Task 1",
-							ExternalID: stringPtr("T1"),
-							Position:   0,
-							ListID:     "",
-							Status:     model.StatusOpen,
+							Title:          "Task 1",
+							ExternalID:     stringPtr("T1"),
+							Position:       0,
+							ListID:         "",
+							Status:         model.StatusOpen,
+							ExternalListID: stringPtr("L1"),
 						},
 					},
 				},
@@ -289,17 +290,19 @@ func TestListLists(t *testing.T) {
 
 func TestUpdateList(t *testing.T) {
 	tests := []struct {
-		name    string
-		list    model.List
-		handler func(req *http.Request) *http.Response
-		wantErr bool
+		name         string
+		list         model.List
+		currentItems []model.Item
+		handler      func(req *http.Request) *http.Response
+		wantErr      bool
 	}{
 		{
-			name: "success",
+			name: "success (rename only)",
 			list: model.List{
 				Name:       "Updated List",
 				ExternalID: stringPtr("L1"),
 			},
+			currentItems: nil,
 			handler: func(req *http.Request) *http.Response {
 				if req.Method != "PATCH" {
 					resp := &http.Response{
@@ -334,7 +337,12 @@ func TestUpdateList(t *testing.T) {
 
 				resp := &http.Response{
 					StatusCode: 200,
-					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "L1", "title": "Updated List"}`)),
+					Body:       io.NopCloser(bytes.NewBufferString(`
+						{
+							"id": "L1", 
+							"title": "Updated List"
+						}
+					`)),
 					Header:     make(http.Header),
 				}
 
@@ -343,7 +351,194 @@ func TestUpdateList(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "api error",
+			name: "success with reordering",
+			list: model.List{
+				Name:       "My List",
+				ExternalID: stringPtr("L1"),
+				Items: []model.Item{
+					{
+						ExternalID: stringPtr("A"), 
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						ExternalID: stringPtr("B"), 
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						ExternalID: stringPtr("C"), 
+						ExternalListID: stringPtr("L1"),
+					},
+				},
+			},
+			currentItems: []model.Item{
+				{ExternalID: stringPtr("B")},
+				{ExternalID: stringPtr("C")},
+				{ExternalID: stringPtr("A")},
+			},
+			handler: func(req *http.Request) *http.Response {
+				if req.Method == "PATCH" && req.URL.Path == "/tasks/v1/users/@me/lists/L1" {
+					resp := &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(bytes.NewBufferString(`
+							{
+								"id": "L1", 
+								"title": "My List"
+							}
+						`)),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				if req.Method == "POST" && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
+					if req.URL.Query().Get("previous") == "" {
+						resp := &http.Response{
+							StatusCode: 200,
+							Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
+							Header:     make(http.Header),
+						}
+
+						return resp
+					}
+
+					resp := &http.Response{
+						StatusCode: 400,
+						Body:       io.NopCloser(bytes.NewBufferString("Wrong Previous")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 400,
+					Body:       io.NopCloser(bytes.NewBufferString("Unexpected Request: " + req.URL.String())),
+					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
+			name: "success with relocation (change list)",
+			list: model.List{
+				Name:       "Target List",
+				ExternalID: stringPtr("L2"),
+				Items: []model.Item{
+					{
+						ExternalID: stringPtr("A"), 
+						ExternalListID: stringPtr("L1"),
+					},
+				},
+			},
+			currentItems: []model.Item{},
+			handler: func(req *http.Request) *http.Response {
+				if req.Method == "PATCH" && req.URL.Path == "/tasks/v1/users/@me/lists/L2" {
+					resp := &http.Response{
+						StatusCode: 200, 
+						Body: io.NopCloser(bytes.NewBufferString(`
+							{
+								"id": "L2", 
+								"title": "Target List"
+							}
+						`)),
+					}
+
+					return resp
+				}
+
+				if req.Method == "POST" && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
+					if req.URL.Query().Get("destinationTasklist") == "L2" {
+						resp := &http.Response{
+							StatusCode: 200, 
+							Body: io.NopCloser(bytes.NewBufferString(`{}`)),
+						}
+
+						return resp
+					}
+
+					resp := &http.Response{
+						StatusCode: 400, 
+						Body: io.NopCloser(bytes.NewBufferString("Wrong Destination")),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 400, 
+					Body: io.NopCloser(bytes.NewBufferString("Unexpected Request")),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
+			name: "success with relocation and reorder",
+			list: model.List{
+				Name:       "Target List",
+				ExternalID: stringPtr("L2"),
+				Items: []model.Item{
+					{
+						ExternalID: stringPtr("B"), 
+						ExternalListID: stringPtr("L2"),
+					},
+					{
+						ExternalID: stringPtr("A"), 
+						ExternalListID: stringPtr("L1"),
+					},
+				},
+			},
+			currentItems: []model.Item{
+				{ExternalID: stringPtr("B")},
+			},
+			handler: func(req *http.Request) *http.Response {
+				if req.Method == "PATCH" && req.URL.Path == "/tasks/v1/users/@me/lists/L2" {
+					resp := &http.Response{
+						StatusCode: 200, 
+						Body: io.NopCloser(bytes.NewBufferString(`
+							{
+								"id": "L2", 
+								"title": "Target List"
+							}
+						`))}
+
+					return resp
+				}
+
+				if req.Method == "POST" && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
+					q := req.URL.Query()
+					if q.Get("destinationTasklist") == "L2" && q.Get("previous") == "B" {
+						resp := &http.Response{
+							StatusCode: 200, 
+							Body: io.NopCloser(bytes.NewBufferString(`{}`)),
+						}
+
+						return resp
+					}
+
+					resp := &http.Response{
+						StatusCode: 400, 
+						Body: io.NopCloser(bytes.NewBufferString("Wrong Params")),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 400, 
+					Body: io.NopCloser(bytes.NewBufferString("Unexpected Request")),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
+			name: "update failure",
 			list: model.List{
 				Name:       "Fail List",
 				ExternalID: stringPtr("L1"),
@@ -353,6 +548,61 @@ func TestUpdateList(t *testing.T) {
 					StatusCode: 500,
 					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
 					Header:     make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: true,
+		},
+		{
+			name: "move failure",
+			list: model.List{
+				Name:       "My List",
+				ExternalID: stringPtr("L1"),
+				Items: []model.Item{
+					{
+						ExternalID: stringPtr("A"), 
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						ExternalID: stringPtr("B"), 
+						ExternalListID: stringPtr("L1"),
+					},
+				},
+			},
+			currentItems: []model.Item{
+				{ExternalID: stringPtr("B")},
+				{ExternalID: stringPtr("A")},
+			},
+			handler: func(req *http.Request) *http.Response {
+				if req.Method == "PATCH" && req.URL.Path == "/tasks/v1/users/@me/lists/L1" {
+					resp := &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(bytes.NewBufferString(`
+							{
+								"id": "L1", 
+								"title": "My List"
+							}
+						`)),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				if req.Method == "POST" && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
+					resp := &http.Response{
+						StatusCode: 500,
+						Body:       io.NopCloser(bytes.NewBufferString(`{"error": "move failed"}`)),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: 400, 
+					Body: io.NopCloser(bytes.NewBufferString("Unexpected Request")),
 				}
 
 				return resp
@@ -374,7 +624,7 @@ func TestUpdateList(t *testing.T) {
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			tasksClient := NewClient(tasksService)
 
-			err := tasksClient.UpdateList(context.Background(), tt.list)
+			err := tasksClient.UpdateList(context.Background(), tt.list, tt.currentItems)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateList() error = %v, wantErr %v", err, tt.wantErr)
@@ -476,7 +726,8 @@ func TestCreateItem(t *testing.T) {
 			name:   "simple item",
 			listID: "L1",
 			item: model.Item{
-				Title: "Simple",
+				Title:          "Simple",
+				ExternalListID: stringPtr("L1"),
 			},
 			handler: func(req *http.Request) *http.Response {
 				if req.Method != "POST" {
@@ -535,8 +786,9 @@ func TestCreateItem(t *testing.T) {
 			name:   "completed item",
 			listID: "L1",
 			item: model.Item{
-				Title:  "Done",
-				Status: model.StatusDone,
+				Title:          "Done",
+				Status:         model.StatusDone,
+				ExternalListID: stringPtr("L1"),
 			},
 			handler: func(req *http.Request) *http.Response {
 				body, _ := io.ReadAll(req.Body)
@@ -565,8 +817,9 @@ func TestCreateItem(t *testing.T) {
 			name:   "snoozed item",
 			listID: "L1",
 			item: model.Item{
-				Title:   "Snoozed",
-				Snoozed: iso8601ToDate("2024-01-01"),
+				Title:          "Snoozed",
+				Snoozed:        iso8601ToDate("2024-01-01"),
+				ExternalListID: stringPtr("L1"),
 			},
 			handler: func(req *http.Request) *http.Response {
 				body, _ := io.ReadAll(req.Body)
@@ -595,7 +848,8 @@ func TestCreateItem(t *testing.T) {
 			name:   "item with previous",
 			listID: "L1",
 			item: model.Item{
-				Title: "Task",
+				Title:          "Task",
+				ExternalListID: stringPtr("L1"),
 			},
 			previousItemID: "P1",
 			handler: func(req *http.Request) *http.Response {
@@ -624,7 +878,8 @@ func TestCreateItem(t *testing.T) {
 			name:   "api error",
 			listID: "L1",
 			item: model.Item{
-				Title: "Fail",
+				Title:          "Fail",
+				ExternalListID: stringPtr("L1"),
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
@@ -652,7 +907,7 @@ func TestCreateItem(t *testing.T) {
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			tasksClient := NewClient(tasksService)
 
-			gotID, err := tasksClient.CreateItem(context.Background(), tt.listID, tt.item, tt.previousItemID)
+			gotID, err := tasksClient.CreateItem(context.Background(), tt.item, tt.previousItemID)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateItem() error = %v, wantErr %v", err, tt.wantErr)
@@ -708,18 +963,20 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:     "1",
-					Title:      "Task 1",
-					Position:   0,
-					Status:     model.StatusOpen,
-					ExternalID: stringPtr("t1"),
+					ListID:         "1",
+					Title:          "Task 1",
+					Position:       0,
+					Status:         model.StatusOpen,
+					ExternalID:     stringPtr("t1"),
+					ExternalListID: stringPtr("L1"),
 				},
 				{
-					ListID:     "1",
-					Title:      "Task 2",
-					Position:   1,
-					Status:     model.StatusOpen,
-					ExternalID: stringPtr("t2"),
+					ListID:         "1",
+					Title:          "Task 2",
+					Position:       1,
+					Status:         model.StatusOpen,
+					ExternalID:     stringPtr("t2"),
+					ExternalListID: stringPtr("L1"),
 				},
 			},
 		},
@@ -751,11 +1008,12 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:     "1",
-					Title:      "Send Mail",
-					WaitingOn:  stringPtr("Alice"),
-					Status:     model.StatusOpen,
-					ExternalID: stringPtr("t1"),
+					ListID:         "1",
+					Title:          "Send Mail",
+					WaitingOn:      stringPtr("Alice"),
+					Status:         model.StatusOpen,
+					ExternalID:     stringPtr("t1"),
+					ExternalListID: stringPtr("L1"),
 				},
 			},
 		},
@@ -787,11 +1045,12 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:     "1",
-					Title:      "Task",
-					ProjectID:  stringPtr("ProjectA"),
-					Status:     model.StatusOpen,
-					ExternalID: stringPtr("t1"),
+					ListID:         "1",
+					Title:          "Task",
+					ProjectID:      stringPtr("ProjectA"),
+					Status:         model.StatusOpen,
+					ExternalID:     stringPtr("t1"),
+					ExternalListID: stringPtr("L1"),
 				},
 			},
 		},
@@ -823,11 +1082,12 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:     "1",
-					Title:      "Task",
-					Due:        iso8601ToDate("2024-01-01"),
-					Status:     model.StatusOpen,
-					ExternalID: stringPtr("t1")},
+					ListID:         "1",
+					Title:          "Task",
+					Due:            iso8601ToDate("2024-01-01"),
+					Status:         model.StatusOpen,
+					ExternalID:     stringPtr("t1"),
+					ExternalListID: stringPtr("L1")},
 			},
 		},
 		{
@@ -858,11 +1118,12 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:     "1",
-					Title:      "Task",
-					Tags:       []string{"tag1", "tag2"},
-					Status:     model.StatusOpen,
-					ExternalID: stringPtr("t1"),
+					ListID:         "1",
+					Title:          "Task",
+					Tags:           []string{"tag1", "tag2"},
+					Status:         model.StatusOpen,
+					ExternalID:     stringPtr("t1"),
+					ExternalListID: stringPtr("L1"),
 				},
 			},
 		},
@@ -895,10 +1156,11 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:     "1",
-					Title:      "Task",
-					Status:     model.StatusDone,
-					ExternalID: stringPtr("t1"),
+					ListID:         "1",
+					Title:          "Task",
+					Status:         model.StatusDone,
+					ExternalID:     stringPtr("t1"),
+					ExternalListID: stringPtr("L1"),
 				},
 			},
 		},
@@ -931,11 +1193,12 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:      "1",
-					Title:       "Task",
-					Description: "My notes",
-					Status:      model.StatusOpen,
-					ExternalID:  stringPtr("t1"),
+					ListID:         "1",
+					Title:          "Task",
+					Description:    "My notes",
+					Status:         model.StatusOpen,
+					ExternalID:     stringPtr("t1"),
+					ExternalListID: stringPtr("L1"),
 				},
 			},
 		},
@@ -968,11 +1231,12 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:     "1",
-					Title:      "Task",
-					Snoozed:    iso8601ToDate("2024-01-01"),
-					Status:     model.StatusOpen,
-					ExternalID: stringPtr("t1"),
+					ListID:         "1",
+					Title:          "Task",
+					Snoozed:        iso8601ToDate("2024-01-01"),
+					Status:         model.StatusOpen,
+					ExternalID:     stringPtr("t1"),
+					ExternalListID: stringPtr("L1"),
 				},
 			},
 		},
@@ -1005,11 +1269,12 @@ func TestListItems(t *testing.T) {
 			},
 			wantItems: []model.Item{
 				{
-					ListID:     "1",
-					Title:      "Task",
-					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
-					Status:     model.StatusOpen,
-					ExternalID: stringPtr("t1"),
+					ListID:         "1",
+					Title:          "Task",
+					Modified:       rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Status:         model.StatusOpen,
+					ExternalID:     stringPtr("t1"),
+					ExternalListID: stringPtr("L1"),
 				},
 			},
 		},
@@ -1085,8 +1350,9 @@ func TestUpdateItem(t *testing.T) {
 			name:   "simple item",
 			listID: "L1",
 			item: model.Item{
-				Title:      "Updated Task",
-				ExternalID: stringPtr("T1"),
+				Title:          "Updated Task",
+				ExternalID:     stringPtr("T1"),
+				ExternalListID: stringPtr("L1"),
 			},
 			handler: func(req *http.Request) *http.Response {
 				if req.Method != "PATCH" {
@@ -1139,9 +1405,10 @@ func TestUpdateItem(t *testing.T) {
 			name:   "completed item",
 			listID: "L1",
 			item: model.Item{
-				Title:      "Task",
-				Status:     model.StatusDone,
-				ExternalID: stringPtr("T1"),
+				Title:          "Task",
+				Status:         model.StatusDone,
+				ExternalID:     stringPtr("T1"),
+				ExternalListID: stringPtr("L1"),
 			},
 			handler: func(req *http.Request) *http.Response {
 				body, _ := io.ReadAll(req.Body)
@@ -1174,9 +1441,10 @@ func TestUpdateItem(t *testing.T) {
 			name:   "snoozed item",
 			listID: "L1",
 			item: model.Item{
-				Title:      "Task",
-				Snoozed:    iso8601ToDate("2024-01-01"),
-				ExternalID: stringPtr("T1"),
+				Title:          "Task",
+				Snoozed:        iso8601ToDate("2024-01-01"),
+				ExternalID:     stringPtr("T1"),
+				ExternalListID: stringPtr("L1"),
 			},
 			handler: func(req *http.Request) *http.Response {
 				body, _ := io.ReadAll(req.Body)
@@ -1208,8 +1476,9 @@ func TestUpdateItem(t *testing.T) {
 			name:   "api error",
 			listID: "L1",
 			item: model.Item{
-				Title:      "Fail",
-				ExternalID: stringPtr("T1"),
+				Title:          "Fail",
+				ExternalID:     stringPtr("T1"),
+				ExternalListID: stringPtr("L1"),
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
@@ -1241,177 +1510,10 @@ func TestUpdateItem(t *testing.T) {
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			tasksClient := NewClient(tasksService)
 
-			err := tasksClient.UpdateItem(context.Background(), tt.listID, tt.item)
+			err := tasksClient.UpdateItem(context.Background(), tt.item)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateItem() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestMoveItem(t *testing.T) {
-	tests := []struct {
-		name              string
-		listID            string
-		itemID            string
-		previousItemID    string
-		destinationListID string
-		handler           func(req *http.Request) *http.Response
-		wantErr           bool
-	}{
-		{
-			name:           "move (reorder only)",
-			listID:         "L1",
-			itemID:         "T1",
-			previousItemID: "P1",
-			handler: func(req *http.Request) *http.Response {
-				if req.Method != "POST" {
-					resp := &http.Response{
-						StatusCode: 405,
-						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				if req.URL.Path != "/tasks/v1/lists/L1/tasks/T1/move" {
-					resp := &http.Response{
-						StatusCode: 404,
-						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				if req.URL.Query().Get("previous") != "P1" {
-					resp := &http.Response{
-						StatusCode: 400,
-						Body:       io.NopCloser(bytes.NewBufferString("Bad Previous")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				if req.URL.Query().Get("destinationTasklist") != "" {
-					resp := &http.Response{
-						StatusCode: 400,
-						Body:       io.NopCloser(bytes.NewBufferString("Bad Destination")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				resp := &http.Response{
-					StatusCode: 200,
-					Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
-					Header:     make(http.Header),
-				}
-
-				return resp
-			},
-			wantErr: false,
-		},
-		{
-			name:              "move (relocate only)",
-			listID:            "L1",
-			itemID:            "T1",
-			destinationListID: "L2",
-			handler: func(req *http.Request) *http.Response {
-				if req.URL.Query().Get("destinationTasklist") != "L2" {
-					resp := &http.Response{
-						StatusCode: 400,
-						Body:       io.NopCloser(bytes.NewBufferString("Bad Destination")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				resp := &http.Response{
-					StatusCode: 200,
-					Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
-					Header:     make(http.Header),
-				}
-
-				return resp
-			},
-			wantErr: false,
-		},
-		{
-			name:              "move (both)",
-			listID:            "L1",
-			itemID:            "T1",
-			previousItemID:    "P1",
-			destinationListID: "L2",
-			handler: func(req *http.Request) *http.Response {
-				if req.URL.Query().Get("previous") != "P1" {
-					resp := &http.Response{
-						StatusCode: 400,
-						Body:       io.NopCloser(bytes.NewBufferString("Bad Previous")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-				if req.URL.Query().Get("destinationTasklist") != "L2" {
-					resp := &http.Response{
-						StatusCode: 400,
-						Body:       io.NopCloser(bytes.NewBufferString("Bad Destination")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				resp := &http.Response{
-					StatusCode: 200,
-					Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
-					Header:     make(http.Header),
-				}
-
-				return resp
-			},
-			wantErr: false,
-		},
-		{
-			name:   "api error",
-			listID: "L1",
-			itemID: "T1",
-			handler: func(req *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: 500,
-					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
-					Header:     make(http.Header),
-				}
-
-				return resp
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockClient := &http.Client{
-				Transport: &mockTransport{
-					roundTripFunc: func(req *http.Request) (*http.Response, error) {
-						return tt.handler(req), nil
-					},
-				},
-			}
-
-			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
-			tasksClient := NewClient(tasksService)
-
-			err := tasksClient.MoveItem(context.Background(), tt.listID, tt.itemID, tt.previousItemID, tt.destinationListID)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("MoveItem() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

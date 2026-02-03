@@ -420,10 +420,11 @@ func TestUpdateList(t *testing.T) {
 		setupList func(id string) model.List
 		setupCtx  func() (context.Context, context.CancelFunc)
 		wantList  *model.List
+		wantItems []model.Item
 		wantErr   bool
 	}{
 		{
-			name: "valid update (with whitespace in title)",
+			name: "valid update (rename and reorder)",
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				_, err := db.Exec(
 					`
@@ -436,6 +437,39 @@ func TestUpdateList(t *testing.T) {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 
+				if _, err := db.Exec(
+					`
+						INSERT INTO items (
+							id, 
+							title, 
+							description,
+							list_id, 
+							position, 
+							status, 
+							modified, 
+							created
+						) 
+						VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-1", "A", "", "list-1", 0, "not_started", time.Now(), time.Now()); err != nil {
+					t.Fatalf("failed to insert item 1: %v", err)
+				}
+
+				if _, err := db.Exec(
+					`
+						INSERT INTO items (
+							id, 
+							title, 
+							description,
+							list_id, 
+							position, 
+							status, 
+							modified, 
+							created
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-2", "B", "", "list-1", 1, "not_started", time.Now(), time.Now()); err != nil {
+					t.Fatalf("failed to insert item 2: %v", err)
+				}
+
 				return "list-1"
 			},
 			setupList: func(id string) model.List {
@@ -444,13 +478,48 @@ func TestUpdateList(t *testing.T) {
 					Name:     "  New Name  ",
 					Position: 5,
 					Modified: time.Now(),
+					Items: []model.Item{
+						{
+							ID:       "item-2",
+							ListID:   id,
+							Position: 0,
+							Title:    "B",
+							Status:   model.StatusNotStarted,
+						},
+						{
+							ID:       "item-1",
+							ListID:   id,
+							Position: 1,
+							Title:    "A",
+							Status:   model.StatusNotStarted,
+						},
+					},
 				}
 
 				return list
 			},
 			wantList: &model.List{
+				ID:       "list-1",
 				Name:     "New Name",
 				Position: 5,
+			},
+			wantItems: []model.Item{
+				{
+					ID:       "item-2",
+					ListID:   "list-1",
+					Position: 0,
+					Title:    "B",
+					Status:   model.StatusNotStarted,
+					Tags:     []string{},
+				},
+				{
+					ID:       "item-1",
+					ListID:   "list-1",
+					Position: 1,
+					Title:    "A",
+					Status:   model.StatusNotStarted,
+					Tags:     []string{},
+				},
 			},
 			wantErr: false,
 		},
@@ -492,6 +561,31 @@ func TestUpdateList(t *testing.T) {
 					ID:       id,
 					Name:     "Valid Name",
 					Modified: time.Now(),
+				}
+
+				return list
+			},
+			wantList: nil,
+			wantErr:  true,
+		},
+		{
+			name: "nonexistent item id",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, _ = db.Exec(
+					`
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "List", time.Now())
+
+				return "list-1"
+			},
+			setupList: func(id string) model.List {
+				list := model.List{
+					ID:   id,
+					Name: "List",
+					Items: []model.Item{
+						{ID: "missing-item", ListID: id, Position: 0},
+					},
 				}
 
 				return list
@@ -596,6 +690,21 @@ func TestUpdateList(t *testing.T) {
 
 				if diff := cmp.Diff(*tt.wantList, gotList, opts...); diff != "" {
 					t.Errorf("UpdateList() mismatch (-want +got):\n%s", diff)
+				}
+
+				if tt.wantItems != nil {
+					items, err := store.ListAllItems(context.Background())
+					if err != nil {
+						t.Fatalf("failed to list all items: %v", err)
+					}
+
+					itemOpts := []cmp.Option{
+						cmpopts.IgnoreFields(model.Item{}, "Modified", "Created", "Snoozed", "Due"),
+					}
+
+					if diff := cmp.Diff(tt.wantItems, items, itemOpts...); diff != "" {
+						t.Errorf("UpdateList() items mismatch (-want +got):\n%s", diff)
+					}
 				}
 			}
 		})
@@ -1163,7 +1272,8 @@ func TestUpdateItem(t *testing.T) {
 			setupItem: func(id string) model.Item {
 				item := model.Item{
 					ID:          id,
-					ListID:      "list-1",
+					ListID:      "list-2", // Should be ignored
+					Position:    99,       // Should be ignored
 					Title:       "  Updated Title  ",
 					Description: "  Line 1  \n  Line 2",
 					Status:      model.StatusDone,
@@ -1175,7 +1285,8 @@ func TestUpdateItem(t *testing.T) {
 				return item
 			},
 			wantItem: &model.Item{
-				ListID:      "list-1",
+				ListID:      "list-1", // Verify original
+				Position:    0,        // Verify original
 				Title:       "Updated Title",
 				Description: "Line 1\n  Line 2",
 				Status:      model.StatusDone,
@@ -1391,11 +1502,11 @@ func TestUpdateItem(t *testing.T) {
 				var tagsJSON string
 				err = db.QueryRow(
 					`
-						SELECT id, list_id, title, COALESCE(description, ''), status, tags 
+						SELECT id, list_id, title, COALESCE(description, ''), status, tags, position
 						FROM items 
 						WHERE id = ?
 					`, id,
-				).Scan(&gotItem.ID, &gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Status, &tagsJSON)
+				).Scan(&gotItem.ID, &gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Status, &tagsJSON, &gotItem.Position)
 
 				if err != nil {
 					t.Fatalf("failed to query item: %v", err)
@@ -1417,191 +1528,6 @@ func TestUpdateItem(t *testing.T) {
 
 				if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {
 					t.Errorf("UpdateItem() mismatch (-want +got):\n%s", diff)
-				}
-			}
-		})
-	}
-}
-
-func TestMoveItem(t *testing.T) {
-	tests := []struct {
-		name     string
-		setupDB  func(t *testing.T, db *sql.DB) (string, string)
-		listID   string
-		position int
-		setupCtx func() (context.Context, context.CancelFunc)
-		wantErr  bool
-		wantItem *model.Item
-	}{
-		{
-			name: "valid move (new list and position)",
-			setupDB: func(t *testing.T, db *sql.DB) (string, string) {
-				if _, err := db.Exec(
-					`
-						INSERT INTO lists (id, name, modified) 
-						VALUES (?, ?, ?)
-					`, "list-1", "List 1", time.Now(),
-				); err != nil {
-					t.Fatalf("failed to insert list 1: %v", err)
-				}
-
-				if _, err := db.Exec(
-					`
-						INSERT INTO lists (id, name, modified) 
-						VALUES (?, ?, ?)
-					`, "list-2", "List 2", time.Now(),
-				); err != nil {
-					t.Fatalf("failed to insert list 2: %v", err)
-				}
-
-				if _, err := db.Exec(
-					`
-						INSERT INTO items (
-							id,
-							title, 
-							list_id, 
-							position, 
-							status, 
-							modified, 
-							created
-						) VALUES (?, ?, ?, ?, ?, ?, ?)
-					`, "item-1", "Item 1", "list-1", 0, "not_started", time.Now(), time.Now(),
-				); err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
-
-				return "item-1", "list-2"
-			},
-			listID:   "list-2",
-			position: 5,
-			wantErr:  false,
-			wantItem: &model.Item{
-				ListID:   "list-2",
-				Position: 5,
-				Title:    "Item 1",
-				Status:   model.StatusNotStarted,
-				Tags:     []string{},
-			},
-		},
-		{
-			name: "nonexistent id",
-			setupDB: func(t *testing.T, db *sql.DB) (string, string) {
-				return "non-existent", "list-1"
-			},
-			listID:   "list-1",
-			position: 0,
-			wantErr:  true,
-		},
-		{
-			name: "context cancellation",
-			setupDB: func(t *testing.T, db *sql.DB) (string, string) {
-				if _, err := db.Exec(
-					`
-						INSERT INTO lists (id, name, modified) 
-						VALUES (?, ?, ?)
-					`, "list-1", "List 1", time.Now(),
-				); err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
-
-				if _, err := db.Exec(
-					`
-						INSERT INTO items (
-							id,
-							title, 
-							list_id, 
-							position, 
-							status, 
-							modified, 
-							created
-						) VALUES (?, ?, ?, ?, ?, ?, ?)
-					`, "item-1", "Item 1", "list-1", 0, "not_started", time.Now(), time.Now(),
-				); err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
-
-				return "item-1", "list-1"
-			},
-			listID:   "list-1",
-			position: 1,
-			setupCtx: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
-				cancel()
-				return ctx, cancel
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			dbPath := filepath.Join(tmpDir, "test.db")
-
-			var ctx context.Context
-			var cancel context.CancelFunc
-
-			if tt.setupCtx != nil {
-				ctx, cancel = tt.setupCtx()
-				defer cancel()
-			} else {
-				ctx = context.Background()
-			}
-
-			store, err := sqlite.NewStore(context.Background(), dbPath)
-			if err != nil {
-				t.Fatalf("failed to create store: %v", err)
-			}
-
-			db, err := sql.Open("sqlite3", dbPath)
-			if err != nil {
-				t.Fatalf("failed to open db for setup: %v", err)
-			}
-
-			defer db.Close()
-
-			itemID, _ := tt.setupDB(t, db)
-
-			err = store.MoveItem(ctx, itemID, tt.listID, tt.position)
-
-			if tt.wantErr {
-				if err == nil {
-					t.Error("MoveItem() expected error, got nil")
-				}
-			} else {
-				if err != nil {
-					t.Errorf("MoveItem() unexpected error: %v", err)
-				}
-
-				var gotItem model.Item
-				var tagsJSON string
-				err = db.QueryRow(
-					`
-						SELECT id, list_id, title, COALESCE(description, ''), status, tags, position
-						FROM items 
-						WHERE id = ?
-					`, itemID,
-				).Scan(&gotItem.ID, &gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Status, &tagsJSON, &gotItem.Position)
-
-				if err != nil {
-					t.Fatalf("failed to query item: %v", err)
-				}
-
-				if err := json.Unmarshal([]byte(tagsJSON), &gotItem.Tags); err != nil {
-					t.Fatalf("failed to unmarshal tags: %v", err)
-				}
-				if gotItem.Tags == nil {
-					gotItem.Tags = []string{}
-				}
-
-				tt.wantItem.ID = itemID
-
-				opts := []cmp.Option{
-					cmpopts.IgnoreFields(model.Item{}, "Modified", "Created", "Snoozed", "Due", "ProjectID", "WaitingOn", "ExternalID"),
-				}
-
-				if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {
-					t.Errorf("MoveItem() mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})

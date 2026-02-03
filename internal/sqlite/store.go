@@ -66,7 +66,8 @@ func (s *Store) createTables(ctx context.Context) error {
 			tags TEXT NOT NULL DEFAULT '[]',
 			modified DATETIME NOT NULL,
 			created DATETIME NOT NULL,
-			external_id TEXT
+			external_id TEXT,
+			external_list_id TEXT
 		);
 	`
 
@@ -206,6 +207,12 @@ func (s *Store) UpdateList(ctx context.Context, list model.List) error {
 		return fmt.Errorf("list with id %s not found", list.ID)
 	}
 
+	for _, item := range list.Items {
+		if err := s.updateItemLocation(ctx, item); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -262,8 +269,9 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item) (string, error)
                         tags,
                         modified,
                         created,
-                        external_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                        external_id,
+			external_list_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         `
 
 	if _, err := s.db.ExecContext(ctx, query,
@@ -281,6 +289,7 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item) (string, error)
 		item.Modified,
 		item.Created,
 		item.ExternalID,
+		item.ExternalListID,
 	); err != nil {
 		return "", fmt.Errorf("failed to insert item: %w", err)
 	}
@@ -305,7 +314,8 @@ func (s *Store) ListAllItems(ctx context.Context) ([]model.Item, error) {
 			tags,
 			modified,
 			created,
-			external_id
+			external_id,
+			external_list_id
 		FROM items
 		ORDER BY position
 	`
@@ -336,6 +346,7 @@ func (s *Store) ListAllItems(ctx context.Context) ([]model.Item, error) {
 			&item.Modified,
 			&item.Created,
 			&item.ExternalID,
+			&item.ExternalListID,
 		)
 
 		if err != nil {
@@ -377,8 +388,6 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
 
 	query := `
                 UPDATE items SET
-                        list_id = ?,
-                        position = ?,
                         status = ?,
                         title = ?,
                         description = ?,
@@ -393,8 +402,6 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
         `
 
 	res, err := s.db.ExecContext(ctx, query,
-		item.ListID,
-		item.Position,
 		item.Status,
 		item.Title,
 		item.Description,
@@ -424,23 +431,26 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
 	return nil
 }
 
-// MoveItem updates the list_id and position of an item without modifying its content.
-func (s *Store) MoveItem(ctx context.Context, id string, listID string, position int) error {
+// updateItemLocation updates the list_id, position, and external_list_id of an item.
+// It is used to implement moves and reordering within UpdateList.
+func (s *Store) updateItemLocation(ctx context.Context, item model.Item) error {
 	query := `
 		UPDATE items SET 
 			list_id = ?, 
-			position = ? 
+			position = ?,
+			external_list_id = ?
 		WHERE id = ?;
 	`
 
 	res, err := s.db.ExecContext(ctx, query,
-		listID,
-		position,
-		id,
+		item.ListID,
+		item.Position,
+		item.ExternalListID,
+		item.ID,
 	)
 
 	if err != nil {
-		return fmt.Errorf("failed to move item %s: %w", id, err)
+		return fmt.Errorf("failed to move item %s: %w", item.ID, err)
 	}
 
 	rows, err := res.RowsAffected()
@@ -449,7 +459,7 @@ func (s *Store) MoveItem(ctx context.Context, id string, listID string, position
 	}
 
 	if rows == 0 {
-		return fmt.Errorf("item with id %s not found", id)
+		return fmt.Errorf("item with id %s not found", item.ID)
 	}
 
 	return nil

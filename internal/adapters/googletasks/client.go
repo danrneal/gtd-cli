@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/danrneal/gtd.nvim/internal/adapters/common"
 	"github.com/danrneal/gtd.nvim/internal/model"
 	"google.golang.org/api/tasks/v1"
 )
@@ -71,13 +72,20 @@ func (c *Client) ListLists(ctx context.Context) ([]model.List, error) {
 }
 
 // UpdateList updates an existing task list on Google Tasks.
-func (c *Client) UpdateList(ctx context.Context, list model.List) error {
+func (c *Client) UpdateList(ctx context.Context, list model.List, currentItems []model.Item) error {
 	tasklist := &tasks.TaskList{
 		Title: list.Name,
 	}
 
 	if _, err := c.service.Tasklists.Patch(*list.ExternalID, tasklist).Context(ctx).Do(); err != nil {
 		return fmt.Errorf("failed to update tasklist %s: %w", tasklist.Title, err)
+	}
+
+	moves := common.CalculateMoves(list, currentItems)
+	for _, move := range moves {
+		if err := c.moveItem(ctx, move); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -95,7 +103,7 @@ func (c *Client) DeleteList(ctx context.Context, listID string) error {
 // CreateItem creates a new task in the specified Google Task list.
 // If previousItemID is provided, the task is inserted after that item.
 // It renders the item's title to include metadata (project, tags, due date) compatible with the parser.
-func (c *Client) CreateItem(ctx context.Context, listID string, item model.Item, previousItemID string) (string, error) {
+func (c *Client) CreateItem(ctx context.Context, item model.Item, previousItemID string) (string, error) {
 	title := renderTitle(item)
 	status := "needsAction"
 	if item.Status == model.StatusDone {
@@ -114,7 +122,7 @@ func (c *Client) CreateItem(ctx context.Context, listID string, item model.Item,
 		Due:    due,
 	}
 
-	tasksInsertCall := c.service.Tasks.Insert(listID, task)
+	tasksInsertCall := c.service.Tasks.Insert(*item.ExternalListID, task)
 	if previousItemID != "" {
 		tasksInsertCall.Previous(previousItemID)
 	}
@@ -166,6 +174,7 @@ func (c *Client) ListItems(ctx context.Context, list model.List) ([]model.Item, 
 
 		externalID := task.Id
 		item.ExternalID = &externalID
+		item.ExternalListID = list.ExternalID
 		items = append(items, item)
 	}
 
@@ -173,7 +182,7 @@ func (c *Client) ListItems(ctx context.Context, list model.List) ([]model.Item, 
 }
 
 // UpdateItem updates an existing task in the specified Google Task list.
-func (c *Client) UpdateItem(ctx context.Context, listID string, item model.Item) error {
+func (c *Client) UpdateItem(ctx context.Context, item model.Item) error {
 	title := renderTitle(item)
 	status := "needsAction"
 	if item.Status == model.StatusDone {
@@ -192,22 +201,22 @@ func (c *Client) UpdateItem(ctx context.Context, listID string, item model.Item)
 		Due:    due,
 	}
 
-	if _, err := c.service.Tasks.Patch(listID, *item.ExternalID, task).Context(ctx).Do(); err != nil {
+	if _, err := c.service.Tasks.Patch(*item.ExternalListID, *item.ExternalID, task).Context(ctx).Do(); err != nil {
 		return fmt.Errorf("failed to update task: %w", err)
 	}
 
 	return nil
 }
 
-// MoveItem moves a task to a new position, potentially in a different list.
-func (c *Client) MoveItem(ctx context.Context, listID, itemID, previousItemID, destinationListID string) error {
-	tasksMoveCall := c.service.Tasks.Move(listID, itemID)
-	if previousItemID != "" {
-		tasksMoveCall.Previous(previousItemID)
+// moveItem moves a task to a new position, potentially in a different list.
+func (c *Client) moveItem(ctx context.Context, move common.Move) error {
+	tasksMoveCall := c.service.Tasks.Move(move.SourceListID, move.ItemID)
+	if move.PreviousItemID != "" {
+		tasksMoveCall.Previous(move.PreviousItemID)
 	}
 
-	if destinationListID != "" {
-		tasksMoveCall.DestinationTasklist(destinationListID)
+	if move.DestinationListID != "" {
+		tasksMoveCall.DestinationTasklist(move.DestinationListID)
 	}
 
 	if _, err := tasksMoveCall.Context(ctx).Do(); err != nil {
