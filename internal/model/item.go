@@ -7,15 +7,15 @@ type Status string
 
 const (
 	// StatusOpen indicates the item is active (either not started or in progress).
-	StatusOpen       Status = "open"
+	StatusOpen Status = "open"
 	// StatusNotStarted indicates the item has not been started yet.
 	StatusNotStarted Status = "not_started"
 	// StatusInProgress indicates the item is currently being worked on.
 	StatusInProgress Status = "in_progress"
 	// StatusDone indicates the item has been completed.
-	StatusDone       Status = "done"
+	StatusDone Status = "done"
 	// StatusDeleted indicates the item has been deleted.
-	StatusDeleted    Status = "deleted"
+	StatusDeleted Status = "deleted"
 )
 
 // Item represents a single task or action item within a List.
