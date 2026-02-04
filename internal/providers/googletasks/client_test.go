@@ -39,7 +39,7 @@ func TestGetKey(t *testing.T) {
 			wantKey: "L1",
 		},
 		{
-			name: "item with nil external id",
+			name:     "item with nil external id",
 			resource: &model.Item{},
 			wantKey:  "",
 		},
@@ -140,14 +140,14 @@ func TestCreateList(t *testing.T) {
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			tasksClient := NewClient(tasksService)
 
-			gotID, err := tasksClient.CreateList(context.Background(), tt.list)
+			gotList, err := tasksClient.CreateList(context.Background(), tt.list)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateList() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if !tt.wantErr && gotID != tt.wantID {
-				t.Errorf("CreateList() gotID = %v, want %v", gotID, tt.wantID)
+			if !tt.wantErr && *gotList.ExternalID != tt.wantID {
+				t.Errorf("CreateList() gotExternalID = %v, want %v", *gotList.ExternalID, tt.wantID)
 			}
 		})
 	}
@@ -216,6 +216,7 @@ func TestListLists(t *testing.T) {
 					Name:       "Inbox",
 					ExternalID: stringPtr("L1"),
 					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Status:     model.StatusOpen,
 					Items: []model.Item{
 						{
 							Title:          "Task 1",
@@ -939,14 +940,14 @@ func TestCreateItem(t *testing.T) {
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			tasksClient := NewClient(tasksService)
 
-			gotID, err := tasksClient.CreateItem(context.Background(), tt.item, tt.previousItemID)
+			gotItem, err := tasksClient.CreateItem(context.Background(), tt.item, tt.previousItemID)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateItem() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if !tt.wantErr && gotID != tt.wantID {
-				t.Errorf("CreateItem() gotID = %v, want %v", gotID, tt.wantID)
+			if !tt.wantErr && *gotItem.ExternalID != tt.wantID {
+				t.Errorf("CreateItem() gotExternalID = %v, want %v", *gotItem.ExternalID, tt.wantID)
 			}
 		})
 	}
