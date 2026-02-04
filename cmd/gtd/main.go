@@ -6,8 +6,9 @@ import (
 	"log"
 	"strings"
 
-	"github.com/danrneal/gtd.nvim/internal/adapters/googletasks"
-	"github.com/danrneal/gtd.nvim/internal/sqlite"
+	"github.com/danrneal/gtd.nvim/internal/app"
+	"github.com/danrneal/gtd.nvim/internal/providers/googletasks"
+	"github.com/danrneal/gtd.nvim/internal/providers/sqlite"
 )
 
 var (
@@ -39,7 +40,8 @@ func main() {
 			}
 
 			tasksClient := googletasks.NewClient(tasksService)
-			_ = tasksClient
+			tasksSyncer := app.NewSyncer(sqliteStore, tasksClient)
+			_ = tasksSyncer
 		default:
 			log.Fatalf("unsupported adapter: %q. Supported adapters are: google_tasks", adapter)
 		}
