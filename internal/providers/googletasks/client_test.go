@@ -23,6 +23,38 @@ func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return m.roundTripFunc(req)
 }
 
+func TestGetKey(t *testing.T) {
+	client := &Client{}
+
+	tests := []struct {
+		name     string
+		resource model.Resource
+		wantKey  string
+	}{
+		{
+			name: "list pointer with id",
+			resource: &model.List{
+				ExternalID: stringPtr("L1"),
+			},
+			wantKey: "L1",
+		},
+		{
+			name: "item with nil external id",
+			resource: &model.Item{},
+			wantKey:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := client.GetKey(tt.resource)
+			if got != tt.wantKey {
+				t.Errorf("GetKey() = %v, want %v", got, tt.wantKey)
+			}
+		})
+	}
+}
+
 func TestCreateList(t *testing.T) {
 	tests := []struct {
 		name    string

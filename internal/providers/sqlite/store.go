@@ -78,12 +78,6 @@ func (s *Store) createTables(ctx context.Context) error {
 	return nil
 }
 
-// GetKey returns an error because the local store does not generate external keys.
-// It satisfies the Provider interface.
-func (s *Store) GetKey(_ model.Resource) (string, error) {
-	return "", fmt.Errorf("local store does not support key generation; use remote provider's GetKey instead")
-}
-
 // CreateList inserts a new list into the database.
 func (s *Store) CreateList(ctx context.Context, list model.List) (string, error) {
 	list.ID = uuid.NewString()[:8]
