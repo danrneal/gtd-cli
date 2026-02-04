@@ -24,6 +24,15 @@ func NewClient(service *tasks.Service) *Client {
 	return client
 }
 
+// GetKey extracts the external ID from the resource.
+func (c *Client) GetKey(resource model.Resource) (string, error) {
+	if extID := resource.GetExternalID(); extID != nil {
+		return *extID, nil
+	}
+
+	return "", nil
+}
+
 // CreateList creates a new task list on the Google Tasks service.
 func (c *Client) CreateList(ctx context.Context, list model.List) (string, error) {
 	tasklist := &tasks.TaskList{

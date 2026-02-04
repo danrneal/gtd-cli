@@ -11,3 +11,8 @@ type List struct {
 	ExternalID *string   `json:"external_id"`
 	Items      []Item    `json:"items"`
 }
+
+// GetExternalID returns the external ID of the list.
+func (l List) GetExternalID() *string {
+	return l.ExternalID
+}
