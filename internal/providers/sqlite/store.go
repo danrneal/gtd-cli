@@ -48,6 +48,7 @@ func (s *Store) createTables(ctx context.Context) error {
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
 			position INTEGER NOT NULL DEFAULT 0,
+			status TEXT NOT NULL DEFAULT 'open',
 			modified DATETIME NOT NULL,
 			external_id TEXT
 		);
@@ -79,11 +80,11 @@ func (s *Store) createTables(ctx context.Context) error {
 }
 
 // CreateList inserts a new list into the database.
-func (s *Store) CreateList(ctx context.Context, list model.List) (string, error) {
+func (s *Store) CreateList(ctx context.Context, list model.List) (model.List, error) {
 	list.ID = uuid.NewString()[:8]
 	list.Name = strings.TrimSpace(list.Name)
 	if list.Name == "" {
-		return "", fmt.Errorf("list name cannot be empty")
+		return model.List{}, fmt.Errorf("list name cannot be empty")
 	}
 
 	query := `
@@ -91,22 +92,24 @@ func (s *Store) CreateList(ctx context.Context, list model.List) (string, error)
 			id,
 			name,
 			position,
+			status,
 			modified,
 			external_id
-		) VALUES (?, ?, ?, ?, ?);
+		) VALUES (?, ?, ?, ?, ?, ?);
 	`
 
 	if _, err := s.db.ExecContext(ctx, query,
 		list.ID,
 		list.Name,
 		list.Position,
+		model.StatusOpen,
 		list.Modified,
 		list.ExternalID,
 	); err != nil {
-		return "", fmt.Errorf("failed to insert list: %w", err)
+		return model.List{}, fmt.Errorf("failed to insert list: %w", err)
 	}
 
-	return list.ID, nil
+	return list, nil
 }
 
 // ListLists returns all lists from the database, populated with their items.
@@ -126,6 +129,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 			id,
 			name,
 			position,
+			status,
 			modified,
 			external_id
 		FROM lists
@@ -146,6 +150,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 			&list.ID,
 			&list.Name,
 			&list.Position,
+			&list.Status,
 			&list.Modified,
 			&list.ExternalID,
 		)
@@ -186,6 +191,7 @@ func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []
                 UPDATE lists SET
                         name = ?,
                         position = ?,
+                        status = ?,
                         modified = ?,
                         external_id = ?
                 WHERE id = ?;
@@ -194,6 +200,7 @@ func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []
 	res, err := s.db.ExecContext(ctx, query,
 		list.Name,
 		list.Position,
+		list.Status,
 		list.Modified,
 		list.ExternalID,
 		list.ID,
@@ -247,21 +254,21 @@ func (s *Store) DeleteList(ctx context.Context, id string) error {
 
 // CreateItem inserts a new item into the database.
 // The previousItemID parameter is ignored by the SQLite store but kept for interface consistency.
-func (s *Store) CreateItem(ctx context.Context, item model.Item, _ string) (string, error) {
+func (s *Store) CreateItem(ctx context.Context, item model.Item, _ string) (model.Item, error) {
 	item.ID = uuid.NewString()[:8]
 	if !isValidStatus(item.Status) {
-		return "", fmt.Errorf("invalid status: %q", item.Status)
+		return model.Item{}, fmt.Errorf("invalid status: %q", item.Status)
 	}
 
 	item.Title = strings.TrimSpace(item.Title)
 	if item.Title == "" {
-		return "", fmt.Errorf("item title cannot be empty")
+		return model.Item{}, fmt.Errorf("item title cannot be empty")
 	}
 
 	item.Description = multilineTrim(item.Description)
 	tagsJSON, err := json.Marshal(item.Tags)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal tags: %w", err)
+		return model.Item{}, fmt.Errorf("failed to marshal tags: %w", err)
 	}
 
 	query := `
@@ -301,10 +308,10 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item, _ string) (stri
 		item.ExternalID,
 		item.ExternalListID,
 	); err != nil {
-		return "", fmt.Errorf("failed to insert item: %w", err)
+		return model.Item{}, fmt.Errorf("failed to insert item: %w", err)
 	}
 
-	return item.ID, nil
+	return item, nil
 }
 
 // listAllItems returns all items from the database.

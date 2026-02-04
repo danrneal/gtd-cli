@@ -203,7 +203,7 @@ func TestCreateList(t *testing.T) {
 				t.Fatalf("failed to create store: %v", err)
 			}
 
-			gotID, err := store.CreateList(ctx, tt.list)
+			gotList, err := store.CreateList(ctx, tt.list)
 
 			if tt.wantErr {
 				if err == nil {
@@ -214,7 +214,7 @@ func TestCreateList(t *testing.T) {
 					t.Errorf("CreateList() unexpected error: %v", err)
 				}
 
-				if gotID == "" {
+				if gotList.ID == "" {
 					t.Error("CreateList() returned empty ID")
 				}
 
@@ -278,9 +278,10 @@ func TestListLists(t *testing.T) {
 			},
 			wantLists: []model.List{
 				{
-					ID:    "list-1",
-					Name:  "Inbox",
-					Items: []model.Item{},
+					ID:     "list-1",
+					Name:   "Inbox",
+					Status: model.StatusOpen,
+					Items:  []model.Item{},
 				},
 			},
 			wantErr: false,
@@ -319,8 +320,9 @@ func TestListLists(t *testing.T) {
 			},
 			wantLists: []model.List{
 				{
-					ID:   "list-2",
-					Name: "Work",
+					ID:     "list-2",
+					Name:   "Work",
+					Status: model.StatusOpen,
 					Items: []model.Item{
 						{
 							ID:     "item-1",
@@ -368,8 +370,9 @@ func TestListLists(t *testing.T) {
 			},
 			wantLists: []model.List{
 				{
-					ID:   "list-3",
-					Name: "Complex",
+					ID:     "list-3",
+					Name:   "Complex",
+					Status: model.StatusOpen,
 					Items: []model.Item{
 						{
 							ID:     "item-2",
@@ -1138,7 +1141,7 @@ func TestCreateItem(t *testing.T) {
 				tt.setupDB(t, db)
 			}
 
-			gotID, err := store.CreateItem(ctx, tt.item, "")
+			gotItem, err := store.CreateItem(ctx, tt.item, "")
 
 			if tt.wantErr {
 				if err == nil {
@@ -1149,7 +1152,7 @@ func TestCreateItem(t *testing.T) {
 					t.Errorf("CreateItem() unexpected error: %v", err)
 				}
 
-				if gotID == "" {
+				if gotItem.ID == "" {
 					t.Error("CreateItem() returned empty ID")
 				}
 
