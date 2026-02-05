@@ -14,6 +14,11 @@ type List struct {
 }
 
 // GetExternalID returns the external ID of the list.
-func (l List) GetExternalID() *string {
+func (l *List) GetExternalID() *string {
 	return l.ExternalID
+}
+
+// SetExternalID sets the external ID of the list.
+func (l *List) SetExternalID(externalID string) {
+	l.ExternalID = &externalID
 }

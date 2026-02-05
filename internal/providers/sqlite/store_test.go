@@ -203,7 +203,7 @@ func TestCreateList(t *testing.T) {
 				t.Fatalf("failed to create store: %v", err)
 			}
 
-			gotList, err := store.CreateList(ctx, tt.list)
+			gotID, err := store.CreateList(ctx, tt.list)
 
 			if tt.wantErr {
 				if err == nil {
@@ -214,7 +214,7 @@ func TestCreateList(t *testing.T) {
 					t.Errorf("CreateList() unexpected error: %v", err)
 				}
 
-				if gotList.ID == "" {
+				if gotID == "" {
 					t.Error("CreateList() returned empty ID")
 				}
 
@@ -920,7 +920,7 @@ func TestDeleteList(t *testing.T) {
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
-				
+
 				list := model.List{ID: "list-1"}
 
 				return list
@@ -1146,7 +1146,7 @@ func TestCreateItem(t *testing.T) {
 				tt.setupDB(t, db)
 			}
 
-			gotItem, err := store.CreateItem(ctx, tt.item, "")
+			gotID, err := store.CreateItem(ctx, tt.item, "")
 
 			if tt.wantErr {
 				if err == nil {
@@ -1157,7 +1157,7 @@ func TestCreateItem(t *testing.T) {
 					t.Errorf("CreateItem() unexpected error: %v", err)
 				}
 
-				if gotItem.ID == "" {
+				if gotID == "" {
 					t.Error("CreateItem() returned empty ID")
 				}
 

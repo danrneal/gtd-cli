@@ -22,6 +22,11 @@ type Item struct {
 }
 
 // GetExternalID returns the external ID of the item.
-func (i Item) GetExternalID() *string {
+func (i *Item) GetExternalID() *string {
 	return i.ExternalID
+}
+
+// SetExternalID sets the external ID of the item.
+func (i *Item) SetExternalID(externalID string) {
+	i.ExternalID = &externalID
 }

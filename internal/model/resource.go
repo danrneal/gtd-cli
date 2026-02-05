@@ -16,8 +16,9 @@ const (
 	StatusDeleted Status = "deleted"
 )
 
-// Resource is an interface for objects that have an external ID.
+// Resource is an interface for domain objects (like Lists and Items) that can be
+// identified and linked across different providers via an External ID.
 type Resource interface {
-	// GetExternalID returns the external ID of the resource.
 	GetExternalID() *string
+	SetExternalID(string)
 }

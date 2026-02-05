@@ -55,6 +55,33 @@ func TestGetKey(t *testing.T) {
 	}
 }
 
+func TestSetKey(t *testing.T) {
+	client := &Client{}
+
+	tests := []struct {
+		name     string
+		resource model.Resource
+		key      string
+	}{
+		{
+			name:     "set list key",
+			resource: &model.List{},
+			key:      "L1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client.SetKey(tt.resource, tt.key)
+
+			got := client.GetKey(tt.resource)
+			if got != tt.key {
+				t.Errorf("SetKey() did not set key correctly, got %v, want %v", got, tt.key)
+			}
+		})
+	}
+}
+
 func TestCreateList(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -140,14 +167,14 @@ func TestCreateList(t *testing.T) {
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			tasksClient := NewClient(tasksService)
 
-			gotList, err := tasksClient.CreateList(context.Background(), tt.list)
+			gotID, err := tasksClient.CreateList(context.Background(), tt.list)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateList() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if !tt.wantErr && *gotList.ExternalID != tt.wantID {
-				t.Errorf("CreateList() gotExternalID = %v, want %v", *gotList.ExternalID, tt.wantID)
+			if !tt.wantErr && gotID != tt.wantID {
+				t.Errorf("CreateList() gotID = %v, want %v", gotID, tt.wantID)
 			}
 		})
 	}
@@ -944,14 +971,14 @@ func TestCreateItem(t *testing.T) {
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			tasksClient := NewClient(tasksService)
 
-			gotItem, err := tasksClient.CreateItem(context.Background(), tt.item, tt.previousItemID)
+			gotID, err := tasksClient.CreateItem(context.Background(), tt.item, tt.previousItemID)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateItem() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if !tt.wantErr && *gotItem.ExternalID != tt.wantID {
-				t.Errorf("CreateItem() gotExternalID = %v, want %v", *gotItem.ExternalID, tt.wantID)
+			if !tt.wantErr && gotID != tt.wantID {
+				t.Errorf("CreateItem() gotID = %v, want %v", gotID, tt.wantID)
 			}
 		})
 	}

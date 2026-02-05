@@ -33,20 +33,23 @@ func (c *Client) GetKey(resource model.Resource) string {
 	return ""
 }
 
+// SetKey sets the external key on the resource (in-memory).
+func (c *Client) SetKey(resource model.Resource, key string) {
+	resource.SetExternalID(key)
+}
+
 // CreateList creates a new task list on the Google Tasks service.
-func (c *Client) CreateList(ctx context.Context, list model.List) (model.List, error) {
+func (c *Client) CreateList(ctx context.Context, list model.List) (string, error) {
 	tasklist := &tasks.TaskList{
 		Title: list.Name,
 	}
 
 	taskList, err := c.service.Tasklists.Insert(tasklist).Context(ctx).Do()
 	if err != nil {
-		return model.List{}, fmt.Errorf("failed to create tasklist %s: %w", tasklist.Title, err)
+		return "", fmt.Errorf("failed to create tasklist %s: %w", tasklist.Title, err)
 	}
 
-	list.ExternalID = &taskList.Id
-
-	return list, nil
+	return taskList.Id, nil
 }
 
 // ListLists retrieves all task lists from Google Tasks.
@@ -115,7 +118,7 @@ func (c *Client) DeleteList(ctx context.Context, list model.List) error {
 // CreateItem creates a new task in the specified Google Task list.
 // If previousItemID is provided, the task is inserted after that item.
 // It renders the item's title to include metadata (project, tags, due date) compatible with the parser.
-func (c *Client) CreateItem(ctx context.Context, item model.Item, previousItemID string) (model.Item, error) {
+func (c *Client) CreateItem(ctx context.Context, item model.Item, previousItemID string) (string, error) {
 	title := renderTitle(item)
 	status := "needsAction"
 	if item.Status == model.StatusDone {
@@ -141,12 +144,10 @@ func (c *Client) CreateItem(ctx context.Context, item model.Item, previousItemID
 
 	task, err := tasksInsertCall.Context(ctx).Do()
 	if err != nil {
-		return model.Item{}, fmt.Errorf("failed to insert task: %w", err)
+		return "", fmt.Errorf("failed to insert task: %w", err)
 	}
 
-	item.ExternalID = &task.Id
-
-	return item, nil
+	return task.Id, nil
 }
 
 // listItems retrieves all tasks from the specified list and converts them to internal Items.
