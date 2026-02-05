@@ -884,7 +884,7 @@ func TestUpdateList(t *testing.T) {
 func TestDeleteList(t *testing.T) {
 	tests := []struct {
 		name      string
-		setupDB   func(t *testing.T, db *sql.DB) string
+		setupDB   func(t *testing.T, db *sql.DB) model.List
 		setupCtx  func() (context.Context, context.CancelFunc)
 		wantLists []model.List
 		wantItems []model.Item
@@ -892,7 +892,7 @@ func TestDeleteList(t *testing.T) {
 	}{
 		{
 			name: "valid delete with cascade",
-			setupDB: func(t *testing.T, db *sql.DB) string {
+			setupDB: func(t *testing.T, db *sql.DB) model.List {
 				_, err := db.Exec(
 					`
 						INSERT INTO lists (id, name, modified) 
@@ -920,21 +920,24 @@ func TestDeleteList(t *testing.T) {
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
+				
+				list := model.List{ID: "list-1"}
 
-				return "list-1"
+				return list
 			},
 			wantErr: false,
 		},
 		{
 			name: "nonexistent id",
-			setupDB: func(t *testing.T, db *sql.DB) string {
-				return "non-existent"
+			setupDB: func(t *testing.T, db *sql.DB) model.List {
+				list := model.List{ID: "non-existent"}
+				return list
 			},
 			wantErr: true,
 		},
 		{
 			name: "context cancellation",
-			setupDB: func(t *testing.T, db *sql.DB) string {
+			setupDB: func(t *testing.T, db *sql.DB) model.List {
 				_, err := db.Exec(
 					`
 						INSERT INTO lists (id, name, modified) 
@@ -946,7 +949,9 @@ func TestDeleteList(t *testing.T) {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 
-				return "list-1"
+				list := model.List{ID: "list-1"}
+
+				return list
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())
@@ -984,9 +989,9 @@ func TestDeleteList(t *testing.T) {
 
 			defer db.Close()
 
-			id := tt.setupDB(t, db)
+			list := tt.setupDB(t, db)
 
-			err = store.DeleteList(ctx, id)
+			err = store.DeleteList(ctx, list)
 
 			if tt.wantErr {
 				if err == nil {

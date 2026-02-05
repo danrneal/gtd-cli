@@ -669,13 +669,15 @@ func TestUpdateList(t *testing.T) {
 func TestDeleteList(t *testing.T) {
 	tests := []struct {
 		name    string
-		listID  string
+		list    model.List
 		handler func(req *http.Request) *http.Response
 		wantErr bool
 	}{
 		{
-			name:   "success",
-			listID: "L1",
+			name: "success",
+			list: model.List{
+				ExternalID: stringPtr("L1"),
+			},
 			handler: func(req *http.Request) *http.Response {
 				if req.Method != "DELETE" {
 					resp := &http.Response{
@@ -708,8 +710,10 @@ func TestDeleteList(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:   "api error",
-			listID: "L1",
+			name: "api error",
+			list: model.List{
+				ExternalID: stringPtr("L1"),
+			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: 500,
@@ -736,7 +740,7 @@ func TestDeleteList(t *testing.T) {
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			tasksClient := NewClient(tasksService)
 
-			err := tasksClient.DeleteList(context.Background(), tt.listID)
+			err := tasksClient.DeleteList(context.Background(), tt.list)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DeleteList() error = %v, wantErr %v", err, tt.wantErr)

@@ -233,11 +233,11 @@ func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []
 }
 
 // DeleteList deletes a list from the database.
-func (s *Store) DeleteList(ctx context.Context, id string) error {
+func (s *Store) DeleteList(ctx context.Context, list model.List) error {
 	query := `DELETE FROM lists WHERE id = ?;`
-	res, err := s.db.ExecContext(ctx, query, id)
+	res, err := s.db.ExecContext(ctx, query, list.ID)
 	if err != nil {
-		return fmt.Errorf("failed to delete list %s: %w", id, err)
+		return fmt.Errorf("failed to delete list %s: %w", list.ID, err)
 	}
 
 	rows, err := res.RowsAffected()
@@ -246,7 +246,7 @@ func (s *Store) DeleteList(ctx context.Context, id string) error {
 	}
 
 	if rows == 0 {
-		return fmt.Errorf("list with id %s not found", id)
+		return fmt.Errorf("list with id %s not found", list.ID)
 	}
 
 	return nil

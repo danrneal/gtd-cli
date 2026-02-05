@@ -104,8 +104,8 @@ func (c *Client) UpdateList(ctx context.Context, list model.List, currentItems [
 }
 
 // DeleteList deletes a task list from Google Tasks.
-func (c *Client) DeleteList(ctx context.Context, listID string) error {
-	if err := c.service.Tasklists.Delete(listID).Context(ctx).Do(); err != nil {
+func (c *Client) DeleteList(ctx context.Context, list model.List) error {
+	if err := c.service.Tasklists.Delete(*list.ExternalID).Context(ctx).Do(); err != nil {
 		return fmt.Errorf("failed to delete tasklist: %w", err)
 	}
 
