@@ -21,6 +21,16 @@ type Item struct {
 	ExternalListID *string    `json:"external_list_id"`
 }
 
+// GetID returns the internal ID of the item.
+func (i *Item) GetID() string {
+	return i.ID
+}
+
+// SetID sets the internal ID of the item.
+func (i *Item) SetID(id string) {
+	i.ID = id
+}
+
 // GetExternalID returns the external ID of the item.
 func (i *Item) GetExternalID() *string {
 	return i.ExternalID

@@ -17,8 +17,11 @@ const (
 )
 
 // Resource is an interface for domain objects (like Lists and Items) that can be
-// identified and linked across different providers via an External ID.
+// identified and linked across systems. It provides unified access to both
+// internal (SQLite) and external (Provider) identifiers.
 type Resource interface {
+	GetID() string
+	SetID(string)
 	GetExternalID() *string
 	SetExternalID(string)
 }
