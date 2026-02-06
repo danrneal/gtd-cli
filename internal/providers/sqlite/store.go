@@ -82,6 +82,10 @@ func (s *Store) createTables(ctx context.Context) error {
 // CreateList inserts a new list into the database.
 func (s *Store) CreateList(ctx context.Context, list model.List) (string, error) {
 	list.ID = uuid.NewString()[:8]
+	if list.Status != "" && list.Status != model.StatusOpen {
+		return "", fmt.Errorf("new lists must have status 'open'")
+	}
+
 	list.Name = strings.TrimSpace(list.Name)
 	if list.Name == "" {
 		return "", fmt.Errorf("list name cannot be empty")
@@ -182,6 +186,14 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 //   - currentItems: The items currently associated with this list (ordered by position).
 //     This is used to optimize updates by skipping items that haven't changed.
 func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []model.Item) error {
+	if list.Status == "" {
+		list.Status = model.StatusOpen
+	}
+
+	if !isValidListStatus(list.Status) {
+		return fmt.Errorf("invalid list status: %q", list.Status)
+	}
+
 	list.Name = strings.TrimSpace(list.Name)
 	if list.Name == "" {
 		return fmt.Errorf("list name cannot be empty")
@@ -256,7 +268,11 @@ func (s *Store) DeleteList(ctx context.Context, list model.List) error {
 // The previousItemID parameter is ignored by the SQLite store but kept for interface consistency.
 func (s *Store) CreateItem(ctx context.Context, item model.Item, _ string) (string, error) {
 	item.ID = uuid.NewString()[:8]
-	if !isValidStatus(item.Status) {
+	if item.Status == "" {
+		item.Status = model.StatusNotStarted
+	}
+
+	if !isValidItemStatus(item.Status) {
 		return "", fmt.Errorf("invalid status: %q", item.Status)
 	}
 
@@ -388,7 +404,7 @@ func (s *Store) listAllItems(ctx context.Context) ([]model.Item, error) {
 
 // UpdateItem updates an existing item in the database.
 func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
-	if !isValidStatus(item.Status) {
+	if !isValidItemStatus(item.Status) {
 		return fmt.Errorf("invalid status: %q", item.Status)
 	}
 
@@ -502,8 +518,18 @@ func (s *Store) DeleteItem(ctx context.Context, item model.Item) error {
 	return nil
 }
 
-// isValidStatus checks if the provided status is a valid enum value.
-func isValidStatus(status model.Status) bool {
+// isValidListStatus checks if the provided status is a valid enum value for lists.
+func isValidListStatus(status model.Status) bool {
+	switch status {
+	case model.StatusOpen, model.StatusDeleted:
+		return true
+	default:
+		return false
+	}
+}
+
+// isValidItemStatus checks if the provided status is a valid enum value for items.
+func isValidItemStatus(status model.Status) bool {
 	switch status {
 	case model.StatusNotStarted, model.StatusInProgress, model.StatusDone, model.StatusDeleted:
 		return true

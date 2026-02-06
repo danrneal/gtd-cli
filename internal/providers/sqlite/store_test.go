@@ -161,6 +161,22 @@ func TestCreateList(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "invalid status",
+			list: model.List{
+				Name:   "Invalid",
+				Status: model.StatusDeleted,
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty list name",
+			list: model.List{
+				Name:     "",
+				Modified: time.Now(),
+			},
+			wantErr: true,
+		},
+		{
 			name: "cancelled context",
 			list: model.List{
 				Name:     "Cancelled",
@@ -170,14 +186,6 @@ func TestCreateList(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
 				return ctx, cancel
-			},
-			wantErr: true,
-		},
-		{
-			name: "empty list name",
-			list: model.List{
-				Name:     "",
-				Modified: time.Now(),
 			},
 			wantErr: true,
 		},
@@ -588,6 +596,7 @@ func TestUpdateList(t *testing.T) {
 				ID:       "list-1",
 				Name:     "New Name",
 				Position: 5,
+				Status:   model.StatusOpen,
 			},
 			wantItems: []model.Item{
 				{
@@ -673,8 +682,9 @@ func TestUpdateList(t *testing.T) {
 				return items
 			},
 			wantList: &model.List{
-				ID:   "list-opt",
-				Name: "Optimization",
+				ID:     "list-opt",
+				Name:   "Optimization",
+				Status: model.StatusOpen,
 			},
 			wantItems: []model.Item{
 				{
@@ -687,6 +697,64 @@ func TestUpdateList(t *testing.T) {
 				},
 			},
 			wantErr: false,
+		},
+		{
+			name: "default status (open)",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Valid", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				return "list-1"
+			},
+			setupList: func(id string) model.List {
+				list := model.List{
+					ID:     id,
+					Name:   "Status Test",
+					Status: "",
+				}
+
+				return list
+			},
+			wantList: &model.List{
+				Name:   "Status Test",
+				Status: model.StatusOpen,
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid list status",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Valid", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				return "list-1"
+			},
+			setupList: func(id string) model.List {
+				list := model.List{
+					ID:     id,
+					Name:   "Invalid",
+					Status: model.StatusInProgress,
+				}
+
+				return list
+			},
+			wantErr: true,
 		},
 		{
 			name: "empty name",
@@ -842,11 +910,11 @@ func TestUpdateList(t *testing.T) {
 				var gotList model.List
 				err = db.QueryRow(
 					`
-						SELECT name, position 
+						SELECT name, position, status
 						FROM lists 
 						WHERE id = ?
 					`, id,
-				).Scan(&gotList.Name, &gotList.Position)
+				).Scan(&gotList.Name, &gotList.Position, &gotList.Status)
 
 				if err != nil {
 					t.Fatalf("failed to query list: %v", err)
@@ -1077,6 +1145,33 @@ func TestCreateItem(t *testing.T) {
 				ProjectID:   stringPtr("proj-1"),
 				WaitingOn:   stringPtr("Alice"),
 				Tags:        []string{"work", "urgent"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "default item status",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+			},
+			item: model.Item{
+				ListID: "list-1",
+				Title:  "Default Status",
+				Status: "", // Should default to not_started
+			},
+			wantItem: &model.Item{
+				ListID: "list-1",
+				Title:  "Default Status",
+				Status: model.StatusNotStarted,
+				Tags:   []string{},
 			},
 			wantErr: false,
 		},
