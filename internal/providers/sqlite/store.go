@@ -41,7 +41,7 @@ func NewStore(ctx context.Context, dbPath string) (*Store, error) {
 	return store, nil
 }
 
-// createTables ensures that the required database tables exist.
+// createTables ensures that the required database tables exist and have the correct constraints.
 func (s *Store) createTables(ctx context.Context) error {
 	query := `
 		CREATE TABLE IF NOT EXISTS lists (
@@ -50,7 +50,7 @@ func (s *Store) createTables(ctx context.Context) error {
 			position INTEGER NOT NULL DEFAULT 0,
 			status TEXT NOT NULL DEFAULT 'open',
 			modified DATETIME NOT NULL,
-			external_id TEXT
+			external_id TEXT UNIQUE
 		);
 
 		CREATE TABLE IF NOT EXISTS items (
@@ -67,8 +67,7 @@ func (s *Store) createTables(ctx context.Context) error {
 			tags TEXT NOT NULL DEFAULT '[]',
 			modified DATETIME NOT NULL,
 			created DATETIME NOT NULL,
-			external_id TEXT,
-			external_list_id TEXT
+			external_id TEXT UNIQUE
 		);
 	`
 
@@ -110,15 +109,23 @@ func (s *Store) CreateList(ctx context.Context, list model.List) (string, error)
 		list.Modified,
 		list.ExternalID,
 	); err != nil {
-		return "", fmt.Errorf("failed to insert list: %w", err)
+		return "", fmt.Errorf("failed to insert list %q: %w", list.Name, err)
 	}
 
 	return list.ID, nil
 }
 
 // ListLists returns all lists from the database, populated with their items.
+// It uses a read-only transaction to ensure a consistent snapshot of lists and items.
 func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
-	items, err := s.listAllItems(ctx)
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	defer tx.Rollback()
+
+	items, err := s.listAllItems(ctx, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +147,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 		ORDER BY position
 	`
 
-	rows, err := s.db.QueryContext(ctx, query)
+	rows, err := tx.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query lists: %w", err)
 	}
@@ -179,13 +186,33 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 	return lists, nil
 }
 
+// getListID resolves the internal list ID using the provided external ID.
+func (s *Store) getListID(ctx context.Context, externalID *string) (string, error) {
+	var id string
+	query := `SELECT id FROM lists WHERE external_id = ?`
+	row := s.db.QueryRowContext(ctx, query, externalID)
+	err := row.Scan(&id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("list with external ID %v not found", externalID)
+		}
+
+		return "", fmt.Errorf("failed to scan list ID: %w", err)
+	}
+
+	return id, nil
+}
+
 // UpdateList updates an existing list in the database.
 //
 // Parameters:
-//   - list: The list with the desired state (including Items with updated positions).
-//   - currentItems: The items currently associated with this list (ordered by position).
-//     This is used to optimize updates by skipping items that haven't changed.
+//   - list: The list with the desired state. It identifies the record via ID or ExternalID.
+//   - currentItems: The items currently associated with this list, used to optimize position updates.
 func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []model.Item) error {
+	if list.ID == "" && list.ExternalID == nil {
+		return fmt.Errorf("failed to update list: no internal or external ID provided")
+	}
+
 	if list.Status == "" {
 		list.Status = model.StatusOpen
 	}
@@ -199,27 +226,35 @@ func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []
 		return fmt.Errorf("list name cannot be empty")
 	}
 
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	defer tx.Rollback()
+
 	query := `
                 UPDATE lists SET
                         name = ?,
                         position = ?,
                         status = ?,
                         modified = ?,
-                        external_id = ?
-                WHERE id = ?;
+                        external_id = COALESCE(?, external_id)
+                WHERE id = ? OR external_id = ?;
         `
 
-	res, err := s.db.ExecContext(ctx, query,
+	res, err := tx.ExecContext(ctx, query,
 		list.Name,
 		list.Position,
 		list.Status,
 		list.Modified,
 		list.ExternalID,
 		list.ID,
+		list.ExternalID,
 	)
 
 	if err != nil {
-		return fmt.Errorf("failed to update list %s: %w", list.ID, err)
+		return fmt.Errorf("failed to update list %q (ID: %s): %w", list.Name, list.ID, err)
 	}
 
 	rowsAffected, err := res.RowsAffected()
@@ -228,7 +263,22 @@ func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("list with id %s not found", list.ID)
+		return fmt.Errorf("list with ID %q or ExternalID %v not found", list.ID, list.ExternalID)
+	}
+
+	if list.ID == "" {
+		listID, err := s.getListID(ctx, list.ExternalID)
+		if err != nil {
+			return err
+		}
+
+		list.ID = listID
+	}
+
+	if list.Status == model.StatusDeleted {
+		if err := s.deleteListItems(ctx, tx, list); err != nil {
+			return err
+		}
 	}
 
 	for i, item := range list.Items {
@@ -236,9 +286,14 @@ func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []
 			continue
 		}
 
-		if err := s.updateItemLocation(ctx, item); err != nil {
+		item.ListID = list.ID
+		if err := s.updateItemLocation(ctx, tx, item); err != nil {
 			return err
 		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -246,10 +301,14 @@ func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []
 
 // DeleteList deletes a list from the database.
 func (s *Store) DeleteList(ctx context.Context, list model.List) error {
-	query := `DELETE FROM lists WHERE id = ?;`
-	res, err := s.db.ExecContext(ctx, query, list.ID)
+	if list.ID == "" && list.ExternalID == nil {
+		return fmt.Errorf("failed to delete list: no internal or external ID provided")
+	}
+
+	query := `DELETE FROM lists WHERE id = ? OR external_id = ?;`
+	res, err := s.db.ExecContext(ctx, query, list.ID, list.ExternalID)
 	if err != nil {
-		return fmt.Errorf("failed to delete list %s: %w", list.ID, err)
+		return fmt.Errorf("failed to delete list %q (ID: %s): %w", list.Name, list.ID, err)
 	}
 
 	rows, err := res.RowsAffected()
@@ -258,20 +317,17 @@ func (s *Store) DeleteList(ctx context.Context, list model.List) error {
 	}
 
 	if rows == 0 {
-		return fmt.Errorf("list with id %s not found", list.ID)
+		return fmt.Errorf("list with ID %q or ExternalID %v not found", list.ID, list.ExternalID)
 	}
 
 	return nil
 }
 
 // CreateItem inserts a new item into the database.
+// If item.ListID is empty, it attempts to resolve it using item.ExternalListID.
 // The previousItemID parameter is ignored by the SQLite store but kept for interface consistency.
 func (s *Store) CreateItem(ctx context.Context, item model.Item, _ string) (string, error) {
 	item.ID = uuid.NewString()[:8]
-	if item.Status == "" {
-		item.Status = model.StatusNotStarted
-	}
-
 	if !isValidItemStatus(item.Status) {
 		return "", fmt.Errorf("invalid status: %q", item.Status)
 	}
@@ -285,6 +341,15 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item, _ string) (stri
 	tagsJSON, err := json.Marshal(item.Tags)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal tags: %w", err)
+	}
+
+	if item.ListID == "" {
+		listID, err := s.getListID(ctx, item.ExternalListID)
+		if err != nil {
+			return "", err
+		}
+
+		item.ListID = listID
 	}
 
 	query := `
@@ -302,9 +367,8 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item, _ string) (stri
                         tags,
                         modified,
                         created,
-                        external_id,
-			external_list_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                        external_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         `
 
 	if _, err := s.db.ExecContext(ctx, query,
@@ -322,38 +386,39 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item, _ string) (stri
 		item.Modified,
 		item.Created,
 		item.ExternalID,
-		item.ExternalListID,
 	); err != nil {
-		return "", fmt.Errorf("failed to insert item: %w", err)
+		return "", fmt.Errorf("failed to insert item %q: %w", item.Title, err)
 	}
 
 	return item.ID, nil
 }
 
-// listAllItems returns all items from the database.
-func (s *Store) listAllItems(ctx context.Context) ([]model.Item, error) {
+// listAllItems returns all items from the database using the provided transaction.
+func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]model.Item, error) {
 	query := `
 		SELECT
-			id,
-			list_id,
-			position,
-			status,
-			title,
-			description,
-			project_id,
-			waiting_on,
-			snoozed,
-			due,
-			tags,
-			modified,
-			created,
-			external_id,
-			external_list_id
-		FROM items
-		ORDER BY position
+			i.id,
+			i.list_id,
+			i.position,
+			i.status,
+			i.title,
+			i.description,
+			i.project_id,
+			i.waiting_on,
+			i.snoozed,
+			i.due,
+			i.tags,
+			i.modified,
+			i.created,
+			i.external_id,
+			l.external_id AS external_list_id
+		FROM items i
+		INNER JOIN lists l
+		ON i.list_id = l.id
+		ORDER BY i.position
 	`
 
-	rows, err := s.db.QueryContext(ctx, query)
+	rows, err := tx.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query items: %w", err)
 	}
@@ -403,7 +468,12 @@ func (s *Store) listAllItems(ctx context.Context) ([]model.Item, error) {
 }
 
 // UpdateItem updates an existing item in the database.
+// It identifies the record via ID or ExternalID.
 func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
+	if item.ID == "" && item.ExternalID == nil {
+		return fmt.Errorf("failed to update item: no internal or external ID provided")
+	}
+
 	if !isValidItemStatus(item.Status) {
 		return fmt.Errorf("invalid status: %q", item.Status)
 	}
@@ -430,8 +500,8 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
                         due = ?,
                         tags = ?,
                         modified = ?,
-                        external_id = ?
-                WHERE id = ?;
+                        external_id = COALESCE(?, external_id)
+                WHERE id = ? OR external_id = ?;
         `
 
 	res, err := s.db.ExecContext(ctx, query,
@@ -446,10 +516,11 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
 		item.Modified,
 		item.ExternalID,
 		item.ID,
+		item.ExternalID,
 	)
 
 	if err != nil {
-		return fmt.Errorf("failed to update item %s: %w", item.ID, err)
+		return fmt.Errorf("failed to update item %q (ID: %s): %w", item.Title, item.ID, err)
 	}
 
 	rows, err := res.RowsAffected()
@@ -458,32 +529,35 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
 	}
 
 	if rows == 0 {
-		return fmt.Errorf("item with id %s not found", item.ID)
+		return fmt.Errorf("item with ID %q or ExternalID %v not found", item.ID, item.ExternalID)
 	}
 
 	return nil
 }
 
-// updateItemLocation updates the list_id, position, and external_list_id of an item.
-// It is used to implement moves and reordering within UpdateList.
-func (s *Store) updateItemLocation(ctx context.Context, item model.Item) error {
+// updateItemLocation updates the list_id and position of an item.
+// It identifies the record via ID or ExternalID.
+func (s *Store) updateItemLocation(ctx context.Context, tx *sql.Tx, item model.Item) error {
+	if item.ID == "" && item.ExternalID == nil {
+		return fmt.Errorf("failed to update item location: no internal or external ID provided")
+	}
+
 	query := `
 		UPDATE items SET 
 			list_id = ?, 
-			position = ?,
-			external_list_id = ?
-		WHERE id = ?;
+			position = ?
+		WHERE id = ? OR external_id = ?;
 	`
 
-	res, err := s.db.ExecContext(ctx, query,
+	res, err := tx.ExecContext(ctx, query,
 		item.ListID,
 		item.Position,
-		item.ExternalListID,
 		item.ID,
+		item.ExternalID,
 	)
 
 	if err != nil {
-		return fmt.Errorf("failed to move item %s: %w", item.ID, err)
+		return fmt.Errorf("failed to move item %q (ID: %s): %w", item.Title, item.ID, err)
 	}
 
 	rows, err := res.RowsAffected()
@@ -492,7 +566,7 @@ func (s *Store) updateItemLocation(ctx context.Context, item model.Item) error {
 	}
 
 	if rows == 0 {
-		return fmt.Errorf("item with id %s not found", item.ID)
+		return fmt.Errorf("item with ID %q or ExternalID %v not found", item.ID, item.ExternalID)
 	}
 
 	return nil
@@ -500,10 +574,14 @@ func (s *Store) updateItemLocation(ctx context.Context, item model.Item) error {
 
 // DeleteItem deletes an item from the database.
 func (s *Store) DeleteItem(ctx context.Context, item model.Item) error {
-	query := `DELETE FROM items WHERE id = ?;`
-	res, err := s.db.ExecContext(ctx, query, item.ID)
+	if item.ID == "" && item.ExternalID == nil {
+		return fmt.Errorf("failed to delete item: no internal or external ID provided")
+	}
+
+	query := `DELETE FROM items WHERE id = ? OR external_id = ?;`
+	res, err := s.db.ExecContext(ctx, query, item.ID, item.ExternalID)
 	if err != nil {
-		return fmt.Errorf("failed to delete item %s: %w", item.ID, err)
+		return fmt.Errorf("failed to delete item %q (ID: %s): %w", item.Title, item.ID, err)
 	}
 
 	rows, err := res.RowsAffected()
@@ -512,7 +590,18 @@ func (s *Store) DeleteItem(ctx context.Context, item model.Item) error {
 	}
 
 	if rows == 0 {
-		return fmt.Errorf("item with id %s not found", item.ID)
+		return fmt.Errorf("item with ID %q or ExternalID %v not found", item.ID, item.ExternalID)
+	}
+
+	return nil
+}
+
+// deleteListItems hard-deletes all items associated with the given list.
+// It is used to clean up orphaned items when a list is soft-deleted (tombstoned).
+func (s *Store) deleteListItems(ctx context.Context, tx *sql.Tx, list model.List) error {
+	query := `DELETE FROM items WHERE list_id = ?`
+	if _, err := tx.ExecContext(ctx, query, list.ID); err != nil {
+		return fmt.Errorf("failed to delete items from list %q (ID: %s): %w", list.Name, list.ID, err)
 	}
 
 	return nil

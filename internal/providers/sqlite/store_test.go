@@ -27,7 +27,6 @@ func TestNewStore(t *testing.T) {
 			setupDBPath: func(t *testing.T) string {
 				return filepath.Join(t.TempDir(), "valid.db")
 			},
-			wantErr: false,
 			verifyTables: func(t *testing.T, dbPath string) {
 				db, err := sql.Open("sqlite3", dbPath)
 				if err != nil {
@@ -66,8 +65,7 @@ func TestNewStore(t *testing.T) {
 			setupDBPath: func(t *testing.T) string {
 				return "/non/existent/path/db.sqlite"
 			},
-			wantErr:      true,
-			verifyTables: nil,
+			wantErr: true,
 		},
 		{
 			name: "create tables fails on read-only db",
@@ -87,8 +85,7 @@ func TestNewStore(t *testing.T) {
 
 				return dbPath
 			},
-			wantErr:      true,
-			verifyTables: nil,
+			wantErr: true,
 		},
 	}
 
@@ -143,7 +140,6 @@ func TestCreateList(t *testing.T) {
 				Name:     "Inbox",
 				Position: 0,
 			},
-			wantErr: false,
 		},
 		{
 			name: "valid list with external id",
@@ -158,7 +154,6 @@ func TestCreateList(t *testing.T) {
 				Position:   1,
 				ExternalID: stringPtr("ext-123"),
 			},
-			wantErr: false,
 		},
 		{
 			name: "invalid status",
@@ -268,7 +263,6 @@ func TestListLists(t *testing.T) {
 		{
 			name:    "empty db",
 			setupDB: nil,
-			wantErr: false,
 		},
 		{
 			name: "valid list (empty items)",
@@ -292,7 +286,6 @@ func TestListLists(t *testing.T) {
 					Items:  []model.Item{},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "valid list (with items)",
@@ -342,7 +335,6 @@ func TestListLists(t *testing.T) {
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "valid list (with complex items)",
@@ -392,7 +384,6 @@ func TestListLists(t *testing.T) {
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "corrupt item data (bad tags)",
@@ -616,7 +607,6 @@ func TestUpdateList(t *testing.T) {
 					Tags:     []string{},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "valid update (optimization skip)",
@@ -696,7 +686,6 @@ func TestUpdateList(t *testing.T) {
 					Tags:     []string{},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "default status (open)",
@@ -727,16 +716,20 @@ func TestUpdateList(t *testing.T) {
 				Name:   "Status Test",
 				Status: model.StatusOpen,
 			},
-			wantErr: false,
 		},
 		{
-			name: "invalid list status",
+			name: "preserve external id when nil",
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				_, err := db.Exec(
 					`
-						INSERT INTO lists (id, name, modified) 
-						VALUES (?, ?, ?)
-					`, "list-1", "Valid", time.Now(),
+						INSERT INTO lists (
+							id, 
+							name, 
+							modified, 
+							external_id
+						) 
+						VALUES (?, ?, ?, ?)
+					`, "list-1", "Original", time.Now(), "ext-1",
 				)
 
 				if err != nil {
@@ -747,12 +740,291 @@ func TestUpdateList(t *testing.T) {
 			},
 			setupList: func(id string) model.List {
 				list := model.List{
-					ID:     id,
-					Name:   "Invalid",
-					Status: model.StatusInProgress,
+					ID:   id,
+					Name: "Updated",
 				}
 
 				return list
+			},
+			wantList: &model.List{
+				Name:       "Updated",
+				Status:     model.StatusOpen,
+				ExternalID: stringPtr("ext-1"),
+			},
+		},
+		{
+			name: "update list by external id",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (
+							id, 
+							name, 
+							modified, 
+							external_id
+						) 
+						VALUES (?, ?, ?, ?)
+					`, "list-1", "Original Name", time.Now(), "ext-L1",
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				return "list-1"
+			},
+			setupList: func(_ string) model.List {
+				list := model.List{
+					ExternalID: stringPtr("ext-L1"),
+					Name:       "Updated Name",
+					Status:     model.StatusOpen,
+				}
+
+				return list
+			},
+			wantList: &model.List{
+				ID:         "list-1",
+				Name:       "Updated Name",
+				Status:     model.StatusOpen,
+				ExternalID: stringPtr("ext-L1"),
+			},
+		},
+
+		{
+			name: "update item by external id",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (
+							id, 
+							name, 
+							modified, 
+							external_id
+						) 
+						VALUES (?, ?, ?, ?)
+					`, "list-1", "List 1", time.Now(), "ext-L1",
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				_, err = db.Exec(
+					`
+						INSERT INTO items (
+							id, 
+							title, 
+							description,
+							list_id, 
+							modified, 
+							created, 
+							external_id
+						) 
+						VALUES (?, ?, ?, ?, ?, ?, ?)
+					`, "item-1", "Original Title", "", "list-1", time.Now(), time.Now(), "ext-I1",
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
+
+				return "list-1"
+			},
+			setupList: func(id string) model.List {
+				list := model.List{
+					Name:       "List 1",
+					ExternalID: stringPtr("ext-L1"),
+					Items: []model.Item{
+						{
+							ExternalID: stringPtr("ext-I1"),
+							Title:      "Updated Title",
+						},
+					},
+				}
+
+				return list
+			},
+			wantList: &model.List{
+				Name:   "List 1",
+				Status: model.StatusOpen,
+			},
+			wantItems: []model.Item{
+				{
+					ID:             "item-1",
+					ListID:         "list-1",
+					Title:          "Original Title",
+					Status:         model.StatusNotStarted,
+					Tags:           []string{},
+					ExternalID:     stringPtr("ext-I1"),
+					ExternalListID: stringPtr("ext-L1"),
+				},
+			},
+		},
+		{
+			name: "soft delete list cascades to hard delete items",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-delete", "To Be Deleted", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				_, err = db.Exec(
+					`
+						INSERT INTO items (
+							id, 
+							title, 
+							description,
+							list_id, 
+							position, 
+							status, 
+							modified, 
+							created
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-delete", "Cleanup Item", "", "list-delete", 0, "not_started", time.Now(), time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
+
+				return "list-delete"
+			},
+			setupList: func(id string) model.List {
+				list := model.List{
+					ID:     id,
+					Name:   "Tombstoned List",
+					Status: model.StatusDeleted,
+				}
+
+				return list
+			},
+			wantList: &model.List{
+				Name:   "Tombstoned List",
+				Status: model.StatusDeleted,
+			},
+		},
+		{
+			name: "soft delete with item external id only",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (
+							id, 
+							name, 
+							modified, 
+							external_id
+						) 
+						VALUES (?, ?, ?, ?)
+					`, "list-delete", "To Be Deleted", time.Now(), "ext-list-delete",
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				_, err = db.Exec(
+					`
+						INSERT INTO items (
+							id, 
+							title, 
+							list_id, 
+							modified, 
+							created
+						) VALUES (?, ?, ?, ?, ?)
+					`, "item-delete", "Cleanup Item", "list-delete", time.Now(), time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
+
+				return "list-delete"
+			},
+			setupList: func(id string) model.List {
+				list := model.List{
+					ExternalID: stringPtr("ext-list-delete"),
+					Name:       "Tombstoned List",
+					Status:     model.StatusDeleted,
+				}
+
+				return list
+			},
+			wantList: &model.List{
+				ID:         "list-delete",
+				Name:       "Tombstoned List",
+				Status:     model.StatusDeleted,
+				ExternalID: stringPtr("ext-list-delete"),
+			},
+		},
+		{
+			name: "missing list identifiers",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				return ""
+			},
+			setupList: func(_ string) model.List {
+				return model.List{Name: "Headless Update"}
+			},
+			wantErr: true,
+		},
+		{
+			name: "update list with nonexistent external id",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				return ""
+			},
+			setupList: func(_ string) model.List {
+				return model.List{
+					ExternalID: stringPtr("non-existent-ext-id"),
+					Name:       "Headless Update",
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "transaction rollback on item failure",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (
+							id, 
+							name, 
+							status, 
+							modified
+						) 
+						VALUES (?, ?, ?, ?)
+					`, "list-rollback", "Stable Name", "open", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				return "list-rollback"
+			},
+			setupList: func(id string) model.List {
+				list := model.List{
+					ID:     id,
+					Name:   "Attempted Change",
+					Status: model.StatusOpen,
+					Items: []model.Item{
+						{
+							ID:       "non-existent-item",
+							ListID:   id,
+							Position: 0,
+						},
+					},
+				}
+
+				return list
+			},
+			wantList: &model.List{
+				Name:   "Stable Name",
+				Status: model.StatusOpen,
 			},
 			wantErr: true,
 		},
@@ -781,8 +1053,7 @@ func TestUpdateList(t *testing.T) {
 
 				return list
 			},
-			wantList: nil,
-			wantErr:  true,
+			wantErr: true,
 		},
 		{
 			name: "nonexistent id",
@@ -798,8 +1069,36 @@ func TestUpdateList(t *testing.T) {
 
 				return list
 			},
-			wantList: nil,
-			wantErr:  true,
+			wantErr: true,
+		},
+		{
+			name: "missing item identifiers",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Valid List", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				return "list-1"
+			},
+			setupList: func(id string) model.List {
+				list := model.List{
+					ID:   id,
+					Name: "Valid List",
+					Items: []model.Item{
+						{Title: "Headless Item"},
+					},
+				}
+
+				return list
+			},
+			wantErr: true,
 		},
 		{
 			name: "nonexistent item id",
@@ -817,14 +1116,17 @@ func TestUpdateList(t *testing.T) {
 					ID:   id,
 					Name: "List",
 					Items: []model.Item{
-						{ID: "missing-item", ListID: id, Position: 0},
+						{
+							ID:       "missing-item",
+							ListID:   id,
+							Position: 0,
+						},
 					},
 				}
 
 				return list
 			},
-			wantList: nil,
-			wantErr:  true,
+			wantErr: true,
 		},
 		{
 			name: "context cancellation",
@@ -856,8 +1158,7 @@ func TestUpdateList(t *testing.T) {
 				cancel()
 				return ctx, cancel
 			},
-			wantList: nil,
-			wantErr:  true,
+			wantErr: true,
 		},
 	}
 
@@ -931,7 +1232,9 @@ func TestUpdateList(t *testing.T) {
 				}
 
 				if tt.wantItems != nil {
-					items, err := store.listAllItems(context.Background())
+					tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
+					items, err := store.listAllItems(context.Background(), tx)
+					tx.Rollback()
 					if err != nil {
 						t.Fatalf("failed to list all items: %v", err)
 					}
@@ -993,7 +1296,39 @@ func TestDeleteList(t *testing.T) {
 
 				return list
 			},
-			wantErr: false,
+		},
+		{
+			name: "delete list by external id",
+			setupDB: func(t *testing.T, db *sql.DB) model.List {
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (
+							id, 
+							name, 
+							modified, 
+							external_id
+						) 
+						VALUES (?, ?, ?, ?)
+					`, "list-ext-del", "List to Delete", time.Now(), "ext-del-1",
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				list := model.List{
+					ExternalID: stringPtr("ext-del-1"),
+				}
+
+				return list
+			},
+		},
+		{
+			name: "delete list missing identifiers",
+			setupDB: func(t *testing.T, db *sql.DB) model.List {
+				return model.List{Name: "Headless List"}
+			},
+			wantErr: true,
 		},
 		{
 			name: "nonexistent id",
@@ -1079,7 +1414,9 @@ func TestDeleteList(t *testing.T) {
 					t.Errorf("DeleteList() lists mismatch (-want +got):\n%s", diff)
 				}
 
-				items, err := store.listAllItems(context.Background())
+				tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
+				items, err := store.listAllItems(context.Background(), tx)
+				tx.Rollback()
 				if err != nil {
 					t.Fatalf("failed to get all items: %v", err)
 				}
@@ -1104,7 +1441,12 @@ func TestCreateItem(t *testing.T) {
 		{
 			name: "valid item minimal fields (auto-trimmed title)",
 			setupDB: func(t *testing.T, db *sql.DB) {
-				_, err := db.Exec(`INSERT INTO lists (id, name, modified) VALUES (?, ?, ?)`, "list-1", "Inbox", time.Now())
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
+				)
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -1116,12 +1458,17 @@ func TestCreateItem(t *testing.T) {
 				Modified: time.Now(),
 				Created:  time.Now(),
 			},
-			wantErr: false,
 		},
 		{
 			name: "valid item complex fields (multiline desc)",
 			setupDB: func(t *testing.T, db *sql.DB) {
-				_, err := db.Exec(`INSERT INTO lists (id, name, modified) VALUES (?, ?, ?)`, "list-1", "Inbox", time.Now())
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
+				)
+
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -1146,34 +1493,43 @@ func TestCreateItem(t *testing.T) {
 				WaitingOn:   stringPtr("Alice"),
 				Tags:        []string{"work", "urgent"},
 			},
-			wantErr: false,
 		},
 		{
-			name: "default item status",
+			name: "create item resolving list id by external id",
 			setupDB: func(t *testing.T, db *sql.DB) {
 				_, err := db.Exec(
 					`
-						INSERT INTO lists (id, name, modified) 
-						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", time.Now(),
+						INSERT INTO lists (id, name, modified, external_id) 
+						VALUES (?, ?, ?, ?)
+					`, "list-1", "External List", time.Now(), "ext-L1",
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 			},
 			item: model.Item{
-				ListID: "list-1",
-				Title:  "Default Status",
-				Status: "", // Should default to not_started
+				// ListID is empty
+				ExternalListID: stringPtr("ext-L1"),
+				Title:          "Resolved Item",
+				Status:         model.StatusNotStarted,
+				Modified:       time.Now(),
+				Created:        time.Now(),
 			},
 			wantItem: &model.Item{
-				ListID: "list-1",
-				Title:  "Default Status",
+				ListID: "list-1", // Should be resolved
+				Title:  "Resolved Item",
 				Status: model.StatusNotStarted,
 				Tags:   []string{},
 			},
-			wantErr: false,
+		},
+		{
+			name:    "create item with nonexistent external list id",
+			setupDB: func(t *testing.T, db *sql.DB) {},
+			item: model.Item{
+				ExternalListID: stringPtr("non-existent-ext-id"),
+				Title:          "Orphan Item",
+			},
+			wantErr: true,
 		},
 		{
 			name:    "invalid status",
@@ -1365,7 +1721,123 @@ func TestUpdateItem(t *testing.T) {
 				Status:      model.StatusDone,
 				Tags:        []string{"updated", "tag"},
 			},
-			wantErr: false,
+		},
+		{
+			name: "update item by external id only",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				_, err = db.Exec(
+					`
+						INSERT INTO items (
+							id,
+							title, 
+							description, 
+							list_id, 
+							tags, 
+							modified, 
+							created,
+							external_id
+						) VALUES (?, ?, ?, ?, '[]', ?, ?, ?)
+					`, "item-1", "Original", "", "list-1", time.Now(), time.Now(), "ext-I1",
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
+
+				return "item-1"
+			},
+			setupItem: func(_ string) model.Item {
+				item := model.Item{
+					ExternalID: stringPtr("ext-I1"),
+					ListID:     "list-1",
+					Title:      "Updated Title",
+					Status:     model.StatusNotStarted,
+				}
+
+				return item
+			},
+			wantItem: &model.Item{
+				ListID:     "list-1",
+				Title:      "Updated Title",
+				Status:     model.StatusNotStarted,
+				Tags:       []string{},
+				ExternalID: stringPtr("ext-I1"),
+			},
+		},
+		{
+			name: "preserve item external id when nil",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				_, err = db.Exec(
+					`
+						INSERT INTO items (
+							id,
+							title, 
+							description, 
+							list_id, 
+							tags, 
+							modified, 
+							created,
+							external_id
+						) VALUES (?, ?, ?, ?, '[]', ?, ?, ?)
+					`, "item-1", "Original", "", "list-1", time.Now(), time.Now(), "ext-I1",
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
+
+				return "item-1"
+			},
+			setupItem: func(id string) model.Item {
+				item := model.Item{
+					ID:         id,
+					ListID:     "list-1",
+					Title:      "Updated",
+					Status:     model.StatusNotStarted,
+					ExternalID: nil,
+				}
+
+				return item
+			},
+			wantItem: &model.Item{
+				ListID:     "list-1",
+				Title:      "Updated",
+				Status:     model.StatusNotStarted,
+				Tags:       []string{},
+				ExternalID: stringPtr("ext-I1"),
+			},
+		},
+		{
+			name: "update item missing identifiers",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				return ""
+			},
+			setupItem: func(_ string) model.Item {
+				return model.Item{Title: "Headless Item"}
+			},
+			wantErr: true,
 		},
 		{
 			name: "invalid status",
@@ -1650,7 +2122,53 @@ func TestDeleteItem(t *testing.T) {
 
 				return item
 			},
-			wantErr: false,
+		},
+		{
+			name: "delete item by external id",
+			setupDB: func(t *testing.T, db *sql.DB) model.Item {
+				_, err := db.Exec(
+					`
+						INSERT INTO lists (id, name, modified) 
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert list: %v", err)
+				}
+
+				_, err = db.Exec(
+					`
+						INSERT INTO items (
+							id,
+							title, 
+							description, 
+							list_id, 
+							tags, 
+							modified, 
+							created,
+							external_id
+						) VALUES (?, ?, ?, ?, '[]', ?, ?, ?)
+					`, "item-1", "Item to Delete", "", "list-1", time.Now(), time.Now(), "ext-I1",
+				)
+
+				if err != nil {
+					t.Fatalf("failed to insert item: %v", err)
+				}
+
+				item := model.Item{
+					ExternalID: stringPtr("ext-I1"),
+				}
+
+				return item
+			},
+		},
+		{
+			name: "delete item missing identifiers",
+			setupDB: func(t *testing.T, db *sql.DB) model.Item {
+				return model.Item{Title: "Headless Item"}
+			},
+			wantErr: true,
 		},
 		{
 			name: "nonexistent id",
@@ -1745,7 +2263,9 @@ func TestDeleteItem(t *testing.T) {
 					t.Errorf("DeleteItem() unexpected error: %v", err)
 				}
 
-				items, err := store.listAllItems(context.Background())
+				tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
+				items, err := store.listAllItems(context.Background(), tx)
+				tx.Rollback()
 				if err != nil {
 					t.Fatalf("failed to get all items: %v", err)
 				}
