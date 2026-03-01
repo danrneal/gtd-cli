@@ -6,9 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"unicode"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
+	"github.com/danrneal/gtd.nvim/internal/providers/common"
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -337,7 +337,7 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item, _ string) (stri
 		return "", fmt.Errorf("item title cannot be empty")
 	}
 
-	item.Description = multilineTrim(item.Description)
+	item.Description = common.MultilineTrim(item.Description)
 	tagsJSON, err := json.Marshal(item.Tags)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal tags: %w", err)
@@ -483,7 +483,7 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
 		return fmt.Errorf("item title cannot be empty")
 	}
 
-	item.Description = multilineTrim(item.Description)
+	item.Description = common.MultilineTrim(item.Description)
 	tagsJSON, err := json.Marshal(item.Tags)
 	if err != nil {
 		return fmt.Errorf("failed to marshal tags: %w", err)
@@ -625,18 +625,4 @@ func isValidItemStatus(status model.Status) bool {
 	default:
 		return false
 	}
-}
-
-// multilineTrim trims whitespace from the beginning of the first line and the end of all lines.
-func multilineTrim(s string) string {
-	s = strings.TrimSpace(s)
-	lines := strings.Split(s, "\n")
-	for i, line := range lines {
-		line = strings.TrimRightFunc(line, unicode.IsSpace)
-		lines[i] = line
-	}
-
-	s = strings.Join(lines, "\n")
-
-	return s
 }
