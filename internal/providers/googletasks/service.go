@@ -101,14 +101,18 @@ func tokenFromWeb(ctx context.Context, config *oauth2.Config) (*oauth2.Token, er
 
 // saveToken saves a token to a file path.
 func saveToken(path string, token *oauth2.Token) error {
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return fmt.Errorf("unable to cache oauth token: %w", err)
 	}
 
-	defer f.Close()
 	if err := json.NewEncoder(f).Encode(token); err != nil {
+		_ = f.Close()
 		return fmt.Errorf("could not encode token: %w", err)
+	}
+
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("could not close token file: %w", err)
 	}
 
 	return nil

@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/danrneal/gtd.nvim/internal/model"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"github.com/danrneal/gtd.nvim/internal/model"
 )
 
 // FakeProvider implements RemoteProvider for testing.
@@ -71,7 +72,6 @@ func (f *FakeProvider) GetKey(resource model.Resource) string {
 	}
 
 	return ""
-
 }
 
 func (f *FakeProvider) SetKey(resource model.Resource, key string) {
@@ -273,8 +273,15 @@ func (f *FakeProvider) UpdateItem(ctx context.Context, updatedItem model.Item) e
 		for j, item := range list.Items {
 			if isMatch(&item, &updatedItem) {
 				if !isParent(list, updatedItem) {
-					return fmt.Errorf("item parent mismatch: item %s belongs to list %s (ID=%s, ExtID=%v), but update request specifies parent ID=%s, ExtID=%v",
-						updatedItem.Title, list.Name, list.ID, list.ExternalID, updatedItem.ListID, updatedItem.ExternalListID)
+					return fmt.Errorf(
+						"item parent mismatch: item %s belongs to list %s (ID=%s, ExtID=%v), but update request specifies parent ID=%s, ExtID=%v",
+						updatedItem.Title,
+						list.Name,
+						list.ID,
+						list.ExternalID,
+						updatedItem.ListID,
+						updatedItem.ExternalListID,
+					)
 				}
 
 				item.Status = updatedItem.Status
@@ -683,7 +690,7 @@ func TestOneWaySync(t *testing.T) {
 					Name: "L1",
 					Items: []model.Item{
 						{
-							Title: "I1",
+							Title:  "I1",
 							Status: model.StatusDeleted,
 						},
 					},
@@ -691,19 +698,19 @@ func TestOneWaySync(t *testing.T) {
 			}),
 			dst: NewFakeProvider("generic", []model.List{
 				{
-					ID: "store-list-1",
+					ID:   "store-list-1",
 					Name: "L1",
 				},
 			}),
 			wantSrcLists: []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
+					ID:     "store-list-1",
+					Name:   "L1",
 					Status: model.StatusOpen,
 					Items: []model.Item{
 						{
-							ID: "store-item-1",
-							Title: "I1",
+							ID:     "store-item-1",
+							Title:  "I1",
 							Status: model.StatusDeleted,
 							ListID: "store-list-1",
 						},
@@ -712,8 +719,8 @@ func TestOneWaySync(t *testing.T) {
 			},
 			wantDstLists: []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
+					ID:     "store-list-1",
+					Name:   "L1",
 					Status: model.StatusOpen,
 				},
 			},
@@ -723,11 +730,11 @@ func TestOneWaySync(t *testing.T) {
 			name: "create deleted item external (push)",
 			src: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1",
+					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
 					Items: []model.Item{
 						{
-							Title: "I1",
+							Title:  "I1",
 							Status: model.StatusDeleted,
 						},
 					},
@@ -738,16 +745,16 @@ func TestOneWaySync(t *testing.T) {
 			}),
 			wantSrcLists: []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
-					Status: model.StatusOpen,
+					ID:         "store-list-1",
+					Name:       "L1",
+					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
 					Items: []model.Item{
 						{
-							ID: "store-item-1",
-							Title: "I1",
-							Status: model.StatusDeleted,
-							ListID: "store-list-1",
+							ID:             "store-item-1",
+							Title:          "I1",
+							Status:         model.StatusDeleted,
+							ListID:         "store-list-1",
 							ExternalListID: stringPtr("external-list-1"),
 						},
 					},
@@ -755,8 +762,8 @@ func TestOneWaySync(t *testing.T) {
 			},
 			wantDstLists: []model.List{
 				{
-					Name: "L1",
-					Status: model.StatusOpen,
+					Name:       "L1",
+					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
 				},
 			},
@@ -1272,27 +1279,27 @@ func TestOneWaySync(t *testing.T) {
 			name: "create list create item and move item (push)",
 			src: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1",
+					Name:     "L1",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{},
+					Items:    []model.Item{},
 				},
 				{
-					Name: "L2",
+					Name:     "L2",
 					Modified: baseTime.Add(1),
 					Items: []model.Item{
 						{
-							ID: "store-item-2",
-							Title: "I2",
+							ID:     "store-item-2",
+							Title:  "I2",
 							Status: model.StatusNotStarted,
 						},
 						{
-							ID: "store-item-1",
-							Title: "I1",
+							ID:     "store-item-1",
+							Title:  "I1",
 							Status: model.StatusInProgress,
 						},
 						{
-							ID: "store-item-3",
-							Title: "I3",
+							ID:     "store-item-3",
+							Title:  "I3",
 							Status: model.StatusInProgress,
 						},
 					},
@@ -1300,13 +1307,13 @@ func TestOneWaySync(t *testing.T) {
 			}),
 			dst: NewFakeProvider("generic", []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
+					ID:       "store-list-1",
+					Name:     "L1",
 					Modified: baseTime,
 					Items: []model.Item{
 						{
-							ID: "store-item-1",
-							Title: "I1",
+							ID:     "store-item-1",
+							Title:  "I1",
 							Status: model.StatusInProgress,
 						},
 					},
@@ -1314,76 +1321,76 @@ func TestOneWaySync(t *testing.T) {
 			}),
 			wantSrcLists: []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
-					Status: model.StatusOpen,
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
 					Position: 0,
-					Items: []model.Item{},
+					Items:    []model.Item{},
 				},
 				{
-					ID: "store-list-2",
-					Name: "L2",
-					Status: model.StatusOpen,
-					Position: 1, 
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 1,
 					Items: []model.Item{
 						{
-							ID: "store-item-2",
-							Title: "I2",
+							ID:       "store-item-2",
+							Title:    "I2",
 							Position: 0,
-							Status: model.StatusNotStarted,
-							ListID: "store-list-2",
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-2",
 						},
 						{
-							ID: "store-item-1",
-							Title: "I1",
+							ID:       "store-item-1",
+							Title:    "I1",
 							Position: 1,
-							Status: model.StatusInProgress,
-							ListID: "store-list-2",
+							Status:   model.StatusInProgress,
+							ListID:   "store-list-2",
 						},
 						{
-							ID: "store-item-3",
-							Title: "I3",
+							ID:       "store-item-3",
+							Title:    "I3",
 							Position: 2,
-							Status: model.StatusInProgress,
-							ListID: "store-list-2",
+							Status:   model.StatusInProgress,
+							ListID:   "store-list-2",
 						},
 					},
 				},
 			},
 			wantDstLists: []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
-					Status: model.StatusOpen,
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
 					Position: 0,
-					Items: []model.Item{},
+					Items:    []model.Item{},
 				},
 				{
-					ID: "store-list-2",
-					Name: "L2",
-					Status: model.StatusOpen,
-					Position: 1, 
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 1,
 					Items: []model.Item{
 						{
-							ID: "store-item-2",
-							Title: "I2",
+							ID:       "store-item-2",
+							Title:    "I2",
 							Position: 0,
-							Status: model.StatusNotStarted,
-							ListID: "store-list-2",
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-2",
 						},
 						{
-							ID: "store-item-1",
-							Title: "I1",
+							ID:       "store-item-1",
+							Title:    "I1",
 							Position: 1,
-							Status: model.StatusInProgress,
-							ListID: "store-list-2",
+							Status:   model.StatusInProgress,
+							ListID:   "store-list-2",
 						},
 						{
-							ID: "store-item-3",
-							Title: "I3",
+							ID:       "store-item-3",
+							Title:    "I3",
 							Position: 2,
-							Status: model.StatusInProgress,
-							ListID: "store-list-2",
+							Status:   model.StatusInProgress,
+							ListID:   "store-list-2",
 						},
 					},
 				},
@@ -1394,26 +1401,26 @@ func TestOneWaySync(t *testing.T) {
 			name: "create list create item and move item (pull)",
 			src: NewFakeProvider("generic", []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
+					ID:       "store-list-1",
+					Name:     "L1",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{},
+					Items:    []model.Item{},
 				},
 				{
-					Name: "L2",
+					Name:     "L2",
 					Modified: baseTime.Add(1),
 					Items: []model.Item{
 						{
-							Title: "I2",
+							Title:  "I2",
 							Status: model.StatusNotStarted,
 						},
 						{
-							ID: "store-item-1",
-							Title: "I1",
+							ID:     "store-item-1",
+							Title:  "I1",
 							Status: model.StatusInProgress,
 						},
 						{
-							Title: "I3",
+							Title:  "I3",
 							Status: model.StatusInProgress,
 						},
 					},
@@ -1421,11 +1428,11 @@ func TestOneWaySync(t *testing.T) {
 			}),
 			dst: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1",
+					Name:     "L1",
 					Modified: baseTime,
 					Items: []model.Item{
 						{
-							Title: "I1",
+							Title:  "I1",
 							Status: model.StatusInProgress,
 						},
 					},
@@ -1433,76 +1440,76 @@ func TestOneWaySync(t *testing.T) {
 			}),
 			wantSrcLists: []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
-					Status: model.StatusOpen,
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
 					Position: 0,
-					Items: []model.Item{},
+					Items:    []model.Item{},
 				},
 				{
-					ID: "store-list-2",
-					Name: "L2",
-					Status: model.StatusOpen,
-					Position: 1, 
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 1,
 					Items: []model.Item{
 						{
-							ID: "store-item-2",
-							Title: "I2",
+							ID:       "store-item-2",
+							Title:    "I2",
 							Position: 0,
-							Status: model.StatusNotStarted,
-							ListID: "store-list-2",
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-2",
 						},
 						{
-							ID: "store-item-1",
-							Title: "I1",
+							ID:       "store-item-1",
+							Title:    "I1",
 							Position: 1,
-							Status: model.StatusInProgress,
-							ListID: "store-list-2",
+							Status:   model.StatusInProgress,
+							ListID:   "store-list-2",
 						},
 						{
-							ID: "store-item-3",
-							Title: "I3",
+							ID:       "store-item-3",
+							Title:    "I3",
 							Position: 2,
-							Status: model.StatusInProgress,
-							ListID: "store-list-2",
+							Status:   model.StatusInProgress,
+							ListID:   "store-list-2",
 						},
 					},
 				},
 			},
 			wantDstLists: []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
-					Status: model.StatusOpen,
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
 					Position: 0,
-					Items: []model.Item{},
+					Items:    []model.Item{},
 				},
 				{
-					ID: "store-list-2",
-					Name: "L2",
-					Status: model.StatusOpen,
-					Position: 1, 
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 1,
 					Items: []model.Item{
 						{
-							ID: "store-item-2",
-							Title: "I2",
+							ID:       "store-item-2",
+							Title:    "I2",
 							Position: 0,
-							Status: model.StatusNotStarted,
-							ListID: "store-list-2",
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-2",
 						},
 						{
-							ID: "store-item-1",
-							Title: "I1",
+							ID:       "store-item-1",
+							Title:    "I1",
 							Position: 1,
-							Status: model.StatusInProgress,
-							ListID: "store-list-2",
+							Status:   model.StatusInProgress,
+							ListID:   "store-list-2",
 						},
 						{
-							ID: "store-item-3",
-							Title: "I3",
+							ID:       "store-item-3",
+							Title:    "I3",
 							Position: 2,
-							Status: model.StatusInProgress,
-							ListID: "store-list-2",
+							Status:   model.StatusInProgress,
+							ListID:   "store-list-2",
 						},
 					},
 				},
@@ -1513,29 +1520,29 @@ func TestOneWaySync(t *testing.T) {
 			name: "create list create item and move item external (push)",
 			src: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1",
-					Modified: baseTime.Add(1),
+					Name:       "L1",
+					Modified:   baseTime.Add(1),
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{},
+					Items:      []model.Item{},
 				},
 				{
-					Name: "L2",
+					Name:     "L2",
 					Modified: baseTime.Add(1),
 					Items: []model.Item{
 						{
-							ID: "store-item-2",
-							Title: "I2",
+							ID:     "store-item-2",
+							Title:  "I2",
 							Status: model.StatusNotStarted,
 						},
 						{
-							ID: "store-item-1",
-							Title: "I1",
-							Status: model.StatusInProgress,
+							ID:         "store-item-1",
+							Title:      "I1",
+							Status:     model.StatusInProgress,
 							ExternalID: stringPtr("external-item-1"),
 						},
 						{
-							ID: "store-item-3",
-							Title: "I3",
+							ID:     "store-item-3",
+							Title:  "I3",
 							Status: model.StatusInProgress,
 						},
 					},
@@ -1543,11 +1550,11 @@ func TestOneWaySync(t *testing.T) {
 			}),
 			dst: NewFakeProvider("external", []model.List{
 				{
-					Name: "L1",
+					Name:     "L1",
 					Modified: baseTime,
 					Items: []model.Item{
 						{
-							Title: "I1",
+							Title:  "I1",
 							Status: model.StatusInProgress,
 						},
 					},
@@ -1555,84 +1562,84 @@ func TestOneWaySync(t *testing.T) {
 			}),
 			wantSrcLists: []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
-					Status: model.StatusOpen,
-					Position: 0,
+					ID:         "store-list-1",
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   0,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{},
+					Items:      []model.Item{},
 				},
 				{
-					ID: "store-list-2",
-					Name: "L2",
-					Status: model.StatusOpen,
-					Position: 1, 
+					ID:         "store-list-2",
+					Name:       "L2",
+					Status:     model.StatusOpen,
+					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
 					Items: []model.Item{
 						{
-							ID: "store-item-2",
-							Title: "I2",
-							Position: 0,
-							Status: model.StatusNotStarted,
-							ListID: "store-list-2",
+							ID:             "store-item-2",
+							Title:          "I2",
+							Position:       0,
+							Status:         model.StatusNotStarted,
+							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID: stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-item-2"),
 						},
 						{
-							ID: "store-item-1",
-							Title: "I1",
-							Position: 1,
-							Status: model.StatusInProgress,
-							ListID: "store-list-2",
+							ID:             "store-item-1",
+							Title:          "I1",
+							Position:       1,
+							Status:         model.StatusInProgress,
+							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID: stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-item-1"),
 						},
 						{
-							ID: "store-item-3",
-							Title: "I3",
-							Position: 2,
-							Status: model.StatusInProgress,
-							ListID: "store-list-2",
+							ID:             "store-item-3",
+							Title:          "I3",
+							Position:       2,
+							Status:         model.StatusInProgress,
+							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID: stringPtr("external-item-3"),
+							ExternalID:     stringPtr("external-item-3"),
 						},
 					},
 				},
 			},
 			wantDstLists: []model.List{
 				{
-					Name: "L1",
-					Status: model.StatusOpen,
-					Position: 0,
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   0,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{},
+					Items:      []model.Item{},
 				},
 				{
-					Name: "L2",
-					Status: model.StatusOpen,
-					Position: 1, 
+					Name:       "L2",
+					Status:     model.StatusOpen,
+					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
 					Items: []model.Item{
 						{
-							Title: "I2",
-							Position: 0,
-							Status: model.StatusNotStarted,
+							Title:          "I2",
+							Position:       0,
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID: stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-item-2"),
 						},
 						{
-							Title: "I1",
-							Position: 1,
-							Status: model.StatusInProgress,
+							Title:          "I1",
+							Position:       1,
+							Status:         model.StatusInProgress,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID: stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-item-1"),
 						},
 						{
-							Title: "I3",
-							Position: 2,
-							Status: model.StatusInProgress,
+							Title:          "I3",
+							Position:       2,
+							Status:         model.StatusInProgress,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID: stringPtr("external-item-3"),
+							ExternalID:     stringPtr("external-item-3"),
 						},
 					},
 				},
@@ -1643,27 +1650,27 @@ func TestOneWaySync(t *testing.T) {
 			name: "create list create item and move item external (pull)",
 			src: NewFakeProvider("external", []model.List{
 				{
-					Name: "L1",
+					Name:     "L1",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{},
+					Items:    []model.Item{},
 				},
 				{
-					Name: "L2",
+					Name:     "L2",
 					Modified: baseTime.Add(1),
 					Items: []model.Item{
 						{
-							Title: "I2",
-							Status: model.StatusNotStarted,
+							Title:      "I2",
+							Status:     model.StatusNotStarted,
 							ExternalID: stringPtr("external-item-2"),
 						},
 						{
-							Title: "I1",
-							Status: model.StatusInProgress,
+							Title:      "I1",
+							Status:     model.StatusInProgress,
 							ExternalID: stringPtr("external-item-1"),
 						},
 						{
-							Title: "I3",
-							Status: model.StatusInProgress,
+							Title:      "I3",
+							Status:     model.StatusInProgress,
 							ExternalID: stringPtr("external-item-3"),
 						},
 					},
@@ -1671,98 +1678,98 @@ func TestOneWaySync(t *testing.T) {
 			}),
 			dst: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1",
+					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
-					Modified: baseTime,
+					Modified:   baseTime,
 					Items: []model.Item{
 						{
-							Title: "I1",
+							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
-							Status: model.StatusInProgress,
+							Status:     model.StatusInProgress,
 						},
 					},
 				},
 			}),
 			wantSrcLists: []model.List{
 				{
-					Name: "L1",
-					Status: model.StatusOpen,
-					Position: 0,
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   0,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{},
+					Items:      []model.Item{},
 				},
 				{
-					Name: "L2",
-					Status: model.StatusOpen,
-					Position: 1, 
+					Name:       "L2",
+					Status:     model.StatusOpen,
+					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
 					Items: []model.Item{
 						{
-							Title: "I2",
-							Position: 0,
-							Status: model.StatusNotStarted,
+							Title:          "I2",
+							Position:       0,
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID: stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-item-2"),
 						},
 						{
-							Title: "I1",
-							Position: 1,
-							Status: model.StatusInProgress,
+							Title:          "I1",
+							Position:       1,
+							Status:         model.StatusInProgress,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID: stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-item-1"),
 						},
 						{
-							Title: "I3",
-							Position: 2,
-							Status: model.StatusInProgress,
+							Title:          "I3",
+							Position:       2,
+							Status:         model.StatusInProgress,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID: stringPtr("external-item-3"),
+							ExternalID:     stringPtr("external-item-3"),
 						},
 					},
 				},
 			},
 			wantDstLists: []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
-					Status: model.StatusOpen,
-					Position: 0,
+					ID:         "store-list-1",
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   0,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{},
+					Items:      []model.Item{},
 				},
 				{
-					ID: "store-list-2",
-					Name: "L2",
-					Status: model.StatusOpen,
-					Position: 1, 
+					ID:         "store-list-2",
+					Name:       "L2",
+					Status:     model.StatusOpen,
+					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
 					Items: []model.Item{
 						{
-							ID: "store-item-2",
-							Title: "I2",
-							Position: 0,
-							Status: model.StatusNotStarted,
-							ListID: "store-list-2",
+							ID:             "store-item-2",
+							Title:          "I2",
+							Position:       0,
+							Status:         model.StatusNotStarted,
+							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID: stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-item-2"),
 						},
 						{
-							ID: "store-item-1",
-							Title: "I1",
-							Position: 1,
-							Status: model.StatusInProgress,
-							ListID: "store-list-2",
+							ID:             "store-item-1",
+							Title:          "I1",
+							Position:       1,
+							Status:         model.StatusInProgress,
+							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID: stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-item-1"),
 						},
 						{
-							ID: "store-item-3",
-							Title: "I3",
-							Position: 2,
-							Status: model.StatusInProgress,
-							ListID: "store-list-2",
+							ID:             "store-item-3",
+							Title:          "I3",
+							Position:       2,
+							Status:         model.StatusInProgress,
+							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID: stringPtr("external-item-3"),
+							ExternalID:     stringPtr("external-item-3"),
 						},
 					},
 				},
@@ -3183,18 +3190,18 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "delete already deleted list (pull)",
-			src: NewFakeProvider("generic", []model.List{}),
+			src:  NewFakeProvider("generic", []model.List{}),
 			dst: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1",
+					Name:   "L1",
 					Status: model.StatusDeleted,
 				},
 			}),
 			wantSrcLists: []model.List{},
 			wantDstLists: []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
+					ID:     "store-list-1",
+					Name:   "L1",
 					Status: model.StatusDeleted,
 				},
 			},
@@ -3202,20 +3209,20 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "delete already deleted list external (pull)",
-			src: NewFakeProvider("external", []model.List{}),
+			src:  NewFakeProvider("external", []model.List{}),
 			dst: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1",
-					Status: model.StatusDeleted,
+					Name:       "L1",
+					Status:     model.StatusDeleted,
 					ExternalID: stringPtr("external-list-1"),
 				},
 			}),
 			wantSrcLists: []model.List{},
 			wantDstLists: []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
-					Status: model.StatusDeleted,
+					ID:         "store-list-1",
+					Name:       "L1",
+					Status:     model.StatusDeleted,
 					ExternalID: stringPtr("external-list-1"),
 				},
 			},
@@ -3390,7 +3397,7 @@ func TestOneWaySync(t *testing.T) {
 			name: "delete already deleted item (pull)",
 			src: NewFakeProvider("generic", []model.List{
 				{
-					ID: "store-list-1",
+					ID:   "store-list-1",
 					Name: "L1",
 				},
 			}),
@@ -3399,7 +3406,7 @@ func TestOneWaySync(t *testing.T) {
 					Name: "L1",
 					Items: []model.Item{
 						{
-							Title: "I1",
+							Title:  "I1",
 							Status: model.StatusDeleted,
 						},
 					},
@@ -3407,20 +3414,20 @@ func TestOneWaySync(t *testing.T) {
 			}),
 			wantSrcLists: []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
+					ID:     "store-list-1",
+					Name:   "L1",
 					Status: model.StatusOpen,
 				},
 			},
 			wantDstLists: []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
+					ID:     "store-list-1",
+					Name:   "L1",
 					Status: model.StatusOpen,
 					Items: []model.Item{
 						{
-							ID: "store-item-1",
-							Title: "I1",
+							ID:     "store-item-1",
+							Title:  "I1",
 							Status: model.StatusDeleted,
 							ListID: "store-list-1",
 						},
@@ -3436,12 +3443,12 @@ func TestOneWaySync(t *testing.T) {
 			}),
 			dst: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1",
+					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
 					Items: []model.Item{
 						{
-							Title: "I1",
-							Status: model.StatusDeleted,
+							Title:      "I1",
+							Status:     model.StatusDeleted,
 							ExternalID: stringPtr("external-item-1"),
 						},
 					},
@@ -3449,25 +3456,25 @@ func TestOneWaySync(t *testing.T) {
 			}),
 			wantSrcLists: []model.List{
 				{
-					Name: "L1",
-					Status: model.StatusOpen,
+					Name:       "L1",
+					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
 				},
 			},
 			wantDstLists: []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
-					Status: model.StatusOpen,
+					ID:         "store-list-1",
+					Name:       "L1",
+					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
 					Items: []model.Item{
 						{
-							ID: "store-item-1",
-							Title: "I1",
-							Status: model.StatusDeleted,
-							ListID: "store-list-1",
+							ID:             "store-item-1",
+							Title:          "I1",
+							Status:         model.StatusDeleted,
+							ListID:         "store-list-1",
 							ExternalListID: stringPtr("external-list-1"),
-							ExternalID: stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-item-1"),
 						},
 					},
 				},
@@ -3478,47 +3485,47 @@ func TestOneWaySync(t *testing.T) {
 			name: "delete list move item (push)",
 			src: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1", 
-					Status: model.StatusDeleted,
+					Name:     "L1",
+					Status:   model.StatusDeleted,
 					Modified: baseTime.Add(1),
 				},
 				{
-					Name: "L2",
+					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item {
+					Items: []model.Item{
 						{Title: "I1"},
 					},
 				},
 			}),
 			dst: NewFakeProvider("generic", []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1",
+					ID:       "store-list-1",
+					Name:     "L1",
 					Modified: baseTime,
 					Items: []model.Item{
 						{
-							ID: "store-item-1",
+							ID:    "store-item-1",
 							Title: "I1",
 						},
 					},
 				},
 				{
-					ID: "store-list-2",
-					Name: "L2",
+					ID:       "store-list-2",
+					Name:     "L2",
 					Modified: baseTime,
-					Items: []model.Item{},
+					Items:    []model.Item{},
 				},
 			}),
 			wantSrcLists: []model.List{
 				{
-					ID: "store-list-2",
-					Name: "L2",
-					Status: model.StatusOpen,
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item {
+					Items: []model.Item{
 						{
-							ID: "store-item-1",
-							Title: "I1",
+							ID:     "store-item-1",
+							Title:  "I1",
 							ListID: "store-list-2",
 						},
 					},
@@ -3526,14 +3533,14 @@ func TestOneWaySync(t *testing.T) {
 			},
 			wantDstLists: []model.List{
 				{
-					ID: "store-list-2",
-					Name: "L2",
-					Status: model.StatusOpen,
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item {
+					Items: []model.Item{
 						{
-							ID: "store-item-1",
-							Title: "I1",
+							ID:     "store-item-1",
+							Title:  "I1",
 							ListID: "store-list-2",
 						},
 					},
@@ -3545,18 +3552,18 @@ func TestOneWaySync(t *testing.T) {
 			name: "delete list move item (pull)",
 			src: NewFakeProvider("generic", []model.List{
 				{
-					ID: "store-list-1",
-					Name: "L1", 
-					Status: model.StatusDeleted,
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusDeleted,
 					Modified: baseTime.Add(1),
 				},
 				{
-					ID: "store-list-2",
-					Name: "L2",
+					ID:       "store-list-2",
+					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item {
+					Items: []model.Item{
 						{
-							ID: "store-item-1",
+							ID:    "store-item-1",
 							Title: "I1",
 						},
 					},
@@ -3564,28 +3571,28 @@ func TestOneWaySync(t *testing.T) {
 			}),
 			dst: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1",
+					Name:     "L1",
 					Modified: baseTime,
 					Items: []model.Item{
 						{Title: "I1"},
 					},
 				},
 				{
-					Name: "L2",
+					Name:     "L2",
 					Modified: baseTime,
-					Items: []model.Item{},
+					Items:    []model.Item{},
 				},
 			}),
 			wantSrcLists: []model.List{
 				{
-					ID: "store-list-2",
-					Name: "L2",
-					Status: model.StatusOpen,
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item {
+					Items: []model.Item{
 						{
-							ID: "store-item-1",
-							Title: "I1",
+							ID:     "store-item-1",
+							Title:  "I1",
 							ListID: "store-list-2",
 						},
 					},
@@ -3593,14 +3600,14 @@ func TestOneWaySync(t *testing.T) {
 			},
 			wantDstLists: []model.List{
 				{
-					ID: "store-list-2",
-					Name: "L2",
-					Status: model.StatusOpen,
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item {
+					Items: []model.Item{
 						{
-							ID: "store-item-1",
-							Title: "I1",
+							ID:     "store-item-1",
+							Title:  "I1",
 							ListID: "store-list-2",
 						},
 					},
@@ -3612,18 +3619,18 @@ func TestOneWaySync(t *testing.T) {
 			name: "delete list move item external (push)",
 			src: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1", 
+					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
-					Status: model.StatusDeleted,
-					Modified: baseTime.Add(1),
+					Status:     model.StatusDeleted,
+					Modified:   baseTime.Add(1),
 				},
 				{
-					Name: "L2",
+					Name:       "L2",
 					ExternalID: stringPtr("external-list-2"),
-					Modified: baseTime.Add(1),
-					Items: []model.Item {
+					Modified:   baseTime.Add(1),
+					Items: []model.Item{
 						{
-							Title: "I1",
+							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
 						},
 					},
@@ -3631,47 +3638,47 @@ func TestOneWaySync(t *testing.T) {
 			}),
 			dst: NewFakeProvider("external", []model.List{
 				{
-					Name: "L1",
+					Name:     "L1",
 					Modified: baseTime,
 					Items: []model.Item{
 						{Title: "I1"},
 					},
 				},
 				{
-					Name: "L2",
+					Name:     "L2",
 					Modified: baseTime,
-					Items: []model.Item{},
+					Items:    []model.Item{},
 				},
 			}),
 			wantSrcLists: []model.List{
 				{
-					ID: "store-list-2",
-					Name: "L2",
-					Status: model.StatusOpen,
-					Position: 1,
+					ID:         "store-list-2",
+					Name:       "L2",
+					Status:     model.StatusOpen,
+					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item {
+					Items: []model.Item{
 						{
-							ID: "store-item-1",
-							Title: "I1",
-							ListID: "store-list-2",
+							ID:             "store-item-1",
+							Title:          "I1",
+							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID: stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-item-1"),
 						},
 					},
 				},
 			},
 			wantDstLists: []model.List{
 				{
-					Name: "L2",
-					Status: model.StatusOpen,
-					Position: 1,
+					Name:       "L2",
+					Status:     model.StatusOpen,
+					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item {
+					Items: []model.Item{
 						{
-							Title: "I1",
+							Title:          "I1",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID: stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-item-1"),
 						},
 					},
 				},
@@ -3682,66 +3689,66 @@ func TestOneWaySync(t *testing.T) {
 			name: "delete list move item external (pull)",
 			src: NewFakeProvider("external", []model.List{
 				{
-					Name: "L1", 
-					Status: model.StatusDeleted,
+					Name:     "L1",
+					Status:   model.StatusDeleted,
 					Modified: baseTime.Add(1),
 				},
 				{
-					Name: "L2",
+					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item {
+					Items: []model.Item{
 						{Title: "I1"},
 					},
 				},
 			}),
 			dst: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1",
-					Modified: baseTime,
+					Name:       "L1",
+					Modified:   baseTime,
 					ExternalID: stringPtr("external-list-1"),
 					Items: []model.Item{
 						{
-							Title: "I1",
+							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
 						},
 					},
 				},
 				{
-					Name: "L2",
-					Modified: baseTime,
+					Name:       "L2",
+					Modified:   baseTime,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{},
+					Items:      []model.Item{},
 				},
 			}),
 			wantSrcLists: []model.List{
 				{
-					Name: "L2",
-					Status: model.StatusOpen,
-					Position: 1,
+					Name:       "L2",
+					Status:     model.StatusOpen,
+					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item {
+					Items: []model.Item{
 						{
-							Title: "I1",
+							Title:          "I1",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID: stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-item-1"),
 						},
 					},
 				},
 			},
 			wantDstLists: []model.List{
 				{
-					ID: "store-list-2",
-					Name: "L2",
-					Status: model.StatusOpen,
-					Position: 1,
+					ID:         "store-list-2",
+					Name:       "L2",
+					Status:     model.StatusOpen,
+					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item {
+					Items: []model.Item{
 						{
-							ID: "store-item-1",
-							Title: "I1",
-							ListID: "store-list-2",
+							ID:             "store-item-1",
+							Title:          "I1",
+							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID: stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-item-1"),
 						},
 					},
 				},

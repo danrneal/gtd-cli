@@ -3,8 +3,9 @@ package common
 import (
 	"testing"
 
-	"github.com/danrneal/gtd.nvim/internal/model"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/danrneal/gtd.nvim/internal/model"
 )
 
 func TestCalculateMoves(t *testing.T) {

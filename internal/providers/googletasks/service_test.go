@@ -30,7 +30,7 @@ func TestTokenFromFile(t *testing.T) {
 			name: "valid token file",
 			setupFile: func(t *testing.T, dir string) string {
 				path := filepath.Join(dir, "token.json")
-				if err := os.WriteFile(path, validTokenJSON, 0600); err != nil {
+				if err := os.WriteFile(path, validTokenJSON, 0o600); err != nil {
 					t.Fatalf("failed to write setup file: %v", err)
 				}
 
@@ -51,7 +51,7 @@ func TestTokenFromFile(t *testing.T) {
 			name: "invalid json",
 			setupFile: func(t *testing.T, dir string) string {
 				path := filepath.Join(dir, "bad.json")
-				if err := os.WriteFile(path, []byte("{bad-json"), 0600); err != nil {
+				if err := os.WriteFile(path, []byte("{bad-json"), 0o600); err != nil {
 					t.Fatalf("failed to write setup file: %v", err)
 				}
 
@@ -240,12 +240,20 @@ func TestFileTokenSource_Token(t *testing.T) {
 				_ = json.Unmarshal(content, &savedToken)
 
 				if tt.wantSave {
-					if diff := cmp.Diff(*tt.wantToken, savedToken, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
+					if diff := cmp.Diff(
+						*tt.wantToken,
+						savedToken,
+						cmpopts.IgnoreUnexported(oauth2.Token{}),
+					); diff != "" {
 						t.Errorf("File save mismatch (-want +got):\n%s", diff)
 					}
 				} else {
 					if tt.token != nil {
-						if diff := cmp.Diff(*tt.token, savedToken, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
+						if diff := cmp.Diff(
+							*tt.token,
+							savedToken,
+							cmpopts.IgnoreUnexported(oauth2.Token{}),
+						); diff != "" {
 							t.Errorf("File save mismatch (should match old) (-want +got):\n%s", diff)
 						}
 					}

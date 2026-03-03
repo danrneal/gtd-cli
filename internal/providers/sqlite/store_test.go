@@ -10,9 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/danrneal/gtd.nvim/internal/model"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"github.com/danrneal/gtd.nvim/internal/model"
 )
 
 func TestNewStore(t *testing.T) {
@@ -79,7 +80,7 @@ func TestNewStore(t *testing.T) {
 
 				file.Close()
 
-				if err := os.Chmod(dbPath, 0400); err != nil {
+				if err := os.Chmod(dbPath, 0o400); err != nil {
 					t.Fatalf("failed to chmod: %v", err)
 				}
 
@@ -234,7 +235,6 @@ func TestCreateList(t *testing.T) {
 					err = db.QueryRow(
 						"SELECT id, name, position, external_id FROM lists WHERE name = ?", wantName,
 					).Scan(&gotList.ID, &gotList.Name, &gotList.Position, &gotList.ExternalID)
-
 					if err != nil {
 						t.Fatalf("failed to query list: %v", err)
 					}
@@ -273,7 +273,6 @@ func TestListLists(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -296,7 +295,6 @@ func TestListLists(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-2", "Work", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -314,7 +312,6 @@ func TestListLists(t *testing.T) {
 						) VALUES (?, ?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Task 1", "", "list-2", time.Now(), time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
@@ -345,7 +342,6 @@ func TestListLists(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-3", "Complex", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -363,7 +359,6 @@ func TestListLists(t *testing.T) {
 						) VALUES (?, ?, ?, ?, ?, ?, ?)
 					`, "item-2", "Task 2", "", "list-3", `["a", "b"]`, time.Now(), time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
@@ -394,7 +389,6 @@ func TestListLists(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-4", "Broken", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -412,7 +406,6 @@ func TestListLists(t *testing.T) {
 						) VALUES (?, ?, ?, ?, ?, ?, ?)
 					`, "item-3", "Task 3", "", "list-4", `{badjson`, time.Now(), time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
@@ -428,7 +421,6 @@ func TestListLists(t *testing.T) {
 						VALUES (?, ?)
 					`, "Inbox", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -517,7 +509,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "Old Name", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -617,7 +608,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-opt", "Optimization", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -637,7 +627,6 @@ func TestUpdateList(t *testing.T) {
 						) VALUES (?, ?, ?, ?, ?, ?, '[]', ?, ?)
 					`, "item-opt", "Task Opt", "", "list-opt", 99, "not_started", time.Now(), time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
@@ -696,7 +685,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "Valid", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -731,7 +719,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?, ?)
 					`, "list-1", "Original", time.Now(), "ext-1",
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -766,7 +753,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?, ?)
 					`, "list-1", "Original Name", time.Now(), "ext-L1",
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -804,7 +790,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?, ?)
 					`, "list-1", "List 1", time.Now(), "ext-L1",
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -823,7 +808,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?, ?, ?, ?, ?)
 					`, "item-1", "Original Title", "", "list-1", time.Now(), time.Now(), "ext-I1",
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
@@ -869,7 +853,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-delete", "To Be Deleted", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -888,7 +871,6 @@ func TestUpdateList(t *testing.T) {
 						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 					`, "item-delete", "Cleanup Item", "", "list-delete", 0, "not_started", time.Now(), time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
@@ -923,7 +905,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?, ?)
 					`, "list-delete", "To Be Deleted", time.Now(), "ext-list-delete",
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -939,7 +920,6 @@ func TestUpdateList(t *testing.T) {
 						) VALUES (?, ?, ?, ?, ?)
 					`, "item-delete", "Cleanup Item", "list-delete", time.Now(), time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
@@ -999,7 +979,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?, ?)
 					`, "list-rollback", "Stable Name", "open", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -1037,7 +1016,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "Valid", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -1080,7 +1058,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "Valid List", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -1137,7 +1114,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "Valid", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -1216,7 +1192,6 @@ func TestUpdateList(t *testing.T) {
 						WHERE id = ?
 					`, id,
 				).Scan(&gotList.Name, &gotList.Position, &gotList.Status)
-
 				if err != nil {
 					t.Fatalf("failed to query list: %v", err)
 				}
@@ -1270,7 +1245,6 @@ func TestDeleteList(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "To Delete", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -1287,7 +1261,6 @@ func TestDeleteList(t *testing.T) {
 						) VALUES (?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Linked Item", "list-1", time.Now(), time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
@@ -1311,7 +1284,6 @@ func TestDeleteList(t *testing.T) {
 						VALUES (?, ?, ?, ?)
 					`, "list-ext-del", "List to Delete", time.Now(), "ext-del-1",
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -1347,7 +1319,6 @@ func TestDeleteList(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "To Delete", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -1468,7 +1439,6 @@ func TestCreateItem(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -1476,7 +1446,7 @@ func TestCreateItem(t *testing.T) {
 			item: model.Item{
 				ListID:      "list-1",
 				Title:       "Complex Task",
-				Description: "  Line 1   \nLine 2   \n  Line 3",
+				Description: "  Line 1   \n  Line 2   \n    Line 3",
 				Status:      model.StatusDone,
 				ProjectID:   stringPtr("proj-1"),
 				WaitingOn:   stringPtr("Alice"),
@@ -1673,7 +1643,6 @@ func TestUpdateItem(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -1691,7 +1660,6 @@ func TestUpdateItem(t *testing.T) {
 						) VALUES (?, ?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Original", "", "list-1", time.Now(), time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
@@ -1704,7 +1672,7 @@ func TestUpdateItem(t *testing.T) {
 					ListID:      "list-2", // Should be ignored
 					Position:    99,       // Should be ignored
 					Title:       "  Updated Title  ",
-					Description: "  Line 1  \n  Line 2",
+					Description: "  Line 1  \n    Line 2",
 					Status:      model.StatusDone,
 					Tags:        []string{"updated", "tag"},
 					Modified:    time.Now(),
@@ -1731,7 +1699,6 @@ func TestUpdateItem(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -1750,7 +1717,6 @@ func TestUpdateItem(t *testing.T) {
 						) VALUES (?, ?, ?, ?, '[]', ?, ?, ?)
 					`, "item-1", "Original", "", "list-1", time.Now(), time.Now(), "ext-I1",
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
@@ -1784,7 +1750,6 @@ func TestUpdateItem(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -1803,7 +1768,6 @@ func TestUpdateItem(t *testing.T) {
 						) VALUES (?, ?, ?, ?, '[]', ?, ?, ?)
 					`, "item-1", "Original", "", "list-1", time.Now(), time.Now(), "ext-I1",
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
@@ -1848,7 +1812,6 @@ func TestUpdateItem(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -1866,7 +1829,6 @@ func TestUpdateItem(t *testing.T) {
 						) VALUES (?, ?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
@@ -1895,7 +1857,6 @@ func TestUpdateItem(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -1913,7 +1874,6 @@ func TestUpdateItem(t *testing.T) {
 						) VALUES (?, ?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
@@ -1958,7 +1918,6 @@ func TestUpdateItem(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -1976,7 +1935,6 @@ func TestUpdateItem(t *testing.T) {
 						) VALUES (?, ?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
@@ -2052,7 +2010,6 @@ func TestUpdateItem(t *testing.T) {
 						WHERE id = ?
 					`, id,
 				).Scan(&gotItem.ID, &gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Status, &tagsJSON, &gotItem.Position)
-
 				if err != nil {
 					t.Fatalf("failed to query item: %v", err)
 				}
@@ -2068,7 +2025,16 @@ func TestUpdateItem(t *testing.T) {
 				tt.wantItem.ID = id
 
 				opts := []cmp.Option{
-					cmpopts.IgnoreFields(model.Item{}, "Modified", "Created", "Snoozed", "Due", "ProjectID", "WaitingOn", "ExternalID"),
+					cmpopts.IgnoreFields(
+						model.Item{},
+						"Modified",
+						"Created",
+						"Snoozed",
+						"Due",
+						"ProjectID",
+						"WaitingOn",
+						"ExternalID",
+					),
 				}
 
 				if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {
@@ -2095,7 +2061,6 @@ func TestDeleteItem(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -2113,7 +2078,6 @@ func TestDeleteItem(t *testing.T) {
 						) VALUES (?, ?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Item to Delete", "", "list-1", time.Now(), time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
@@ -2132,7 +2096,6 @@ func TestDeleteItem(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -2151,7 +2114,6 @@ func TestDeleteItem(t *testing.T) {
 						) VALUES (?, ?, ?, ?, '[]', ?, ?, ?)
 					`, "item-1", "Item to Delete", "", "list-1", time.Now(), time.Now(), "ext-I1",
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}
@@ -2187,7 +2149,6 @@ func TestDeleteItem(t *testing.T) {
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert list: %v", err)
 				}
@@ -2205,7 +2166,6 @@ func TestDeleteItem(t *testing.T) {
 						) VALUES (?, ?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),
 				)
-
 				if err != nil {
 					t.Fatalf("failed to insert item: %v", err)
 				}

@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/danrneal/gtd.nvim/internal/model"
-	"github.com/danrneal/gtd.nvim/internal/providers/common"
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
+
+	"github.com/danrneal/gtd.nvim/internal/model"
+	"github.com/danrneal/gtd.nvim/internal/providers/common"
 )
 
 // Store manages the SQLite database connection and executes queries.
@@ -28,13 +29,13 @@ func NewStore(ctx context.Context, dbPath string) (*Store, error) {
 	}
 
 	if err := db.PingContext(ctx); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
 	store := &Store{db: db}
 	if err := store.createTables(ctx); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 
@@ -123,7 +124,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	items, err := s.listAllItems(ctx, tx)
 	if err != nil {
@@ -165,7 +166,6 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 			&list.Modified,
 			&list.ExternalID,
 		)
-
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan list: %w", err)
 		}
@@ -231,7 +231,7 @@ func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	query := `
                 UPDATE lists SET
@@ -252,7 +252,6 @@ func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []
 		list.ID,
 		list.ExternalID,
 	)
-
 	if err != nil {
 		return fmt.Errorf("failed to update list %q (ID: %s): %w", list.Name, list.ID, err)
 	}
@@ -446,7 +445,6 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]model.Item, err
 			&item.ExternalID,
 			&item.ExternalListID,
 		)
-
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan item: %w", err)
 		}
@@ -518,7 +516,6 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
 		item.ID,
 		item.ExternalID,
 	)
-
 	if err != nil {
 		return fmt.Errorf("failed to update item %q (ID: %s): %w", item.Title, item.ID, err)
 	}
@@ -555,7 +552,6 @@ func (s *Store) updateItemLocation(ctx context.Context, tx *sql.Tx, item model.I
 		item.ID,
 		item.ExternalID,
 	)
-
 	if err != nil {
 		return fmt.Errorf("failed to move item %q (ID: %s): %w", item.Title, item.ID, err)
 	}

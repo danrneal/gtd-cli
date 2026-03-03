@@ -7,9 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/api/tasks/v1"
+
 	"github.com/danrneal/gtd.nvim/internal/model"
 	"github.com/danrneal/gtd.nvim/internal/providers/common"
-	"google.golang.org/api/tasks/v1"
 )
 
 // Client is a wrapper around the Google Tasks service.

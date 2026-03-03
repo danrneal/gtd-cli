@@ -8,10 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/danrneal/gtd.nvim/internal/model"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/api/option"
 	"google.golang.org/api/tasks/v1"
+
+	"github.com/danrneal/gtd.nvim/internal/model"
 )
 
 // mockTransport implements http.RoundTripper to mock API responses
@@ -564,7 +565,8 @@ func TestUpdateList(t *testing.T) {
 								"id": "L2", 
 								"title": "Target List"
 							}
-						`))}
+						`)),
+					}
 
 					return resp
 				}
@@ -1151,7 +1153,8 @@ func TestListItems(t *testing.T) {
 					Due:            iso8601ToDate("2024-01-01"),
 					Status:         model.StatusOpen,
 					ExternalID:     stringPtr("t1"),
-					ExternalListID: stringPtr("L1")},
+					ExternalListID: stringPtr("L1"),
+				},
 			},
 		},
 		{
