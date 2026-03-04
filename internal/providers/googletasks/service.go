@@ -84,7 +84,7 @@ func tokenFromFile(file string) (*oauth2.Token, error) {
 // tokenFromWeb requests a token from the web, then returns the retrieved token.
 func tokenFromWeb(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error) {
 	authCodeURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	fmt.Printf("Go to the following link in your browser then type the authorization code: \n%v\n", authCodeURL)
+	log.Printf("Go to the following link in your browser then type the authorization code: \n%v\n", authCodeURL)
 
 	var authCode string
 	if _, err := fmt.Scan(&authCode); err != nil {

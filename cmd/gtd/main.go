@@ -11,15 +11,13 @@ import (
 	"github.com/danrneal/gtd.nvim/internal/providers/sqlite"
 )
 
-var (
-	db        = flag.String("db", "gtd.db", "Name of the SQLite database.")
-	adapters  = flag.String("adapters", "", "Comma-separated list of adapters to enable. Supported: google_tasks")
-	credsFile = flag.String("credentials", "credentials.json", "Path to Google credentials file")
-	tokenFile = flag.String("token", "token.json", "Path to Google token file")
-)
-
 func main() {
+	db := flag.String("db", "gtd.db", "Name of the SQLite database.")
+	adapters := flag.String("adapters", "", "Comma-separated list of adapters to enable. Supported: google_tasks")
+	credsFile := flag.String("credentials", "credentials.json", "Path to Google credentials file")
+	tokenFile := flag.String("token", "token.json", "Path to Google token file")
 	flag.Parse()
+
 	ctx := context.Background()
 
 	sqliteStore, err := sqlite.NewStore(ctx, *db)
@@ -27,7 +25,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	for _, adapter := range strings.Split(*adapters, ",") {
+	for adapter := range strings.SplitSeq(*adapters, ",") {
 		if adapter == "" {
 			continue
 		}

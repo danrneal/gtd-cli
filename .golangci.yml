@@ -18,23 +18,143 @@ formatters:
 
 linters:
   enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - copyloopvar
+    - durationcheck
+    - dupl
+    - embeddedstructfieldcheck
     - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - exptostd
+    - fatcontext
+    - forbidigo
+    - funcorder
+    - gocheckcompilerdirectives
+    - gochecknoglobals
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - godoclint
+    - godot
+    - gomoddirectives
+    - goprintffuncname
+    - gosec
     - govet
+    - iface
     - ineffassign
+    - intrange
+    - iotamixing
+    - loggercheck
+    - makezero
+    - mirror
+    - misspell
+    - modernize
+    - musttag
+    - nakedret
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - noctx
+    - nolintlint
+    - nonamedreturns
+    - nosprintfhostport
+    - perfsprint
+    - predeclared
+    - promlinter
+    - protogetter
+    - reassign
+    - recvcheck
+    - rowserrcheck
+    - sloglint
+    - spancheck
+    - sqlclosecheck
     - staticcheck
+    - testableexamples
+    - testifylint
+    - tparallel
+    - unconvert
+    - unparam
+    - unqueryvet
     - unused
+    - usestdlibvars
+    - usetesting
+    - wastedassign
+    - whitespace
 
   settings:
+    embeddedstructfieldcheck:
+      forbid-mutex: true
+
     errcheck:
       check-type-assertions: true
+      exclude-functions:
+        - (*database/sql.Tx).Rollback
+
+    exhaustive:
+      check:
+        - switch
+        - map
+      default-signifies-exhaustive: true
+
+    funcorder:
+      struct-method: false
+
     govet:
       enable-all: true
       disable:
         - fieldalignment
+
+    godoclint:
+      enable:
+        - no-unused-link
+        - require-stdlib-doclink
+
+    misspell:
+      locale: US
+
+    nakedret:
+      max-func-lines: 0
+
+    nolintlint:
+      allow-no-explanation: [ funlen, gocognit, golines ]
+      require-explanation: true
+      require-specific: true
+
+    perfsprint:
+      strconcat: false
+
+    reassign:
+      patterns:
+        - ".*"
+
+    rowserrcheck:
+      packages:
+        - github.com/jmoiron/sqlx
+
+    sloglint:
+      no-global: all
+      context: scope
+
     staticcheck:
       checks:
         - all
         - -ST1000
+
+    usetesting:
+      os-temp-dir: true
+
+    gocritic:
+      settings:
+        captLocal:
+          paramsOnly: false
+        underef:
+          skipRecvDeref: false
 
   exclusions:
     warn-unused: true
@@ -44,4 +164,9 @@ linters:
     rules:
       - path: '_test\.go'
         linters:
+          - bodyclose
+          - dupl
           - errcheck
+          - goconst
+          - gosec
+          - noctx

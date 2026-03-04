@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"testing"
@@ -84,11 +85,11 @@ func (f *FakeProvider) SetKey(resource model.Resource, key string) {
 
 func (f *FakeProvider) CreateList(ctx context.Context, list model.List) (string, error) {
 	if list.Status != "" && list.Status != model.StatusOpen {
-		return "", fmt.Errorf("new lists must have status 'open'")
+		return "", errors.New("new lists must have status 'open'")
 	}
 
 	if list.Name == "" {
-		return "", fmt.Errorf("list name cannot be empty")
+		return "", errors.New("list name cannot be empty")
 	}
 
 	listKey := f.GetKey(&list)
@@ -139,7 +140,7 @@ func (f *FakeProvider) UpdateList(ctx context.Context, updatedList model.List, c
 	}
 
 	if updatedList.Name == "" {
-		return fmt.Errorf("list name cannot be empty")
+		return errors.New("list name cannot be empty")
 	}
 
 	if f.Name == "generic" {
@@ -218,7 +219,7 @@ func (f *FakeProvider) CreateItem(ctx context.Context, item model.Item, previous
 	}
 
 	if item.Title == "" {
-		return "", fmt.Errorf("item title cannot be empty")
+		return "", errors.New("item title cannot be empty")
 	}
 
 	itemKey := f.GetKey(&item)
@@ -252,7 +253,7 @@ func (f *FakeProvider) UpdateItem(ctx context.Context, updatedItem model.Item) e
 	}
 
 	if updatedItem.Title == "" {
-		return fmt.Errorf("item title cannot be empty")
+		return errors.New("item title cannot be empty")
 	}
 
 	if f.Name == "generic" {
@@ -3760,11 +3761,12 @@ func TestOneWaySync(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var s *Syncer
-			if tt.src.Name == "store" {
+			switch {
+			case tt.src.Name == "store":
 				s = NewSyncer(tt.src, tt.dst)
-			} else if tt.dst.Name == "store" {
+			case tt.dst.Name == "store":
 				s = NewSyncer(tt.dst, tt.src)
-			} else {
+			default:
 				t.Fatalf("test must have at least one 'store' provider")
 			}
 

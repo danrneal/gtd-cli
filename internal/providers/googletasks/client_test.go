@@ -15,7 +15,7 @@ import (
 	"github.com/danrneal/gtd.nvim/internal/model"
 )
 
-// mockTransport implements http.RoundTripper to mock API responses
+// mockTransport implements [http.RoundTripper] to mock API responses.
 type mockTransport struct {
 	roundTripFunc func(req *http.Request) (*http.Response, error)
 }
@@ -97,9 +97,9 @@ func TestCreateList(t *testing.T) {
 				Name: "New List",
 			},
 			handler: func(req *http.Request) *http.Response {
-				if req.Method != "POST" {
+				if req.Method != http.MethodPost {
 					resp := &http.Response{
-						StatusCode: 405,
+						StatusCode: http.StatusMethodNotAllowed,
 						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
 						Header:     make(http.Header),
 					}
@@ -109,7 +109,7 @@ func TestCreateList(t *testing.T) {
 
 				if req.URL.Path != "/tasks/v1/users/@me/lists" {
 					resp := &http.Response{
-						StatusCode: 404,
+						StatusCode: http.StatusNotFound,
 						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
 						Header:     make(http.Header),
 					}
@@ -118,7 +118,7 @@ func TestCreateList(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"id": "new-list-id", 
@@ -140,7 +140,7 @@ func TestCreateList(t *testing.T) {
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 500,
+					StatusCode: http.StatusInternalServerError,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"error": "internal"
@@ -193,7 +193,7 @@ func TestListLists(t *testing.T) {
 			handler: func(req *http.Request) *http.Response {
 				if req.URL.Path == "/tasks/v1/users/@me/lists" {
 					resp := &http.Response{
-						StatusCode: 200,
+						StatusCode: http.StatusOK,
 						Body: io.NopCloser(bytes.NewBufferString(`
 							{
 								"items": [
@@ -213,7 +213,7 @@ func TestListLists(t *testing.T) {
 
 				if req.URL.Path == "/tasks/v1/lists/L1/tasks" {
 					resp := &http.Response{
-						StatusCode: 200,
+						StatusCode: http.StatusOK,
 						Body: io.NopCloser(bytes.NewBufferString(`
 							{
 								"items": [
@@ -232,7 +232,7 @@ func TestListLists(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 404,
+					StatusCode: http.StatusNotFound,
 					Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
 					Header:     make(http.Header),
 				}
@@ -262,7 +262,7 @@ func TestListLists(t *testing.T) {
 			name: "tasklists list failure",
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 500,
+					StatusCode: http.StatusInternalServerError,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"error": "internal"
@@ -281,7 +281,7 @@ func TestListLists(t *testing.T) {
 			handler: func(req *http.Request) *http.Response {
 				if req.URL.Path == "/tasks/v1/users/@me/lists" {
 					resp := &http.Response{
-						StatusCode: 200,
+						StatusCode: http.StatusOK,
 						Body: io.NopCloser(bytes.NewBufferString(`
 							{
 								"items": [
@@ -299,7 +299,7 @@ func TestListLists(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 500,
+					StatusCode: http.StatusInternalServerError,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"error": "internal"
@@ -365,9 +365,9 @@ func TestUpdateList(t *testing.T) {
 			},
 			currentItems: nil,
 			handler: func(req *http.Request) *http.Response {
-				if req.Method != "PATCH" {
+				if req.Method != http.MethodPatch {
 					resp := &http.Response{
-						StatusCode: 405,
+						StatusCode: http.StatusMethodNotAllowed,
 						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
 						Header:     make(http.Header),
 					}
@@ -377,7 +377,7 @@ func TestUpdateList(t *testing.T) {
 
 				if req.URL.Path != "/tasks/v1/users/@me/lists/L1" {
 					resp := &http.Response{
-						StatusCode: 404,
+						StatusCode: http.StatusNotFound,
 						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
 						Header:     make(http.Header),
 					}
@@ -388,7 +388,7 @@ func TestUpdateList(t *testing.T) {
 				body, _ := io.ReadAll(req.Body)
 				if !bytes.Contains(body, []byte(`"title":"Updated List"`)) {
 					resp := &http.Response{
-						StatusCode: 400,
+						StatusCode: http.StatusBadRequest,
 						Body:       io.NopCloser(bytes.NewBufferString("Bad Title")),
 						Header:     make(http.Header),
 					}
@@ -397,7 +397,7 @@ func TestUpdateList(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"id": "L1", 
@@ -437,9 +437,9 @@ func TestUpdateList(t *testing.T) {
 				{ExternalID: stringPtr("A")},
 			},
 			handler: func(req *http.Request) *http.Response {
-				if req.Method == "PATCH" && req.URL.Path == "/tasks/v1/users/@me/lists/L1" {
+				if req.Method == http.MethodPatch && req.URL.Path == "/tasks/v1/users/@me/lists/L1" {
 					resp := &http.Response{
-						StatusCode: 200,
+						StatusCode: http.StatusOK,
 						Body: io.NopCloser(bytes.NewBufferString(`
 							{
 								"id": "L1", 
@@ -452,10 +452,10 @@ func TestUpdateList(t *testing.T) {
 					return resp
 				}
 
-				if req.Method == "POST" && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
+				if req.Method == http.MethodPost && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
 					if req.URL.Query().Get("previous") == "" {
 						resp := &http.Response{
-							StatusCode: 200,
+							StatusCode: http.StatusOK,
 							Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
 							Header:     make(http.Header),
 						}
@@ -464,7 +464,7 @@ func TestUpdateList(t *testing.T) {
 					}
 
 					resp := &http.Response{
-						StatusCode: 400,
+						StatusCode: http.StatusBadRequest,
 						Body:       io.NopCloser(bytes.NewBufferString("Wrong Previous")),
 						Header:     make(http.Header),
 					}
@@ -473,7 +473,7 @@ func TestUpdateList(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 400,
+					StatusCode: http.StatusBadRequest,
 					Body:       io.NopCloser(bytes.NewBufferString("Unexpected Request: " + req.URL.String())),
 					Header:     make(http.Header),
 				}
@@ -496,9 +496,9 @@ func TestUpdateList(t *testing.T) {
 			},
 			currentItems: []model.Item{},
 			handler: func(req *http.Request) *http.Response {
-				if req.Method == "PATCH" && req.URL.Path == "/tasks/v1/users/@me/lists/L2" {
+				if req.Method == http.MethodPatch && req.URL.Path == "/tasks/v1/users/@me/lists/L2" {
 					resp := &http.Response{
-						StatusCode: 200,
+						StatusCode: http.StatusOK,
 						Body: io.NopCloser(bytes.NewBufferString(`
 							{
 								"id": "L2", 
@@ -510,10 +510,10 @@ func TestUpdateList(t *testing.T) {
 					return resp
 				}
 
-				if req.Method == "POST" && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
+				if req.Method == http.MethodPost && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
 					if req.URL.Query().Get("destinationTasklist") == "L2" {
 						resp := &http.Response{
-							StatusCode: 200,
+							StatusCode: http.StatusOK,
 							Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
 						}
 
@@ -521,7 +521,7 @@ func TestUpdateList(t *testing.T) {
 					}
 
 					resp := &http.Response{
-						StatusCode: 400,
+						StatusCode: http.StatusBadRequest,
 						Body:       io.NopCloser(bytes.NewBufferString("Wrong Destination")),
 					}
 
@@ -529,7 +529,7 @@ func TestUpdateList(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 400,
+					StatusCode: http.StatusBadRequest,
 					Body:       io.NopCloser(bytes.NewBufferString("Unexpected Request")),
 				}
 
@@ -557,9 +557,9 @@ func TestUpdateList(t *testing.T) {
 				{ExternalID: stringPtr("B")},
 			},
 			handler: func(req *http.Request) *http.Response {
-				if req.Method == "PATCH" && req.URL.Path == "/tasks/v1/users/@me/lists/L2" {
+				if req.Method == http.MethodPatch && req.URL.Path == "/tasks/v1/users/@me/lists/L2" {
 					resp := &http.Response{
-						StatusCode: 200,
+						StatusCode: http.StatusOK,
 						Body: io.NopCloser(bytes.NewBufferString(`
 							{
 								"id": "L2", 
@@ -571,11 +571,11 @@ func TestUpdateList(t *testing.T) {
 					return resp
 				}
 
-				if req.Method == "POST" && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
+				if req.Method == http.MethodPost && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
 					q := req.URL.Query()
 					if q.Get("destinationTasklist") == "L2" && q.Get("previous") == "B" {
 						resp := &http.Response{
-							StatusCode: 200,
+							StatusCode: http.StatusOK,
 							Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
 						}
 
@@ -583,7 +583,7 @@ func TestUpdateList(t *testing.T) {
 					}
 
 					resp := &http.Response{
-						StatusCode: 400,
+						StatusCode: http.StatusBadRequest,
 						Body:       io.NopCloser(bytes.NewBufferString("Wrong Params")),
 					}
 
@@ -591,7 +591,7 @@ func TestUpdateList(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 400,
+					StatusCode: http.StatusBadRequest,
 					Body:       io.NopCloser(bytes.NewBufferString("Unexpected Request")),
 				}
 
@@ -607,7 +607,7 @@ func TestUpdateList(t *testing.T) {
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 500,
+					StatusCode: http.StatusInternalServerError,
 					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
 					Header:     make(http.Header),
 				}
@@ -637,9 +637,9 @@ func TestUpdateList(t *testing.T) {
 				{ExternalID: stringPtr("A")},
 			},
 			handler: func(req *http.Request) *http.Response {
-				if req.Method == "PATCH" && req.URL.Path == "/tasks/v1/users/@me/lists/L1" {
+				if req.Method == http.MethodPatch && req.URL.Path == "/tasks/v1/users/@me/lists/L1" {
 					resp := &http.Response{
-						StatusCode: 200,
+						StatusCode: http.StatusOK,
 						Body: io.NopCloser(bytes.NewBufferString(`
 							{
 								"id": "L1", 
@@ -652,9 +652,9 @@ func TestUpdateList(t *testing.T) {
 					return resp
 				}
 
-				if req.Method == "POST" && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
+				if req.Method == http.MethodPost && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
 					resp := &http.Response{
-						StatusCode: 500,
+						StatusCode: http.StatusInternalServerError,
 						Body:       io.NopCloser(bytes.NewBufferString(`{"error": "move failed"}`)),
 						Header:     make(http.Header),
 					}
@@ -663,7 +663,7 @@ func TestUpdateList(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 400,
+					StatusCode: http.StatusBadRequest,
 					Body:       io.NopCloser(bytes.NewBufferString("Unexpected Request")),
 				}
 
@@ -708,9 +708,9 @@ func TestDeleteList(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 			},
 			handler: func(req *http.Request) *http.Response {
-				if req.Method != "DELETE" {
+				if req.Method != http.MethodDelete {
 					resp := &http.Response{
-						StatusCode: 405,
+						StatusCode: http.StatusMethodNotAllowed,
 						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
 						Header:     make(http.Header),
 					}
@@ -720,7 +720,7 @@ func TestDeleteList(t *testing.T) {
 
 				if req.URL.Path != "/tasks/v1/users/@me/lists/L1" {
 					resp := &http.Response{
-						StatusCode: 404,
+						StatusCode: http.StatusNotFound,
 						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
 						Header:     make(http.Header),
 					}
@@ -729,7 +729,7 @@ func TestDeleteList(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 204,
+					StatusCode: http.StatusNoContent,
 					Body:       io.NopCloser(bytes.NewBufferString("")),
 					Header:     make(http.Header),
 				}
@@ -745,7 +745,7 @@ func TestDeleteList(t *testing.T) {
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 500,
+					StatusCode: http.StatusInternalServerError,
 					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
 					Header:     make(http.Header),
 				}
@@ -796,9 +796,9 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 			},
 			handler: func(req *http.Request) *http.Response {
-				if req.Method != "POST" {
+				if req.Method != http.MethodPost {
 					resp := &http.Response{
-						StatusCode: 405,
+						StatusCode: http.StatusMethodNotAllowed,
 						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
 						Header:     make(http.Header),
 					}
@@ -808,7 +808,7 @@ func TestCreateItem(t *testing.T) {
 
 				if req.URL.Path != "/tasks/v1/lists/L1/tasks" {
 					resp := &http.Response{
-						StatusCode: 404,
+						StatusCode: http.StatusNotFound,
 						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
 						Header:     make(http.Header),
 					}
@@ -819,7 +819,7 @@ func TestCreateItem(t *testing.T) {
 				body, _ := io.ReadAll(req.Body)
 				if !bytes.Contains(body, []byte(`"title":"Simple"`)) {
 					resp := &http.Response{
-						StatusCode: 400,
+						StatusCode: http.StatusBadRequest,
 						Body:       io.NopCloser(bytes.NewBufferString("Bad Title")),
 						Header:     make(http.Header),
 					}
@@ -829,7 +829,7 @@ func TestCreateItem(t *testing.T) {
 
 				if !bytes.Contains(body, []byte(`"status":"needsAction"`)) {
 					resp := &http.Response{
-						StatusCode: 400,
+						StatusCode: http.StatusBadRequest,
 						Body:       io.NopCloser(bytes.NewBufferString("Bad Status")),
 						Header:     make(http.Header),
 					}
@@ -838,7 +838,7 @@ func TestCreateItem(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "T1"}`)),
 					Header:     make(http.Header),
 				}
@@ -860,7 +860,7 @@ func TestCreateItem(t *testing.T) {
 				body, _ := io.ReadAll(req.Body)
 				if !bytes.Contains(body, []byte(`"status":"completed"`)) {
 					resp := &http.Response{
-						StatusCode: 400,
+						StatusCode: http.StatusBadRequest,
 						Body:       io.NopCloser(bytes.NewBufferString("Bad Status")),
 						Header:     make(http.Header),
 					}
@@ -869,7 +869,7 @@ func TestCreateItem(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "T1"}`)),
 					Header:     make(http.Header),
 				}
@@ -891,7 +891,7 @@ func TestCreateItem(t *testing.T) {
 				body, _ := io.ReadAll(req.Body)
 				if !bytes.Contains(body, []byte(`"due":"2024-01-01T00:00:00Z"`)) {
 					resp := &http.Response{
-						StatusCode: 400,
+						StatusCode: http.StatusBadRequest,
 						Body:       io.NopCloser(bytes.NewBufferString("Bad Due Date")),
 						Header:     make(http.Header),
 					}
@@ -900,7 +900,7 @@ func TestCreateItem(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "T1"}`)),
 					Header:     make(http.Header),
 				}
@@ -921,7 +921,7 @@ func TestCreateItem(t *testing.T) {
 			handler: func(req *http.Request) *http.Response {
 				if req.URL.Query().Get("previous") != "P1" {
 					resp := &http.Response{
-						StatusCode: 400,
+						StatusCode: http.StatusBadRequest,
 						Body:       io.NopCloser(bytes.NewBufferString("Bad Previous")),
 						Header:     make(http.Header),
 					}
@@ -930,7 +930,7 @@ func TestCreateItem(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "T1"}`)),
 					Header:     make(http.Header),
 				}
@@ -949,7 +949,7 @@ func TestCreateItem(t *testing.T) {
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 500,
+					StatusCode: http.StatusInternalServerError,
 					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
 					Header:     make(http.Header),
 				}
@@ -1003,7 +1003,7 @@ func TestListItems(t *testing.T) {
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"items": [
@@ -1055,7 +1055,7 @@ func TestListItems(t *testing.T) {
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"items": [
@@ -1092,7 +1092,7 @@ func TestListItems(t *testing.T) {
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"items": [
@@ -1129,7 +1129,7 @@ func TestListItems(t *testing.T) {
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"items": [
@@ -1166,7 +1166,7 @@ func TestListItems(t *testing.T) {
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"items": [
@@ -1203,7 +1203,7 @@ func TestListItems(t *testing.T) {
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"items": [
@@ -1240,7 +1240,7 @@ func TestListItems(t *testing.T) {
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"items": [
@@ -1278,7 +1278,7 @@ func TestListItems(t *testing.T) {
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"items": [
@@ -1316,7 +1316,7 @@ func TestListItems(t *testing.T) {
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"items": [
@@ -1354,7 +1354,7 @@ func TestListItems(t *testing.T) {
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 500,
+					StatusCode: http.StatusInternalServerError,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"error": "internal"
@@ -1422,9 +1422,9 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 			},
 			handler: func(req *http.Request) *http.Response {
-				if req.Method != "PATCH" {
+				if req.Method != http.MethodPatch {
 					resp := &http.Response{
-						StatusCode: 405,
+						StatusCode: http.StatusMethodNotAllowed,
 						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
 						Header:     make(http.Header),
 					}
@@ -1434,7 +1434,7 @@ func TestUpdateItem(t *testing.T) {
 
 				if req.URL.Path != "/tasks/v1/lists/L1/tasks/T1" {
 					resp := &http.Response{
-						StatusCode: 404,
+						StatusCode: http.StatusNotFound,
 						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
 						Header:     make(http.Header),
 					}
@@ -1445,7 +1445,7 @@ func TestUpdateItem(t *testing.T) {
 				body, _ := io.ReadAll(req.Body)
 				if !bytes.Contains(body, []byte(`"title":"Updated Task"`)) {
 					resp := &http.Response{
-						StatusCode: 400,
+						StatusCode: http.StatusBadRequest,
 						Body:       io.NopCloser(bytes.NewBufferString("Bad Title")),
 						Header:     make(http.Header),
 					}
@@ -1454,7 +1454,7 @@ func TestUpdateItem(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"id": "T1", 
@@ -1481,7 +1481,7 @@ func TestUpdateItem(t *testing.T) {
 				body, _ := io.ReadAll(req.Body)
 				if !bytes.Contains(body, []byte(`"status":"completed"`)) {
 					resp := &http.Response{
-						StatusCode: 400,
+						StatusCode: http.StatusBadRequest,
 						Body:       io.NopCloser(bytes.NewBufferString("Bad Status")),
 						Header:     make(http.Header),
 					}
@@ -1490,7 +1490,7 @@ func TestUpdateItem(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"id": "T1", 
@@ -1517,7 +1517,7 @@ func TestUpdateItem(t *testing.T) {
 				body, _ := io.ReadAll(req.Body)
 				if !bytes.Contains(body, []byte(`"due":"2024-01-01T00:00:00Z"`)) {
 					resp := &http.Response{
-						StatusCode: 400,
+						StatusCode: http.StatusBadRequest,
 						Body:       io.NopCloser(bytes.NewBufferString("Bad Due Date")),
 						Header:     make(http.Header),
 					}
@@ -1526,7 +1526,7 @@ func TestUpdateItem(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"id": "T1"
@@ -1549,7 +1549,7 @@ func TestUpdateItem(t *testing.T) {
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 500,
+					StatusCode: http.StatusInternalServerError,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
 							"error": "internal"
@@ -1600,9 +1600,9 @@ func TestDeleteItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 			},
 			handler: func(req *http.Request) *http.Response {
-				if req.Method != "DELETE" {
+				if req.Method != http.MethodDelete {
 					resp := &http.Response{
-						StatusCode: 405,
+						StatusCode: http.StatusMethodNotAllowed,
 						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
 						Header:     make(http.Header),
 					}
@@ -1612,7 +1612,7 @@ func TestDeleteItem(t *testing.T) {
 
 				if req.URL.Path != "/tasks/v1/lists/L1/tasks/T1" {
 					resp := &http.Response{
-						StatusCode: 404,
+						StatusCode: http.StatusNotFound,
 						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
 						Header:     make(http.Header),
 					}
@@ -1621,7 +1621,7 @@ func TestDeleteItem(t *testing.T) {
 				}
 
 				resp := &http.Response{
-					StatusCode: 204,
+					StatusCode: http.StatusNoContent,
 					Body:       io.NopCloser(bytes.NewBufferString("")),
 					Header:     make(http.Header),
 				}
@@ -1638,7 +1638,7 @@ func TestDeleteItem(t *testing.T) {
 			},
 			handler: func(req *http.Request) *http.Response {
 				resp := &http.Response{
-					StatusCode: 500,
+					StatusCode: http.StatusInternalServerError,
 					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
 					Header:     make(http.Header),
 				}
@@ -1696,9 +1696,9 @@ func TestRenderTitle(t *testing.T) {
 			name: "title with due",
 			item: model.Item{
 				Title: "Task",
-				Due:   iso8601ToDate("2024-01-01"),
+				Due:   iso8601ToDate("2024-12-31"),
 			},
-			wantTitle: "Task due:2024-01-01",
+			wantTitle: "Task due:2024-12-31",
 		},
 		{
 			name: "title with multiple tags",

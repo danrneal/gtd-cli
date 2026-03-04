@@ -55,6 +55,10 @@ func TestNewStore(t *testing.T) {
 					}
 				}
 
+				if err := rows.Err(); err != nil {
+					t.Fatalf("failed iterating rows: %v", err)
+				}
+
 				wantTables := []string{"items", "lists"}
 				if diff := cmp.Diff(wantTables, gotTables); diff != "" {
 					t.Errorf("database tables mismatch (-want +got):\n%s", diff)
@@ -173,9 +177,9 @@ func TestCreateList(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "cancelled context",
+			name: "canceled context",
 			list: model.List{
-				Name:     "Cancelled",
+				Name:     "Canceled",
 				Modified: time.Now(),
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
@@ -1521,11 +1525,11 @@ func TestCreateItem(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "cancelled context",
+			name:    "canceled context",
 			setupDB: nil,
 			item: model.Item{
 				ListID: "list-1",
-				Title:  "Cancelled",
+				Title:  "Canceled",
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())

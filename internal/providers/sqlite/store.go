@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -83,12 +84,12 @@ func (s *Store) createTables(ctx context.Context) error {
 func (s *Store) CreateList(ctx context.Context, list model.List) (string, error) {
 	list.ID = uuid.NewString()[:8]
 	if list.Status != "" && list.Status != model.StatusOpen {
-		return "", fmt.Errorf("new lists must have status 'open'")
+		return "", errors.New("new lists must have status 'open'")
 	}
 
 	list.Name = strings.TrimSpace(list.Name)
 	if list.Name == "" {
-		return "", fmt.Errorf("list name cannot be empty")
+		return "", errors.New("list name cannot be empty")
 	}
 
 	query := `
@@ -124,7 +125,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	defer func() { _ = tx.Rollback() }()
+	defer tx.Rollback()
 
 	items, err := s.listAllItems(ctx, tx)
 	if err != nil {
@@ -210,7 +211,7 @@ func (s *Store) getListID(ctx context.Context, externalID *string) (string, erro
 //   - currentItems: The items currently associated with this list, used to optimize position updates.
 func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []model.Item) error {
 	if list.ID == "" && list.ExternalID == nil {
-		return fmt.Errorf("failed to update list: no internal or external ID provided")
+		return errors.New("failed to update list: no internal or external ID provided")
 	}
 
 	if list.Status == "" {
@@ -223,7 +224,7 @@ func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []
 
 	list.Name = strings.TrimSpace(list.Name)
 	if list.Name == "" {
-		return fmt.Errorf("list name cannot be empty")
+		return errors.New("list name cannot be empty")
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -231,7 +232,7 @@ func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	defer func() { _ = tx.Rollback() }()
+	defer tx.Rollback()
 
 	query := `
                 UPDATE lists SET
@@ -301,7 +302,7 @@ func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []
 // DeleteList deletes a list from the database.
 func (s *Store) DeleteList(ctx context.Context, list model.List) error {
 	if list.ID == "" && list.ExternalID == nil {
-		return fmt.Errorf("failed to delete list: no internal or external ID provided")
+		return errors.New("failed to delete list: no internal or external ID provided")
 	}
 
 	query := `DELETE FROM lists WHERE id = ? OR external_id = ?;`
@@ -333,7 +334,7 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item, _ string) (stri
 
 	item.Title = strings.TrimSpace(item.Title)
 	if item.Title == "" {
-		return "", fmt.Errorf("item title cannot be empty")
+		return "", errors.New("item title cannot be empty")
 	}
 
 	item.Description = common.MultilineTrim(item.Description)
@@ -469,7 +470,7 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]model.Item, err
 // It identifies the record via ID or ExternalID.
 func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
 	if item.ID == "" && item.ExternalID == nil {
-		return fmt.Errorf("failed to update item: no internal or external ID provided")
+		return errors.New("failed to update item: no internal or external ID provided")
 	}
 
 	if !isValidItemStatus(item.Status) {
@@ -478,7 +479,7 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
 
 	item.Title = strings.TrimSpace(item.Title)
 	if item.Title == "" {
-		return fmt.Errorf("item title cannot be empty")
+		return errors.New("item title cannot be empty")
 	}
 
 	item.Description = common.MultilineTrim(item.Description)
@@ -536,7 +537,7 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
 // It identifies the record via ID or ExternalID.
 func (s *Store) updateItemLocation(ctx context.Context, tx *sql.Tx, item model.Item) error {
 	if item.ID == "" && item.ExternalID == nil {
-		return fmt.Errorf("failed to update item location: no internal or external ID provided")
+		return errors.New("failed to update item location: no internal or external ID provided")
 	}
 
 	query := `
@@ -571,7 +572,7 @@ func (s *Store) updateItemLocation(ctx context.Context, tx *sql.Tx, item model.I
 // DeleteItem deletes an item from the database.
 func (s *Store) DeleteItem(ctx context.Context, item model.Item) error {
 	if item.ID == "" && item.ExternalID == nil {
-		return fmt.Errorf("failed to delete item: no internal or external ID provided")
+		return errors.New("failed to delete item: no internal or external ID provided")
 	}
 
 	query := `DELETE FROM items WHERE id = ? OR external_id = ?;`

@@ -18,6 +18,11 @@ type Client struct {
 	service *tasks.Service
 }
 
+const (
+	statusNeedsAction = "needsAction"
+	statusCompleted   = "completed"
+)
+
 // NewClient returns a new Google Tasks client.
 func NewClient(service *tasks.Service) *Client {
 	client := &Client{service: service}
@@ -121,9 +126,9 @@ func (c *Client) DeleteList(ctx context.Context, list model.List) error {
 // It renders the item's title to include metadata (project, tags, due date) compatible with the parser.
 func (c *Client) CreateItem(ctx context.Context, item model.Item, previousItemID string) (string, error) {
 	title := renderTitle(item)
-	status := "needsAction"
+	status := statusNeedsAction
 	if item.Status == model.StatusDone {
-		status = "completed"
+		status = statusCompleted
 	}
 
 	var due string
@@ -169,7 +174,7 @@ func (c *Client) listItems(ctx context.Context, list model.List) ([]model.Item, 
 		item := parseTitle(task.Title, waitingFor)
 		item.ListID = list.ID
 		item.Position = i
-		if task.Status == "completed" {
+		if task.Status == statusCompleted {
 			item.Status = model.StatusDone
 		} else {
 			item.Status = model.StatusOpen
@@ -200,9 +205,9 @@ func (c *Client) listItems(ctx context.Context, list model.List) ([]model.Item, 
 // UpdateItem updates an existing task in the specified Google Task list.
 func (c *Client) UpdateItem(ctx context.Context, item model.Item) error {
 	title := renderTitle(item)
-	status := "needsAction"
+	status := statusNeedsAction
 	if item.Status == model.StatusDone {
-		status = "completed"
+		status = statusCompleted
 	}
 
 	var due string
@@ -293,8 +298,8 @@ func parseTitle(title string, waitingFor bool) model.Item {
 	}
 
 	var titleParts []string
-	titleFields := strings.Fields(title)
-	for _, titleField := range titleFields {
+	titleFields := strings.FieldsSeq(title)
+	for titleField := range titleFields {
 		switch {
 		case strings.HasPrefix(titleField, "+"):
 			if len(titleField) > 1 {
