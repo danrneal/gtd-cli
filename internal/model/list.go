@@ -9,7 +9,7 @@ type List struct {
 	Position   int       `json:"position"`
 	Status     Status    `json:"status"`
 	Modified   time.Time `json:"modified"`
-	ExternalID *string   `json:"external_id"`
+	ExternalID *string   `json:"externalId"`
 	Items      []Item    `json:"items"`
 }
 

@@ -1,3 +1,4 @@
+---
 version: "2"
 
 issues:
@@ -23,11 +24,16 @@ linters:
     - bidichk
     - bodyclose
     - canonicalheader
+    - containedctx
+    - contextcheck
     - copyloopvar
+    - dogsled
     - durationcheck
     - dupl
+    - dupword
     - embeddedstructfieldcheck
     - errcheck
+    - errchkjson
     - errname
     - errorlint
     - exhaustive
@@ -36,6 +42,7 @@ linters:
     - forbidigo
     - funcorder
     - gocheckcompilerdirectives
+    - ginkgolinter
     - gochecknoglobals
     - gochecknoinits
     - goconst
@@ -45,11 +52,15 @@ linters:
     - gomoddirectives
     - goprintffuncname
     - gosec
+    - gosmopolitan
     - govet
     - iface
+    - inamedparam
     - ineffassign
+    - interfacebloat
     - intrange
     - iotamixing
+    - ireturn
     - loggercheck
     - makezero
     - mirror
@@ -65,6 +76,7 @@ linters:
     - nonamedreturns
     - nosprintfhostport
     - perfsprint
+    - prealloc
     - predeclared
     - promlinter
     - protogetter
@@ -75,8 +87,11 @@ linters:
     - spancheck
     - sqlclosecheck
     - staticcheck
+    - tagalign
+    - tagliatelle
     - testableexamples
     - testifylint
+    - thelper
     - tparallel
     - unconvert
     - unparam
@@ -86,8 +101,16 @@ linters:
     - usetesting
     - wastedassign
     - whitespace
+    - wrapcheck
+    - zerologlint
 
   settings:
+    dupword:
+      keywords:
+        - "the"
+        - "and"
+        - "a"
+
     embeddedstructfieldcheck:
       forbid-mutex: true
 
@@ -105,15 +128,39 @@ linters:
     funcorder:
       struct-method: false
 
-    govet:
-      enable-all: true
-      disable:
-        - fieldalignment
+    ginkgolinter:
+      forbid-focus-container: true
+      force-expect-to: true
+      validate-async-intervals: true
+      forbid-spec-pollution: true
+      force-succeed: true
+      force-tonot: true
+
+    gocritic:
+      settings:
+        captLocal:
+          paramsOnly: false
+        underef:
+          skipRecvDeref: false
 
     godoclint:
       enable:
         - no-unused-link
         - require-stdlib-doclink
+
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+
+    ireturn:
+      allow:
+        - anon
+        - empty
+        - error
+        - stdlib
+        - generic
+        - (or|er)$
 
     misspell:
       locale: US
@@ -122,7 +169,7 @@ linters:
       max-func-lines: 0
 
     nolintlint:
-      allow-no-explanation: [ funlen, gocognit, golines ]
+      allow-no-explanation: [funlen, gocognit, golines]
       require-explanation: true
       require-specific: true
 
@@ -146,15 +193,28 @@ linters:
         - all
         - -ST1000
 
+    tagalign:
+      order:
+        - json
+        - yaml
+        - toml
+        - mapstructure
+        - binding
+        - validate
+      strict: true
+
+    thelper:
+      test:
+        begin: false
+      benchmark:
+        begin: false
+      tb:
+        begin: false
+      fuzz:
+        begin: false
+
     usetesting:
       os-temp-dir: true
-
-    gocritic:
-      settings:
-        captLocal:
-          paramsOnly: false
-        underef:
-          skipRecvDeref: false
 
   exclusions:
     warn-unused: true
@@ -167,6 +227,8 @@ linters:
           - bodyclose
           - dupl
           - errcheck
+          - errchkjson
           - goconst
           - gosec
           - noctx
+          - wrapcheck

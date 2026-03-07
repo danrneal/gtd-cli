@@ -137,5 +137,9 @@ func Parse(reader io.Reader) ([]model.List, error) {
 		lists = append(lists, list)
 	}
 
-	return lists, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return lists, fmt.Errorf("failed to scan markdown file: %w", err)
+	}
+
+	return lists, nil
 }

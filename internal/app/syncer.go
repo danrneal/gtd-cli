@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
 )
@@ -59,12 +60,12 @@ func (s *Syncer) Pull(ctx context.Context) (bool, error) {
 func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error) {
 	srcLists, err := src.ListLists(ctx)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to retrieve lists from source provider: %w", err)
 	}
 
 	dstLists, err := dst.ListLists(ctx)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to retrieve lists from destination provider: %w", err)
 	}
 
 	srcListsMap, srcItemsMap := s.createResourceMaps(srcLists)
@@ -81,13 +82,17 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 		if !ok {
 			dstListKey, err := dst.CreateList(ctx, srcList)
 			if err != nil {
-				return false, err
+				return false, fmt.Errorf("failed to create list %q in destination: %w", srcList.Name, err)
 			}
 
 			if listKey == "" {
 				s.setKey(&srcList, dstListKey)
 				if err := src.UpdateList(ctx, srcList, srcList.Items); err != nil {
-					return false, err
+					return false, fmt.Errorf(
+						"failed to backfill external key for list %q in source: %w",
+						srcList.Name,
+						err,
+					)
 				}
 			}
 
@@ -112,13 +117,17 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 				srcItem.ExternalListID = srcList.ExternalID
 				dstItemKey, err := dst.CreateItem(ctx, srcItem, prevItemID)
 				if err != nil {
-					return false, err
+					return false, fmt.Errorf("failed to create item %q in destination: %w", srcItem.Title, err)
 				}
 
 				if itemKey == "" {
 					s.setKey(&srcItem, dstItemKey)
 					if err := src.UpdateItem(ctx, srcItem); err != nil {
-						return false, err
+						return false, fmt.Errorf(
+							"failed to backfill external key for item %q in source: %w",
+							srcItem.Title,
+							err,
+						)
 					}
 				}
 
@@ -131,7 +140,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 
 		if srcList.Modified.After(dstList.Modified) {
 			if err := dst.UpdateList(ctx, srcList, dstList.Items); err != nil {
-				return false, err
+				return false, fmt.Errorf("failed to update list %q in destination: %w", srcList.Name, err)
 			}
 
 			updated = true
@@ -154,7 +163,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 
 				srcItem.ListID = srcList.ID
 				if err := dst.UpdateItem(ctx, srcItem); err != nil {
-					return false, err
+					return false, fmt.Errorf("failed to update item %q in destination: %w", srcItem.Title, err)
 				}
 
 				updated = true
@@ -175,18 +184,18 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 		if srcList, ok := srcListsMap[listKey]; !ok {
 			dstList.Status = model.StatusDeleted
 			if err := dst.UpdateList(ctx, dstList, dstList.Items); err != nil {
-				return false, err
+				return false, fmt.Errorf("failed to mark list %q as deleted in destination: %w", dstList.Name, err)
 			}
 
 			updated = true
 			continue
 		} else if srcList.Status == model.StatusDeleted {
 			if err := dst.DeleteList(ctx, dstList); err != nil {
-				return false, err
+				return false, fmt.Errorf("failed to permanently delete list %q from destination: %w", dstList.Name, err)
 			}
 
 			if err := src.DeleteList(ctx, srcList); err != nil {
-				return false, err
+				return false, fmt.Errorf("failed to permanently delete list %q from source: %w", srcList.Name, err)
 			}
 
 			updated = true
@@ -206,17 +215,21 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 			if srcItem, ok := srcItemsMap[itemKey]; !ok {
 				dstItem.Status = model.StatusDeleted
 				if err := dst.UpdateItem(ctx, dstItem); err != nil {
-					return false, err
+					return false, fmt.Errorf("failed to mark item %q as deleted in destination: %w", dstItem.Title, err)
 				}
 
 				updated = true
 			} else if srcItem.Status == model.StatusDeleted {
 				if err := dst.DeleteItem(ctx, dstItem); err != nil {
-					return false, err
+					return false, fmt.Errorf(
+						"failed to permanently delete item %q from destination: %w",
+						dstItem.Title,
+						err,
+					)
 				}
 
 				if err := src.DeleteItem(ctx, srcItem); err != nil {
-					return false, err
+					return false, fmt.Errorf("failed to permanently delete item %q from source: %w", srcItem.Title, err)
 				}
 
 				updated = true
