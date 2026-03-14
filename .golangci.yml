@@ -103,6 +103,7 @@ linters:
     - whitespace
     - wrapcheck
     - zerologlint
+    - wsl_v5
 
   settings:
     dupword:
@@ -215,6 +216,23 @@ linters:
 
     usetesting:
       os-temp-dir: true
+
+    wsl_v5:
+      allow-whole-block: true
+      default: none
+      enable:
+        - after-block
+        - append
+        - decl
+        - defer
+        - err
+        - expr
+        - go
+        - label
+        - leading-whitespace
+        - return
+        - send
+        - trailing-whitespace
 
   exclusions:
     warn-unused: true

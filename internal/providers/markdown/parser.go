@@ -19,9 +19,11 @@ var (
 
 // Parse reads Markdown content and converts it into a slice of model.List.
 func Parse(reader io.Reader) ([]model.List, error) {
-	var lists []model.List
-	var list model.List
-	var item model.Item
+	var (
+		lists []model.List
+		list  model.List
+		item  model.Item
+	)
 
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
@@ -81,8 +83,8 @@ func Parse(reader io.Reader) ([]model.List, error) {
 				Status: itemStatus,
 			}
 
-			itemContent := strings.TrimSpace(matches[2])
 			var titleParts []string
+			itemContent := strings.TrimSpace(matches[2])
 			for field := range strings.FieldsSeq(itemContent) {
 				switch {
 				case strings.HasPrefix(field, "+"):

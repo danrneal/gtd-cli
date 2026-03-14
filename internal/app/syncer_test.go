@@ -195,6 +195,7 @@ func (f *FakeProvider) UpdateList(ctx context.Context, updatedList model.List, c
 			}
 
 			f.Lists[i] = list
+
 			return nil
 		}
 	}
@@ -297,6 +298,7 @@ func (f *FakeProvider) UpdateItem(ctx context.Context, updatedItem model.Item) e
 				if updatedItem.ExternalID != nil {
 					item.ExternalID = updatedItem.ExternalID
 				}
+
 				if updatedItem.ExternalListID != nil {
 					item.ExternalListID = updatedItem.ExternalListID
 				}

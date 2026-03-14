@@ -16,8 +16,8 @@ func main() {
 	adapters := flag.String("adapters", "", "Comma-separated list of adapters to enable. Supported: google_tasks")
 	credsFile := flag.String("credentials", "credentials.json", "Path to Google credentials file")
 	tokenFile := flag.String("token", "token.json", "Path to Google token file")
-	flag.Parse()
 
+	flag.Parse()
 	ctx := context.Background()
 
 	sqliteStore, err := sqlite.NewStore(ctx, *db)

@@ -235,8 +235,8 @@ func TestFileTokenSource_Token(t *testing.T) {
 					t.Errorf("Token() mismatch (-want +got):\n%s", diff)
 				}
 
-				content, _ := os.ReadFile(tokenFile)
 				var savedToken oauth2.Token
+				content, _ := os.ReadFile(tokenFile)
 				_ = json.Unmarshal(content, &savedToken)
 
 				if tt.wantSave {

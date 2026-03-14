@@ -73,6 +73,7 @@ func tokenFromFile(file string) (*oauth2.Token, error) {
 	}
 
 	defer f.Close()
+
 	token := &oauth2.Token{}
 	if err = json.NewDecoder(f).Decode(token); err != nil {
 		return nil, fmt.Errorf("could not decode token from file %q: %w", file, err)

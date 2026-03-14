@@ -185,6 +185,7 @@ func TestCreateList(t *testing.T) {
 			setupCtx: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
+
 				return ctx, cancel
 			},
 			wantErr: true,
@@ -196,8 +197,10 @@ func TestCreateList(t *testing.T) {
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 
-			var ctx context.Context
-			var cancel context.CancelFunc
+			var (
+				ctx    context.Context
+				cancel context.CancelFunc
+			)
 
 			if tt.setupCtx != nil {
 				ctx, cancel = tt.setupCtx()
@@ -432,6 +435,7 @@ func TestListLists(t *testing.T) {
 			setupCtx: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
+
 				return ctx, cancel
 			},
 			wantErr: true,
@@ -443,8 +447,10 @@ func TestListLists(t *testing.T) {
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 
-			var ctx context.Context
-			var cancel context.CancelFunc
+			var (
+				ctx    context.Context
+				cancel context.CancelFunc
+			)
 
 			if tt.setupCtx != nil {
 				ctx, cancel = tt.setupCtx()
@@ -1136,6 +1142,7 @@ func TestUpdateList(t *testing.T) {
 			setupCtx: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
+
 				return ctx, cancel
 			},
 			wantErr: true,
@@ -1147,8 +1154,10 @@ func TestUpdateList(t *testing.T) {
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 
-			var ctx context.Context
-			var cancel context.CancelFunc
+			var (
+				ctx    context.Context
+				cancel context.CancelFunc
+			)
 
 			if tt.setupCtx != nil {
 				ctx, cancel = tt.setupCtx()
@@ -1334,6 +1343,7 @@ func TestDeleteList(t *testing.T) {
 			setupCtx: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
+
 				return ctx, cancel
 			},
 			wantErr: true,
@@ -1345,8 +1355,10 @@ func TestDeleteList(t *testing.T) {
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 
-			var ctx context.Context
-			var cancel context.CancelFunc
+			var (
+				ctx    context.Context
+				cancel context.CancelFunc
+			)
 
 			if tt.setupCtx != nil {
 				ctx, cancel = tt.setupCtx()
@@ -1368,7 +1380,6 @@ func TestDeleteList(t *testing.T) {
 			defer db.Close()
 
 			list := tt.setupDB(t, db)
-
 			err = store.DeleteList(ctx, list)
 
 			if tt.wantErr {
@@ -1534,6 +1545,7 @@ func TestCreateItem(t *testing.T) {
 			setupCtx: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
+
 				return ctx, cancel
 			},
 			wantErr: true,
@@ -1545,8 +1557,10 @@ func TestCreateItem(t *testing.T) {
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 
-			var ctx context.Context
-			var cancel context.CancelFunc
+			var (
+				ctx    context.Context
+				cancel context.CancelFunc
+			)
 
 			if tt.setupCtx != nil {
 				ctx, cancel = tt.setupCtx()
@@ -1598,8 +1612,11 @@ func TestCreateItem(t *testing.T) {
 				}
 
 				if tt.wantItem != nil {
-					var gotItem model.Item
-					var tagsJSON string
+					var (
+						gotItem  model.Item
+						tagsJSON string
+					)
+
 					err = db.QueryRow(
 						`SELECT list_id, title, COALESCE(description, ''), status, tags, project_id, waiting_on 
 						FROM items WHERE title = ?`, wantTitle,
@@ -1958,6 +1975,7 @@ func TestUpdateItem(t *testing.T) {
 			setupCtx: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
+
 				return ctx, cancel
 			},
 			wantErr: true,
@@ -1969,8 +1987,10 @@ func TestUpdateItem(t *testing.T) {
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 
-			var ctx context.Context
-			var cancel context.CancelFunc
+			var (
+				ctx    context.Context
+				cancel context.CancelFunc
+			)
 
 			if tt.setupCtx != nil {
 				ctx, cancel = tt.setupCtx()
@@ -1993,7 +2013,6 @@ func TestUpdateItem(t *testing.T) {
 
 			id := tt.setupDB(t, db)
 			item := tt.setupItem(id)
-
 			err = store.UpdateItem(ctx, item)
 
 			if tt.wantErr {
@@ -2005,8 +2024,11 @@ func TestUpdateItem(t *testing.T) {
 					t.Errorf("UpdateItem() unexpected error: %v", err)
 				}
 
-				var gotItem model.Item
-				var tagsJSON string
+				var (
+					gotItem  model.Item
+					tagsJSON string
+				)
+
 				err = db.QueryRow(
 					`
 						SELECT id, list_id, title, COALESCE(description, ''), status, tags, position
@@ -2181,6 +2203,7 @@ func TestDeleteItem(t *testing.T) {
 			setupCtx: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
+
 				return ctx, cancel
 			},
 			wantErr: true,
@@ -2192,8 +2215,10 @@ func TestDeleteItem(t *testing.T) {
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 
-			var ctx context.Context
-			var cancel context.CancelFunc
+			var (
+				ctx    context.Context
+				cancel context.CancelFunc
+			)
 
 			if tt.setupCtx != nil {
 				ctx, cancel = tt.setupCtx()
@@ -2215,7 +2240,6 @@ func TestDeleteItem(t *testing.T) {
 			defer db.Close()
 
 			item := tt.setupDB(t, db)
-
 			err = store.DeleteItem(ctx, item)
 
 			if tt.wantErr {

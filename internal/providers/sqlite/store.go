@@ -427,8 +427,11 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]model.Item, err
 
 	var items []model.Item
 	for rows.Next() {
-		var item model.Item
-		var tagsJSON string
+		var (
+			item     model.Item
+			tagsJSON string
+		)
+
 		err := rows.Scan(
 			&item.ID,
 			&item.ListID,

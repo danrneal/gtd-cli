@@ -334,6 +334,7 @@ func TestListLists(t *testing.T) {
 				if err == nil {
 					t.Error("ListLists() expected error, got nil")
 				}
+
 				return
 			}
 
