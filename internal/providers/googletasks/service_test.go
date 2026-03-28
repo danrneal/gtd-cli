@@ -28,7 +28,7 @@ func TestTokenFromFile(t *testing.T) {
 	}{
 		{
 			name: "valid token file",
-			setupFile: func(t *testing.T, dir string) string {
+			setupFile: func(_ *testing.T, dir string) string {
 				path := filepath.Join(dir, "token.json")
 				if err := os.WriteFile(path, validTokenJSON, 0o600); err != nil {
 					t.Fatalf("failed to write setup file: %v", err)
@@ -41,7 +41,7 @@ func TestTokenFromFile(t *testing.T) {
 		},
 		{
 			name: "file not found",
-			setupFile: func(t *testing.T, dir string) string {
+			setupFile: func(_ *testing.T, dir string) string {
 				return filepath.Join(dir, "nonexistent.json")
 			},
 			wantToken: nil,
@@ -102,7 +102,7 @@ func TestSaveToken(t *testing.T) {
 	}{
 		{
 			name: "valid save",
-			setupFile: func(t *testing.T, dir string) string {
+			setupFile: func(_ *testing.T, dir string) string {
 				return filepath.Join(dir, "token.json")
 			},
 			token:   validToken,

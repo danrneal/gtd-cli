@@ -1,3 +1,4 @@
+// Package app defines the core interfaces for the gtd application.
 package app
 
 import (

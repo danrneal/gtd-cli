@@ -1,3 +1,4 @@
+// Package main provides the entry point for the gtd CLI application.
 package main
 
 import (
@@ -5,6 +6,8 @@ import (
 	"flag"
 	"log"
 	"strings"
+
+	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/danrneal/gtd.nvim/internal/app"
 	"github.com/danrneal/gtd.nvim/internal/providers/googletasks"
@@ -16,8 +19,8 @@ func main() {
 	adapters := flag.String("adapters", "", "Comma-separated list of adapters to enable. Supported: google_tasks")
 	credsFile := flag.String("credentials", "credentials.json", "Path to Google credentials file")
 	tokenFile := flag.String("token", "token.json", "Path to Google token file")
-
 	flag.Parse()
+
 	ctx := context.Background()
 
 	sqliteStore, err := sqlite.NewStore(ctx, *db)

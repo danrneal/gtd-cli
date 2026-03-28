@@ -82,6 +82,7 @@ linters:
     - protogetter
     - reassign
     - recvcheck
+    - revive
     - rowserrcheck
     - sloglint
     - spancheck
@@ -226,13 +227,20 @@ linters:
         - decl
         - defer
         - err
-        - expr
-        - go
         - label
         - leading-whitespace
         - return
         - send
         - trailing-whitespace
+        # Reconsider after https://github.com/bombsimon/wsl/pull/245 is merged
+        # - if
+        # - for
+        # - range
+        # - select
+        # - switch
+        # Reconsider after https://github.com/bombsimon/wsl/issues/244 is resolved
+        # - expr
+        # - go
 
   exclusions:
     warn-unused: true

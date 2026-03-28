@@ -1,3 +1,4 @@
+// Package sqlite implements the SQLite database provider.
 package sqlite
 
 import (
@@ -9,10 +10,9 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
-	"github.com/danrneal/gtd.nvim/internal/providers/common"
+	"github.com/danrneal/gtd.nvim/internal/providers/util/text"
 )
 
 // Store manages the SQLite database connection and executes queries.
@@ -337,7 +337,7 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item, _ string) (stri
 		return "", errors.New("item title cannot be empty")
 	}
 
-	item.Description = common.MultilineTrim(item.Description)
+	item.Description = text.MultilineTrim(item.Description)
 	tagsJSON, err := json.Marshal(item.Tags)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal tags: %w", err)
@@ -485,7 +485,7 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
 		return errors.New("item title cannot be empty")
 	}
 
-	item.Description = common.MultilineTrim(item.Description)
+	item.Description = text.MultilineTrim(item.Description)
 	tagsJSON, err := json.Marshal(item.Tags)
 	if err != nil {
 		return fmt.Errorf("failed to marshal tags: %w", err)

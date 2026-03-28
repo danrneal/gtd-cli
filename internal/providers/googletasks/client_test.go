@@ -138,7 +138,7 @@ func TestCreateList(t *testing.T) {
 			list: model.List{
 				Name: "Fail List",
 			},
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusInternalServerError,
 					Body: io.NopCloser(bytes.NewBufferString(`
@@ -260,7 +260,7 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "tasklists list failure",
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusInternalServerError,
 					Body: io.NopCloser(bytes.NewBufferString(`
@@ -606,7 +606,7 @@ func TestUpdateList(t *testing.T) {
 				Name:       "Fail List",
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusInternalServerError,
 					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
@@ -744,7 +744,7 @@ func TestDeleteList(t *testing.T) {
 			list: model.List{
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusInternalServerError,
 					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
@@ -948,7 +948,7 @@ func TestCreateItem(t *testing.T) {
 				Title:          "Fail",
 				ExternalListID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusInternalServerError,
 					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
@@ -1002,7 +1002,7 @@ func TestListItems(t *testing.T) {
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
@@ -1054,7 +1054,7 @@ func TestListItems(t *testing.T) {
 				Name:       "Waiting For",
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
@@ -1091,7 +1091,7 @@ func TestListItems(t *testing.T) {
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
@@ -1128,7 +1128,7 @@ func TestListItems(t *testing.T) {
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
@@ -1165,7 +1165,7 @@ func TestListItems(t *testing.T) {
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
@@ -1202,7 +1202,7 @@ func TestListItems(t *testing.T) {
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
@@ -1239,7 +1239,7 @@ func TestListItems(t *testing.T) {
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
@@ -1277,7 +1277,7 @@ func TestListItems(t *testing.T) {
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
@@ -1315,7 +1315,7 @@ func TestListItems(t *testing.T) {
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
@@ -1353,7 +1353,7 @@ func TestListItems(t *testing.T) {
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusInternalServerError,
 					Body: io.NopCloser(bytes.NewBufferString(`
@@ -1548,7 +1548,7 @@ func TestUpdateItem(t *testing.T) {
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusInternalServerError,
 					Body: io.NopCloser(bytes.NewBufferString(`
@@ -1637,7 +1637,7 @@ func TestDeleteItem(t *testing.T) {
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
+			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
 					StatusCode: http.StatusInternalServerError,
 					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),

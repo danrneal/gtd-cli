@@ -83,7 +83,7 @@ func (f *FakeProvider) SetKey(resource model.Resource, key string) {
 	}
 }
 
-func (f *FakeProvider) CreateList(ctx context.Context, list model.List) (string, error) {
+func (f *FakeProvider) CreateList(_ context.Context, list model.List) (string, error) {
 	if list.Status != "" && list.Status != model.StatusOpen {
 		return "", errors.New("new lists must have status 'open'")
 	}
@@ -110,7 +110,7 @@ func (f *FakeProvider) CreateList(ctx context.Context, list model.List) (string,
 	return listKey, nil
 }
 
-func (f *FakeProvider) ListLists(ctx context.Context) ([]model.List, error) {
+func (f *FakeProvider) ListLists(_ context.Context) ([]model.List, error) {
 	lists := make([]model.List, 0, len(f.Lists))
 	for _, list := range f.Lists {
 		sort.Slice(list.Items, func(i, j int) bool {
@@ -130,7 +130,7 @@ func (f *FakeProvider) ListLists(ctx context.Context) ([]model.List, error) {
 	return lists, nil
 }
 
-func (f *FakeProvider) UpdateList(ctx context.Context, updatedList model.List, currentItems []model.Item) error {
+func (f *FakeProvider) UpdateList(_ context.Context, updatedList model.List, _ []model.Item) error {
 	if updatedList.Status == "" {
 		updatedList.Status = model.StatusOpen
 	}
@@ -203,7 +203,7 @@ func (f *FakeProvider) UpdateList(ctx context.Context, updatedList model.List, c
 	return fmt.Errorf("list not found: %s", updatedList.ID)
 }
 
-func (f *FakeProvider) DeleteList(ctx context.Context, deletedList model.List) error {
+func (f *FakeProvider) DeleteList(_ context.Context, deletedList model.List) error {
 	for i, list := range f.Lists {
 		if isMatch(&list, &deletedList) {
 			f.Lists = append(f.Lists[:i], f.Lists[i+1:]...)
@@ -214,7 +214,7 @@ func (f *FakeProvider) DeleteList(ctx context.Context, deletedList model.List) e
 	return fmt.Errorf("list not found: %s", deletedList.Name)
 }
 
-func (f *FakeProvider) CreateItem(ctx context.Context, item model.Item, previousItemID string) (string, error) {
+func (f *FakeProvider) CreateItem(_ context.Context, item model.Item, _ string) (string, error) {
 	if !isValidItemStatus(item.Status) {
 		return "", fmt.Errorf("invalid status: %q", item.Status)
 	}
@@ -248,7 +248,7 @@ func (f *FakeProvider) CreateItem(ctx context.Context, item model.Item, previous
 	return "", fmt.Errorf("list ID and external list ID not found: %s, %v", item.ListID, item.ExternalListID)
 }
 
-func (f *FakeProvider) UpdateItem(ctx context.Context, updatedItem model.Item) error {
+func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem model.Item) error {
 	if !isValidItemStatus(updatedItem.Status) {
 		return fmt.Errorf("invalid status: %q", updatedItem.Status)
 	}
@@ -314,7 +314,7 @@ func (f *FakeProvider) UpdateItem(ctx context.Context, updatedItem model.Item) e
 	return fmt.Errorf("item not found: %s", updatedItem.ID)
 }
 
-func (f *FakeProvider) DeleteItem(ctx context.Context, deletedItem model.Item) error {
+func (f *FakeProvider) DeleteItem(_ context.Context, deletedItem model.Item) error {
 	for i, list := range f.Lists {
 		for j, item := range list.Items {
 			if isMatch(&item, &deletedItem) {

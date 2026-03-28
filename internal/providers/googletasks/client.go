@@ -1,3 +1,4 @@
+// Package googletasks implements the Google Tasks provider.
 package googletasks
 
 import (
@@ -10,7 +11,7 @@ import (
 	"google.golang.org/api/tasks/v1"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
-	"github.com/danrneal/gtd.nvim/internal/providers/common"
+	"github.com/danrneal/gtd.nvim/internal/providers/util/move"
 )
 
 // Client is a wrapper around the Google Tasks service.
@@ -102,7 +103,7 @@ func (c *Client) UpdateList(ctx context.Context, list model.List, currentItems [
 		return fmt.Errorf("failed to update tasklist %s: %w", tasklist.Title, err)
 	}
 
-	moves := common.CalculateMoves(list, currentItems)
+	moves := move.CalculateMoves(list, currentItems)
 	for _, move := range moves {
 		if err := c.moveItem(ctx, move); err != nil {
 			return err
@@ -230,7 +231,7 @@ func (c *Client) UpdateItem(ctx context.Context, item model.Item) error {
 }
 
 // moveItem moves a task to a new position, potentially in a different list.
-func (c *Client) moveItem(ctx context.Context, move common.Move) error {
+func (c *Client) moveItem(ctx context.Context, move move.Move) error {
 	tasksMoveCall := c.service.Tasks.Move(move.SourceListID, move.ItemID)
 	if move.PreviousItemID != "" {
 		tasksMoveCall.Previous(move.PreviousItemID)

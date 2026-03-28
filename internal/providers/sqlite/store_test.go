@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
 )
@@ -67,7 +68,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "invalid database path (non-existent directory)",
-			setupDBPath: func(t *testing.T) string {
+			setupDBPath: func(_ *testing.T) string {
 				return "/non/existent/path/db.sqlite"
 			},
 			wantErr: true,
@@ -824,7 +825,7 @@ func TestUpdateList(t *testing.T) {
 
 				return "list-1"
 			},
-			setupList: func(id string) model.List {
+			setupList: func(_ string) model.List {
 				list := model.List{
 					Name:       "List 1",
 					ExternalID: stringPtr("ext-L1"),
@@ -936,7 +937,7 @@ func TestUpdateList(t *testing.T) {
 
 				return "list-delete"
 			},
-			setupList: func(id string) model.List {
+			setupList: func(_ string) model.List {
 				list := model.List{
 					ExternalID: stringPtr("ext-list-delete"),
 					Name:       "Tombstoned List",
@@ -954,7 +955,7 @@ func TestUpdateList(t *testing.T) {
 		},
 		{
 			name: "missing list identifiers",
-			setupDB: func(t *testing.T, db *sql.DB) string {
+			setupDB: func(_ *testing.T, _ *sql.DB) string {
 				return ""
 			},
 			setupList: func(_ string) model.List {
@@ -964,7 +965,7 @@ func TestUpdateList(t *testing.T) {
 		},
 		{
 			name: "update list with nonexistent external id",
-			setupDB: func(t *testing.T, db *sql.DB) string {
+			setupDB: func(_ *testing.T, _ *sql.DB) string {
 				return ""
 			},
 			setupList: func(_ string) model.List {
@@ -1045,7 +1046,7 @@ func TestUpdateList(t *testing.T) {
 		},
 		{
 			name: "nonexistent id",
-			setupDB: func(t *testing.T, db *sql.DB) string {
+			setupDB: func(_ *testing.T, _ *sql.DB) string {
 				return "non-existent"
 			},
 			setupList: func(id string) model.List {
@@ -1089,7 +1090,7 @@ func TestUpdateList(t *testing.T) {
 		},
 		{
 			name: "nonexistent item id",
-			setupDB: func(t *testing.T, db *sql.DB) string {
+			setupDB: func(_ *testing.T, db *sql.DB) string {
 				_, _ = db.Exec(
 					`
 						INSERT INTO lists (id, name, modified) 
@@ -1310,14 +1311,14 @@ func TestDeleteList(t *testing.T) {
 		},
 		{
 			name: "delete list missing identifiers",
-			setupDB: func(t *testing.T, db *sql.DB) model.List {
+			setupDB: func(_ *testing.T, _ *sql.DB) model.List {
 				return model.List{Name: "Headless List"}
 			},
 			wantErr: true,
 		},
 		{
 			name: "nonexistent id",
-			setupDB: func(t *testing.T, db *sql.DB) model.List {
+			setupDB: func(_ *testing.T, _ *sql.DB) model.List {
 				list := model.List{ID: "non-existent"}
 				return list
 			},
@@ -1509,7 +1510,7 @@ func TestCreateItem(t *testing.T) {
 		},
 		{
 			name:    "create item with nonexistent external list id",
-			setupDB: func(t *testing.T, db *sql.DB) {},
+			setupDB: func(_ *testing.T, _ *sql.DB) {},
 			item: model.Item{
 				ExternalListID: stringPtr("non-existent-ext-id"),
 				Title:          "Orphan Item",
@@ -1816,7 +1817,7 @@ func TestUpdateItem(t *testing.T) {
 		},
 		{
 			name: "update item missing identifiers",
-			setupDB: func(t *testing.T, db *sql.DB) string {
+			setupDB: func(_ *testing.T, _ *sql.DB) string {
 				return ""
 			},
 			setupItem: func(_ string) model.Item {
@@ -1915,7 +1916,7 @@ func TestUpdateItem(t *testing.T) {
 		},
 		{
 			name: "nonexistent id",
-			setupDB: func(t *testing.T, db *sql.DB) string {
+			setupDB: func(_ *testing.T, _ *sql.DB) string {
 				return "non-existent"
 			},
 			setupItem: func(id string) model.Item {
@@ -2153,14 +2154,14 @@ func TestDeleteItem(t *testing.T) {
 		},
 		{
 			name: "delete item missing identifiers",
-			setupDB: func(t *testing.T, db *sql.DB) model.Item {
+			setupDB: func(_ *testing.T, _ *sql.DB) model.Item {
 				return model.Item{Title: "Headless Item"}
 			},
 			wantErr: true,
 		},
 		{
 			name: "nonexistent id",
-			setupDB: func(t *testing.T, db *sql.DB) model.Item {
+			setupDB: func(_ *testing.T, _ *sql.DB) model.Item {
 				item := model.Item{ID: "non-existent"}
 				return item
 			},

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
-	"github.com/danrneal/gtd.nvim/internal/providers/common"
+	"github.com/danrneal/gtd.nvim/internal/providers/util/text"
 )
 
 var (
@@ -31,7 +31,7 @@ func Parse(reader io.Reader) ([]model.List, error) {
 		trimmedLine := strings.TrimSpace(line)
 		if matches := listRegex.FindStringSubmatch(trimmedLine); len(matches) > 1 {
 			if item.Title != "" {
-				item.Description = common.MultilineTrim(item.Description)
+				item.Description = text.MultilineTrim(item.Description)
 				list.Items = append(list.Items, item)
 			}
 
@@ -60,7 +60,7 @@ func Parse(reader io.Reader) ([]model.List, error) {
 			}
 
 			if item.Title != "" {
-				item.Description = common.MultilineTrim(item.Description)
+				item.Description = text.MultilineTrim(item.Description)
 				list.Items = append(list.Items, item)
 			}
 
@@ -131,7 +131,7 @@ func Parse(reader io.Reader) ([]model.List, error) {
 	}
 
 	if item.Title != "" {
-		item.Description = common.MultilineTrim(item.Description)
+		item.Description = text.MultilineTrim(item.Description)
 		list.Items = append(list.Items, item)
 	}
 

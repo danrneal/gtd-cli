@@ -1,3 +1,4 @@
+// Package model contains the domain structures for the gtd application.
 package model
 
 import "time"
