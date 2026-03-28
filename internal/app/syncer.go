@@ -153,6 +153,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 
 			itemKey := s.getKey(&srcItem)
 			dstItem, ok := dstItemsMap[itemKey]
+			//nolint:revive // Complex logic pending refactor
 			if ok && srcItem.Modified.After(dstItem.Modified) {
 				if srcItem.Status == model.StatusOpen {
 					srcItem.Status = model.StatusNotStarted

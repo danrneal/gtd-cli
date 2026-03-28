@@ -107,6 +107,34 @@ linters:
     - wsl_v5
 
   settings:
+    revive:
+      rules:
+        - name: argument-limit
+          arguments: [5]
+        - name: call-to-gc
+        - name: comment-spacings
+        - name: confusing-naming
+        - name: deep-exit
+        - name: defer
+        - name: early-return
+          arguments: ["allow-jump"]
+        - name: enforce-repeated-arg-type-style
+          arguments: ["short"]
+        - name: filename-format
+        - name: flag-parameter
+        - name: function-result-limit
+        - name: get-return
+        - name: if-return
+        - name: import-shadowing
+        - name: max-control-nesting
+        - name: modifies-value-receiver
+        - name: redundant-import-alias
+        - name: redundant-test-main-exit
+        - name: superfluous-else
+        - name: time-naming
+        - name: unconditional-recursion
+        - name: useless-break
+
     dupword:
       keywords:
         - "the"
@@ -248,6 +276,10 @@ linters:
       - std-error-handling
       - common-false-positives
     rules:
+      - path: '_test\.go'
+        text: "early-return"
+        linters:
+          - revive
       - path: '_test\.go'
         linters:
           - bodyclose

@@ -1,5 +1,5 @@
-// Package move provides utilities to calculate moves.
-package move
+// Package reorder provides utilities to calculate moves.
+package reorder
 
 import "github.com/danrneal/gtd.nvim/internal/model"
 
@@ -51,7 +51,7 @@ func CalculateMoves(list model.List, currentItems []model.Item) []Move {
 	return moves
 }
 
-func calculateStableItemIDs(updatedItems []model.Item, currentItems []model.Item) map[string]bool {
+func calculateStableItemIDs(updatedItems, currentItems []model.Item) map[string]bool {
 	currentItemIDs := make(map[string]int)
 	for i, currentItem := range currentItems {
 		currentItemIDs[*currentItem.ExternalID] = i

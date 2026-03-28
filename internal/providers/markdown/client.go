@@ -5,7 +5,7 @@ import (
 	"context"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
-	"github.com/danrneal/gtd.nvim/internal/providers/util/move"
+	"github.com/danrneal/gtd.nvim/internal/providers/util/reorder"
 )
 
 // Client is a markdown file provider client.
@@ -72,7 +72,7 @@ func (c *Client) UpdateItem(_ context.Context, _ model.Item) error {
 }
 
 //nolint:unused // TODO: implement later
-func (c *Client) moveItem(_ context.Context, _ move.Move) error {
+func (c *Client) moveItem(_ context.Context, _ reorder.Move) error {
 	return nil
 }
 

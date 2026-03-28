@@ -11,7 +11,7 @@ import (
 	"google.golang.org/api/tasks/v1"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
-	"github.com/danrneal/gtd.nvim/internal/providers/util/move"
+	"github.com/danrneal/gtd.nvim/internal/providers/util/reorder"
 )
 
 // Client is a wrapper around the Google Tasks service.
@@ -61,13 +61,13 @@ func (c *Client) CreateList(ctx context.Context, list model.List) (string, error
 
 // ListLists retrieves all task lists from Google Tasks.
 func (c *Client) ListLists(ctx context.Context) ([]model.List, error) {
-	taskLists, err := c.service.Tasklists.List().Context(ctx).Do()
+	resp, err := c.service.Tasklists.List().Context(ctx).Do()
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve tasklists: %w", err)
 	}
 
 	var lists []model.List
-	for i, tasklist := range taskLists.Items {
+	for i, tasklist := range resp.Items {
 		list := model.List{
 			Name:       tasklist.Title,
 			Position:   i,
@@ -103,7 +103,7 @@ func (c *Client) UpdateList(ctx context.Context, list model.List, currentItems [
 		return fmt.Errorf("failed to update tasklist %s: %w", tasklist.Title, err)
 	}
 
-	moves := move.CalculateMoves(list, currentItems)
+	moves := reorder.CalculateMoves(list, currentItems)
 	for _, move := range moves {
 		if err := c.moveItem(ctx, move); err != nil {
 			return err
@@ -160,19 +160,24 @@ func (c *Client) CreateItem(ctx context.Context, item model.Item, previousItemID
 // listItems retrieves all tasks from the specified list and converts them to internal Items.
 // It handles fetching, sorting, and parsing metadata from task titles.
 func (c *Client) listItems(ctx context.Context, list model.List) ([]model.Item, error) {
-	tasks, err := c.service.Tasks.List(*list.ExternalID).ShowHidden(true).MaxResults(100).Context(ctx).Do()
+	resp, err := c.service.Tasks.List(*list.ExternalID).ShowHidden(true).MaxResults(100).Context(ctx).Do()
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve tasks for list %q: %w", list.Name, err)
 	}
 
-	sort.Slice(tasks.Items, func(i, j int) bool {
-		return tasks.Items[i].Position < tasks.Items[j].Position
+	sort.Slice(resp.Items, func(i, j int) bool {
+		return resp.Items[i].Position < resp.Items[j].Position
 	})
 
 	var items []model.Item
-	for i, task := range tasks.Items {
-		waitingFor := list.Name == "Waiting For"
-		item := parseTitle(task.Title, waitingFor)
+	for i, task := range resp.Items {
+		var item model.Item
+		if list.Name == "Waiting For" {
+			item = parseWaitingForTitle(task.Title)
+		} else {
+			item = parseTitle(task.Title)
+		}
+
 		item.ListID = list.ID
 		item.Position = i
 		if task.Status == statusCompleted {
@@ -231,7 +236,7 @@ func (c *Client) UpdateItem(ctx context.Context, item model.Item) error {
 }
 
 // moveItem moves a task to a new position, potentially in a different list.
-func (c *Client) moveItem(ctx context.Context, move move.Move) error {
+func (c *Client) moveItem(ctx context.Context, move reorder.Move) error {
 	tasksMoveCall := c.service.Tasks.Move(move.SourceListID, move.ItemID)
 	if move.PreviousItemID != "" {
 		tasksMoveCall.Previous(move.PreviousItemID)
@@ -285,18 +290,27 @@ func renderTitle(item model.Item) string {
 	return title
 }
 
-// parseTitle extracts metadata (project, tags, due date) from the task title string.
-// It supports special handling for "Waiting For" lists to extract the waiting-on person.
-func parseTitle(title string, waitingFor bool) model.Item {
-	var item model.Item
-	if waitingFor {
-		titleParts := strings.SplitN(title, " - ", 3)
-		if len(titleParts) > 1 {
-			waitingOn := titleParts[0]
-			item.WaitingOn = &waitingOn
-			title = titleParts[1]
-		}
+// parseWaitingForTitle extracts the waiting-on person from the title and then
+// delegates to parseTitle for the rest of the metadata.
+func parseWaitingForTitle(title string) model.Item {
+	var waitingOn string
+	titleParts := strings.SplitN(title, " - ", 3)
+	if len(titleParts) > 1 {
+		waitingOn = titleParts[0]
+		title = titleParts[1]
 	}
+
+	item := parseTitle(title)
+	if waitingOn != "" {
+		item.WaitingOn = &waitingOn
+	}
+
+	return item
+}
+
+// parseTitle extracts metadata (project, tags, due date) from the task title string.
+func parseTitle(title string) model.Item {
+	var item model.Item
 
 	var titleParts []string
 	titleFields := strings.FieldsSeq(title)

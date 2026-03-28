@@ -1,4 +1,4 @@
-package move
+package reorder
 
 import (
 	"testing"
