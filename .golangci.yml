@@ -27,6 +27,7 @@ linters:
     - containedctx
     - contextcheck
     - copyloopvar
+    - cyclop
     - dogsled
     - durationcheck
     - dupl
@@ -41,10 +42,12 @@ linters:
     - fatcontext
     - forbidigo
     - funcorder
+    - funlen
     - gocheckcompilerdirectives
     - ginkgolinter
     - gochecknoglobals
     - gochecknoinits
+    - gocognit
     - goconst
     - gocritic
     - godoclint
@@ -68,6 +71,7 @@ linters:
     - modernize
     - musttag
     - nakedret
+    - nestif
     - nilerr
     - nilnesserr
     - nilnil
@@ -135,6 +139,10 @@ linters:
         - name: unconditional-recursion
         - name: useless-break
 
+    cyclop:
+      max-complexity: 30
+      package-average: 10.0
+
     dupword:
       keywords:
         - "the"
@@ -155,6 +163,10 @@ linters:
         - map
       default-signifies-exhaustive: true
 
+    funlen:
+      lines: 100
+      statements: 50
+
     funcorder:
       struct-method: false
 
@@ -165,6 +177,9 @@ linters:
       forbid-spec-pollution: true
       force-succeed: true
       force-tonot: true
+
+    gocognit:
+      min-complexity: 20
 
     gocritic:
       settings:
@@ -286,6 +301,8 @@ linters:
           - dupl
           - errcheck
           - errchkjson
+          - funlen
+          - gocognit
           - goconst
           - gosec
           - noctx

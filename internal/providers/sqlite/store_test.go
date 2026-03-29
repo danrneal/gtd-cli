@@ -97,9 +97,9 @@ func TestNewStore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dbPath := tt.setupDBPath(t)
 			ctx := context.Background()
 
+			dbPath := tt.setupDBPath(t)
 			store, err := NewStore(ctx, dbPath)
 
 			if tt.wantErr {
@@ -110,18 +110,21 @@ func TestNewStore(t *testing.T) {
 				if store != nil {
 					t.Error("NewStore() expected nil store on error, got instance")
 				}
-			} else {
-				if err != nil {
-					t.Errorf("NewStore() unexpected error: %v", err)
-				}
 
-				if store == nil {
-					t.Error("NewStore() expected store instance, got nil")
-				}
+				return
+			}
 
-				if tt.verifyTables != nil {
-					tt.verifyTables(t, dbPath)
-				}
+			if err != nil {
+				t.Errorf("NewStore() unexpected error: %v", err)
+				return
+			}
+
+			if store == nil {
+				t.Error("NewStore() expected store instance, got nil")
+			}
+
+			if tt.verifyTables != nil {
+				tt.verifyTables(t, dbPath)
 			}
 		})
 	}
@@ -195,9 +198,6 @@ func TestCreateList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			dbPath := filepath.Join(tmpDir, "test.db")
-
 			var (
 				ctx    context.Context
 				cancel context.CancelFunc
@@ -210,6 +210,8 @@ func TestCreateList(t *testing.T) {
 				ctx = context.Background()
 			}
 
+			tmpDir := t.TempDir()
+			dbPath := filepath.Join(tmpDir, "test.db")
 			store, err := NewStore(context.Background(), dbPath)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
@@ -221,39 +223,43 @@ func TestCreateList(t *testing.T) {
 				if err == nil {
 					t.Error("CreateList() expected error, got nil")
 				}
-			} else {
+
+				return
+			}
+
+			if err != nil {
+				t.Errorf("CreateList() unexpected error: %v", err)
+				return
+			}
+
+			if gotID == "" {
+				t.Error("CreateList() returned empty ID")
+			}
+
+			db, err := sql.Open("sqlite3", dbPath)
+			if err != nil {
+				t.Fatalf("failed to open db for verification: %v", err)
+			}
+
+			defer db.Close()
+
+			if tt.wantList != nil {
+				var gotList model.List
+				wantName := strings.TrimSpace(tt.list.Name)
+
+				err = db.QueryRow(
+					"SELECT id, name, position, external_id FROM lists WHERE name = ?", wantName,
+				).Scan(&gotList.ID, &gotList.Name, &gotList.Position, &gotList.ExternalID)
 				if err != nil {
-					t.Errorf("CreateList() unexpected error: %v", err)
+					t.Fatalf("failed to query list: %v", err)
 				}
 
-				if gotID == "" {
-					t.Error("CreateList() returned empty ID")
+				opts := []cmp.Option{
+					cmpopts.IgnoreFields(model.List{}, "ID", "Modified", "Items"),
 				}
 
-				db, err := sql.Open("sqlite3", dbPath)
-				if err != nil {
-					t.Fatalf("failed to open db for verification: %v", err)
-				}
-
-				defer db.Close()
-
-				if tt.wantList != nil {
-					var gotList model.List
-					wantName := strings.TrimSpace(tt.list.Name)
-					err = db.QueryRow(
-						"SELECT id, name, position, external_id FROM lists WHERE name = ?", wantName,
-					).Scan(&gotList.ID, &gotList.Name, &gotList.Position, &gotList.ExternalID)
-					if err != nil {
-						t.Fatalf("failed to query list: %v", err)
-					}
-
-					opts := []cmp.Option{
-						cmpopts.IgnoreFields(model.List{}, "ID", "Modified", "Items"),
-					}
-
-					if diff := cmp.Diff(tt.wantList, &gotList, opts...); diff != "" {
-						t.Errorf("CreateList() mismatch (-want +got):\n%s", diff)
-					}
+				if diff := cmp.Diff(tt.wantList, &gotList, opts...); diff != "" {
+					t.Errorf("CreateList() mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
@@ -445,9 +451,6 @@ func TestListLists(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			dbPath := filepath.Join(tmpDir, "test.db")
-
 			var (
 				ctx    context.Context
 				cancel context.CancelFunc
@@ -460,6 +463,8 @@ func TestListLists(t *testing.T) {
 				ctx = context.Background()
 			}
 
+			tmpDir := t.TempDir()
+			dbPath := filepath.Join(tmpDir, "test.db")
 			store, err := NewStore(context.Background(), dbPath)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
@@ -482,19 +487,22 @@ func TestListLists(t *testing.T) {
 				if err == nil {
 					t.Error("ListLists() expected error, got nil")
 				}
-			} else {
-				if err != nil {
-					t.Errorf("ListLists() unexpected error: %v", err)
-				}
 
-				opts := []cmp.Option{
-					cmpopts.IgnoreFields(model.List{}, "Modified", "ID"),
-					cmpopts.IgnoreFields(model.Item{}, "Modified", "Created", "Snoozed", "Due", "ID", "ListID"),
-				}
+				return
+			}
 
-				if diff := cmp.Diff(tt.wantLists, lists, opts...); diff != "" {
-					t.Errorf("ListLists() mismatch (-want +got):\n%s", diff)
-				}
+			if err != nil {
+				t.Errorf("ListLists() unexpected error: %v", err)
+				return
+			}
+
+			opts := []cmp.Option{
+				cmpopts.IgnoreFields(model.List{}, "Modified", "ID"),
+				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created", "Snoozed", "Due", "ID", "ListID"),
+			}
+
+			if diff := cmp.Diff(tt.wantLists, lists, opts...); diff != "" {
+				t.Errorf("ListLists() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -1095,7 +1103,8 @@ func TestUpdateList(t *testing.T) {
 					`
 						INSERT INTO lists (id, name, modified) 
 						VALUES (?, ?, ?)
-					`, "list-1", "List", time.Now())
+					`, "list-1", "List", time.Now(),
+				)
 
 				return "list-1"
 			},
@@ -1152,9 +1161,6 @@ func TestUpdateList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			dbPath := filepath.Join(tmpDir, "test.db")
-
 			var (
 				ctx    context.Context
 				cancel context.CancelFunc
@@ -1167,6 +1173,8 @@ func TestUpdateList(t *testing.T) {
 				ctx = context.Background()
 			}
 
+			tmpDir := t.TempDir()
+			dbPath := filepath.Join(tmpDir, "test.db")
 			store, err := NewStore(context.Background(), dbPath)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
@@ -1179,62 +1187,64 @@ func TestUpdateList(t *testing.T) {
 
 			defer db.Close()
 
-			id := tt.setupDB(t, db)
-			list := tt.setupList(id)
-
 			var currentItems []model.Item
 			if tt.setupCurrent != nil {
 				currentItems = tt.setupCurrent()
 			}
 
+			id := tt.setupDB(t, db)
+			list := tt.setupList(id)
 			err = store.UpdateList(ctx, list, currentItems)
 
 			if tt.wantErr {
 				if err == nil {
 					t.Error("UpdateList() expected error, got nil")
 				}
-			} else {
+
+				return
+			}
+
+			if err != nil {
+				t.Errorf("UpdateList() unexpected error: %v", err)
+				return
+			}
+
+			var gotList model.List
+			err = db.QueryRow(
+				`
+					SELECT name, position, status
+					FROM lists 
+					WHERE id = ?
+				`, id,
+			).Scan(&gotList.Name, &gotList.Position, &gotList.Status)
+			if err != nil {
+				t.Fatalf("failed to query list: %v", err)
+			}
+
+			gotList.ID = id
+
+			opts := []cmp.Option{
+				cmpopts.IgnoreFields(model.List{}, "Modified", "ID", "ExternalID", "Items"),
+			}
+
+			if diff := cmp.Diff(*tt.wantList, gotList, opts...); diff != "" {
+				t.Errorf("UpdateList() mismatch (-want +got):\n%s", diff)
+			}
+
+			if tt.wantItems != nil {
+				tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
+				items, err := store.listAllItems(context.Background(), tx)
+				tx.Rollback()
 				if err != nil {
-					t.Errorf("UpdateList() unexpected error: %v", err)
+					t.Fatalf("failed to list all items: %v", err)
 				}
 
-				var gotList model.List
-				err = db.QueryRow(
-					`
-						SELECT name, position, status
-						FROM lists 
-						WHERE id = ?
-					`, id,
-				).Scan(&gotList.Name, &gotList.Position, &gotList.Status)
-				if err != nil {
-					t.Fatalf("failed to query list: %v", err)
+				itemOpts := []cmp.Option{
+					cmpopts.IgnoreFields(model.Item{}, "Modified", "Created", "Snoozed", "Due"),
 				}
 
-				gotList.ID = id
-
-				opts := []cmp.Option{
-					cmpopts.IgnoreFields(model.List{}, "Modified", "ID", "ExternalID", "Items"),
-				}
-
-				if diff := cmp.Diff(*tt.wantList, gotList, opts...); diff != "" {
-					t.Errorf("UpdateList() mismatch (-want +got):\n%s", diff)
-				}
-
-				if tt.wantItems != nil {
-					tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
-					items, err := store.listAllItems(context.Background(), tx)
-					tx.Rollback()
-					if err != nil {
-						t.Fatalf("failed to list all items: %v", err)
-					}
-
-					itemOpts := []cmp.Option{
-						cmpopts.IgnoreFields(model.Item{}, "Modified", "Created", "Snoozed", "Due"),
-					}
-
-					if diff := cmp.Diff(tt.wantItems, items, itemOpts...); diff != "" {
-						t.Errorf("UpdateList() items mismatch (-want +got):\n%s", diff)
-					}
+				if diff := cmp.Diff(tt.wantItems, items, itemOpts...); diff != "" {
+					t.Errorf("UpdateList() items mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
@@ -1337,7 +1347,9 @@ func TestDeleteList(t *testing.T) {
 					t.Fatalf("failed to insert list: %v", err)
 				}
 
-				list := model.List{ID: "list-1"}
+				list := model.List{
+					ID: "list-1",
+				}
 
 				return list
 			},
@@ -1353,9 +1365,6 @@ func TestDeleteList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			dbPath := filepath.Join(tmpDir, "test.db")
-
 			var (
 				ctx    context.Context
 				cancel context.CancelFunc
@@ -1368,6 +1377,8 @@ func TestDeleteList(t *testing.T) {
 				ctx = context.Background()
 			}
 
+			tmpDir := t.TempDir()
+			dbPath := filepath.Join(tmpDir, "test.db")
 			store, err := NewStore(context.Background(), dbPath)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
@@ -1387,30 +1398,33 @@ func TestDeleteList(t *testing.T) {
 				if err == nil {
 					t.Error("DeleteList() expected error, got nil")
 				}
-			} else {
-				if err != nil {
-					t.Errorf("DeleteList() unexpected error: %v", err)
-				}
 
-				lists, err := store.ListLists(context.Background())
-				if err != nil {
-					t.Fatalf("failed to get all lists: %v", err)
-				}
+				return
+			}
 
-				if diff := cmp.Diff(tt.wantLists, lists); diff != "" {
-					t.Errorf("DeleteList() lists mismatch (-want +got):\n%s", diff)
-				}
+			if err != nil {
+				t.Errorf("DeleteList() unexpected error: %v", err)
+				return
+			}
 
-				tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
-				items, err := store.listAllItems(context.Background(), tx)
-				tx.Rollback()
-				if err != nil {
-					t.Fatalf("failed to get all items: %v", err)
-				}
+			lists, err := store.ListLists(context.Background())
+			if err != nil {
+				t.Fatalf("failed to get all lists: %v", err)
+			}
 
-				if diff := cmp.Diff(tt.wantItems, items); diff != "" {
-					t.Errorf("DeleteList() items mismatch (-want +got):\n%s", diff)
-				}
+			if diff := cmp.Diff(tt.wantLists, lists); diff != "" {
+				t.Errorf("DeleteList() lists mismatch (-want +got):\n%s", diff)
+			}
+
+			tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
+			items, err := store.listAllItems(context.Background(), tx)
+			tx.Rollback()
+			if err != nil {
+				t.Fatalf("failed to get all items: %v", err)
+			}
+
+			if diff := cmp.Diff(tt.wantItems, items); diff != "" {
+				t.Errorf("DeleteList() items mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -1494,7 +1508,6 @@ func TestCreateItem(t *testing.T) {
 				}
 			},
 			item: model.Item{
-				// ListID is empty
 				ExternalListID: stringPtr("ext-L1"),
 				Title:          "Resolved Item",
 				Status:         model.StatusNotStarted,
@@ -1502,7 +1515,7 @@ func TestCreateItem(t *testing.T) {
 				Created:        time.Now(),
 			},
 			wantItem: &model.Item{
-				ListID: "list-1", // Should be resolved
+				ListID: "list-1",
 				Title:  "Resolved Item",
 				Status: model.StatusNotStarted,
 				Tags:   []string{},
@@ -1555,9 +1568,6 @@ func TestCreateItem(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			dbPath := filepath.Join(tmpDir, "test.db")
-
 			var (
 				ctx    context.Context
 				cancel context.CancelFunc
@@ -1570,6 +1580,8 @@ func TestCreateItem(t *testing.T) {
 				ctx = context.Background()
 			}
 
+			tmpDir := t.TempDir()
+			dbPath := filepath.Join(tmpDir, "test.db")
 			store, err := NewStore(context.Background(), dbPath)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
@@ -1592,55 +1604,58 @@ func TestCreateItem(t *testing.T) {
 				if err == nil {
 					t.Error("CreateItem() expected error, got nil")
 				}
-			} else {
-				if err != nil {
-					t.Errorf("CreateItem() unexpected error: %v", err)
-				}
 
-				if gotID == "" {
-					t.Error("CreateItem() returned empty ID")
-				}
+				return
+			}
 
-				var count int
-				wantTitle := strings.TrimSpace(tt.item.Title)
-				err = db.QueryRow("SELECT COUNT(*) FROM items WHERE title = ?", wantTitle).Scan(&count)
+			if err != nil {
+				t.Errorf("CreateItem() unexpected error: %v", err)
+				return
+			}
+
+			if gotID == "" {
+				t.Error("CreateItem() returned empty ID")
+			}
+
+			var count int
+			wantTitle := strings.TrimSpace(tt.item.Title)
+			err = db.QueryRow("SELECT COUNT(*) FROM items WHERE title = ?", wantTitle).Scan(&count)
+			if err != nil {
+				t.Fatalf("failed to query item: %v", err)
+			}
+
+			if count != 1 {
+				t.Errorf("expected 1 item with title %q, got %d", wantTitle, count)
+			}
+
+			if tt.wantItem != nil {
+				var (
+					gotItem  model.Item
+					tagsJSON string
+				)
+
+				err = db.QueryRow(
+					`SELECT list_id, title, COALESCE(description, ''), status, tags, project_id, waiting_on 
+					FROM items WHERE title = ?`, wantTitle,
+				).Scan(&gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Status, &tagsJSON, &gotItem.ProjectID, &gotItem.WaitingOn)
 				if err != nil {
 					t.Fatalf("failed to query item: %v", err)
 				}
 
-				if count != 1 {
-					t.Errorf("expected 1 item with title %q, got %d", wantTitle, count)
+				if err := json.Unmarshal([]byte(tagsJSON), &gotItem.Tags); err != nil {
+					t.Fatalf("failed to unmarshal tags: %v", err)
 				}
 
-				if tt.wantItem != nil {
-					var (
-						gotItem  model.Item
-						tagsJSON string
-					)
+				if gotItem.Tags == nil {
+					gotItem.Tags = []string{}
+				}
 
-					err = db.QueryRow(
-						`SELECT list_id, title, COALESCE(description, ''), status, tags, project_id, waiting_on 
-						FROM items WHERE title = ?`, wantTitle,
-					).Scan(&gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Status, &tagsJSON, &gotItem.ProjectID, &gotItem.WaitingOn)
-					if err != nil {
-						t.Fatalf("failed to query item: %v", err)
-					}
+				opts := []cmp.Option{
+					cmpopts.IgnoreFields(model.Item{}, "ID", "Modified", "Created", "Snoozed", "Due", "ExternalID"),
+				}
 
-					if err := json.Unmarshal([]byte(tagsJSON), &gotItem.Tags); err != nil {
-						t.Fatalf("failed to unmarshal tags: %v", err)
-					}
-
-					if gotItem.Tags == nil {
-						gotItem.Tags = []string{}
-					}
-
-					opts := []cmp.Option{
-						cmpopts.IgnoreFields(model.Item{}, "ID", "Modified", "Created", "Snoozed", "Due", "ExternalID"),
-					}
-
-					if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {
-						t.Errorf("CreateItem() mismatch (-want +got):\n%s", diff)
-					}
+				if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {
+					t.Errorf("CreateItem() mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
@@ -1985,9 +2000,6 @@ func TestUpdateItem(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			dbPath := filepath.Join(tmpDir, "test.db")
-
 			var (
 				ctx    context.Context
 				cancel context.CancelFunc
@@ -2000,6 +2012,8 @@ func TestUpdateItem(t *testing.T) {
 				ctx = context.Background()
 			}
 
+			tmpDir := t.TempDir()
+			dbPath := filepath.Join(tmpDir, "test.db")
 			store, err := NewStore(context.Background(), dbPath)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
@@ -2020,53 +2034,56 @@ func TestUpdateItem(t *testing.T) {
 				if err == nil {
 					t.Error("UpdateItem() expected error, got nil")
 				}
-			} else {
-				if err != nil {
-					t.Errorf("UpdateItem() unexpected error: %v", err)
-				}
 
-				var (
-					gotItem  model.Item
-					tagsJSON string
-				)
+				return
+			}
 
-				err = db.QueryRow(
-					`
-						SELECT id, list_id, title, COALESCE(description, ''), status, tags, position
-						FROM items 
-						WHERE id = ?
-					`, id,
-				).Scan(&gotItem.ID, &gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Status, &tagsJSON, &gotItem.Position)
-				if err != nil {
-					t.Fatalf("failed to query item: %v", err)
-				}
+			if err != nil {
+				t.Errorf("UpdateItem() unexpected error: %v", err)
+				return
+			}
 
-				if err := json.Unmarshal([]byte(tagsJSON), &gotItem.Tags); err != nil {
-					t.Fatalf("failed to unmarshal tags: %v", err)
-				}
+			var (
+				gotItem  model.Item
+				tagsJSON string
+			)
 
-				if gotItem.Tags == nil {
-					gotItem.Tags = []string{}
-				}
+			err = db.QueryRow(
+				`
+					SELECT id, list_id, title, COALESCE(description, ''), status, tags, position
+					FROM items 
+					WHERE id = ?
+				`, id,
+			).Scan(&gotItem.ID, &gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Status, &tagsJSON, &gotItem.Position)
+			if err != nil {
+				t.Fatalf("failed to query item: %v", err)
+			}
 
-				tt.wantItem.ID = id
+			if err := json.Unmarshal([]byte(tagsJSON), &gotItem.Tags); err != nil {
+				t.Fatalf("failed to unmarshal tags: %v", err)
+			}
 
-				opts := []cmp.Option{
-					cmpopts.IgnoreFields(
-						model.Item{},
-						"Modified",
-						"Created",
-						"Snoozed",
-						"Due",
-						"ProjectID",
-						"WaitingOn",
-						"ExternalID",
-					),
-				}
+			if gotItem.Tags == nil {
+				gotItem.Tags = []string{}
+			}
 
-				if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {
-					t.Errorf("UpdateItem() mismatch (-want +got):\n%s", diff)
-				}
+			tt.wantItem.ID = id
+
+			opts := []cmp.Option{
+				cmpopts.IgnoreFields(
+					model.Item{},
+					"Modified",
+					"Created",
+					"Snoozed",
+					"Due",
+					"ProjectID",
+					"WaitingOn",
+					"ExternalID",
+				),
+			}
+
+			if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {
+				t.Errorf("UpdateItem() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -2109,7 +2126,9 @@ func TestDeleteItem(t *testing.T) {
 					t.Fatalf("failed to insert item: %v", err)
 				}
 
-				item := model.Item{ID: "item-1"}
+				item := model.Item{
+					ID: "item-1",
+				}
 
 				return item
 			},
@@ -2197,7 +2216,9 @@ func TestDeleteItem(t *testing.T) {
 					t.Fatalf("failed to insert item: %v", err)
 				}
 
-				item := model.Item{ID: "item-1"}
+				item := model.Item{
+					ID: "item-1",
+				}
 
 				return item
 			},
@@ -2213,9 +2234,6 @@ func TestDeleteItem(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			dbPath := filepath.Join(tmpDir, "test.db")
-
 			var (
 				ctx    context.Context
 				cancel context.CancelFunc
@@ -2228,6 +2246,8 @@ func TestDeleteItem(t *testing.T) {
 				ctx = context.Background()
 			}
 
+			tmpDir := t.TempDir()
+			dbPath := filepath.Join(tmpDir, "test.db")
 			store, err := NewStore(context.Background(), dbPath)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
@@ -2247,21 +2267,24 @@ func TestDeleteItem(t *testing.T) {
 				if err == nil {
 					t.Error("DeleteItem() expected error, got nil")
 				}
-			} else {
-				if err != nil {
-					t.Errorf("DeleteItem() unexpected error: %v", err)
-				}
 
-				tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
-				items, err := store.listAllItems(context.Background(), tx)
-				tx.Rollback()
-				if err != nil {
-					t.Fatalf("failed to get all items: %v", err)
-				}
+				return
+			}
 
-				if diff := cmp.Diff([]model.Item(nil), items); diff != "" {
-					t.Errorf("DeleteItem() items mismatch (-want +got):\n%s", diff)
-				}
+			if err != nil {
+				t.Errorf("DeleteItem() unexpected error: %v", err)
+				return
+			}
+
+			tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
+			items, err := store.listAllItems(context.Background(), tx)
+			tx.Rollback()
+			if err != nil {
+				t.Fatalf("failed to get all items: %v", err)
+			}
+
+			if diff := cmp.Diff([]model.Item(nil), items); diff != "" {
+				t.Errorf("DeleteItem() items mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

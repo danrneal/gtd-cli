@@ -18,6 +18,7 @@ func TestTokenFromFile(t *testing.T) {
 		TokenType:   "Bearer",
 		Expiry:      time.Now().Add(1 * time.Hour).Round(time.Second),
 	}
+
 	validTokenJSON, _ := json.Marshal(validToken)
 
 	tests := []struct {
@@ -66,21 +67,23 @@ func TestTokenFromFile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			tokenFile := tt.setupFile(t, tmpDir)
-
 			gotToken, err := tokenFromFile(tokenFile)
 
 			if tt.wantErr {
 				if err == nil {
 					t.Error("tokenFromFile() expected error, got nil")
 				}
-			} else {
-				if err != nil {
-					t.Errorf("tokenFromFile() unexpected error: %v", err)
-				}
 
-				if diff := cmp.Diff(tt.wantToken, gotToken, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
-					t.Errorf("tokenFromFile() mismatch (-want +got):\n%s", diff)
-				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("tokenFromFile() unexpected error: %v", err)
+				return
+			}
+
+			if diff := cmp.Diff(tt.wantToken, gotToken, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
+				t.Errorf("tokenFromFile() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -114,35 +117,37 @@ func TestSaveToken(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			tokenFile := tt.setupFile(t, tmpDir)
-
 			err := saveToken(tokenFile, tt.token)
 
 			if tt.wantErr {
 				if err == nil {
 					t.Error("saveToken() expected error, got nil")
 				}
-			} else {
-				if err != nil {
-					t.Errorf("saveToken() unexpected error: %v", err)
-				}
 
-				if _, err := os.Stat(tokenFile); os.IsNotExist(err) {
-					t.Fatalf("token file was not created at %s", tokenFile)
-				}
+				return
+			}
 
-				content, err := os.ReadFile(tokenFile)
-				if err != nil {
-					t.Fatalf("failed to read token file: %v", err)
-				}
+			if err != nil {
+				t.Errorf("saveToken() unexpected error: %v", err)
+				return
+			}
 
-				var savedToken oauth2.Token
-				if err := json.Unmarshal(content, &savedToken); err != nil {
-					t.Fatalf("failed to unmarshal saved token: %v", err)
-				}
+			if _, err = os.Stat(tokenFile); os.IsNotExist(err) {
+				t.Fatalf("token file was not created at %s", tokenFile)
+			}
 
-				if diff := cmp.Diff(*tt.token, savedToken, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
-					t.Errorf("saveToken() mismatch (-want +got):\n%s", diff)
-				}
+			content, err := os.ReadFile(tokenFile)
+			if err != nil {
+				t.Fatalf("failed to read token file: %v", err)
+			}
+
+			var savedToken oauth2.Token
+			if err := json.Unmarshal(content, &savedToken); err != nil {
+				t.Fatalf("failed to unmarshal saved token: %v", err)
+			}
+
+			if diff := cmp.Diff(*tt.token, savedToken, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
+				t.Errorf("saveToken() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -209,7 +214,6 @@ func TestFileTokenSource_Token(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			tokenFile := filepath.Join(tmpDir, "token.json")
-
 			if tt.token != nil {
 				saveToken(tokenFile, tt.token)
 			}
@@ -226,37 +230,33 @@ func TestFileTokenSource_Token(t *testing.T) {
 				if err == nil {
 					t.Error("Token() expected error, got nil")
 				}
-			} else {
-				if err != nil {
-					t.Errorf("Token() unexpected error: %v", err)
-				}
 
-				if diff := cmp.Diff(tt.wantToken, got, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
-					t.Errorf("Token() mismatch (-want +got):\n%s", diff)
-				}
+				return
+			}
 
-				var savedToken oauth2.Token
-				content, _ := os.ReadFile(tokenFile)
-				_ = json.Unmarshal(content, &savedToken)
+			if err != nil {
+				t.Errorf("Token() unexpected error: %v", err)
+				return
+			}
 
-				if tt.wantSave {
-					if diff := cmp.Diff(
-						*tt.wantToken,
-						savedToken,
-						cmpopts.IgnoreUnexported(oauth2.Token{}),
-					); diff != "" {
-						t.Errorf("File save mismatch (-want +got):\n%s", diff)
-					}
-				} else {
-					if tt.token != nil {
-						if diff := cmp.Diff(
-							*tt.token,
-							savedToken,
-							cmpopts.IgnoreUnexported(oauth2.Token{}),
-						); diff != "" {
-							t.Errorf("File save mismatch (should match old) (-want +got):\n%s", diff)
-						}
-					}
+			if diff := cmp.Diff(tt.wantToken, got, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
+				t.Errorf("Token() mismatch (-want +got):\n%s", diff)
+			}
+
+			var savedToken oauth2.Token
+			content, _ := os.ReadFile(tokenFile)
+			_ = json.Unmarshal(content, &savedToken)
+
+			var wantToken *oauth2.Token
+			if tt.wantSave {
+				wantToken = tt.wantToken
+			} else if tt.token != nil {
+				wantToken = tt.token
+			}
+
+			if tt.wantSave || tt.token != nil {
+				if diff := cmp.Diff(*wantToken, savedToken, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
+					t.Errorf("File save mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
