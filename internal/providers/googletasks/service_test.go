@@ -20,8 +20,6 @@ func TestTokenFromFile(t *testing.T) {
 		Expiry:      time.Now().Add(1 * time.Hour).Round(time.Second),
 	}
 
-	validTokenJSON, _ := json.Marshal(validToken)
-
 	tests := []struct {
 		name      string
 		setupFile func(t *testing.T, dir string) string
@@ -30,7 +28,12 @@ func TestTokenFromFile(t *testing.T) {
 	}{
 		{
 			name: "valid token file",
-			setupFile: func(_ *testing.T, dir string) string {
+			setupFile: func(t *testing.T, dir string) string {
+				validTokenJSON, err := json.Marshal(validToken)
+				if err != nil {
+					t.Fatalf("failed to marshal validToken: %v", err)
+				}
+
 				path := filepath.Join(dir, "token.json")
 				if err := os.WriteFile(path, validTokenJSON, 0o600); err != nil {
 					t.Fatalf("failed to write setup file: %v", err)
@@ -232,7 +235,9 @@ func TestFileTokenSource_Token(t *testing.T) {
 			tmpDir := t.TempDir()
 			tokenFile := filepath.Join(tmpDir, "token.json")
 			if tt.token != nil {
-				saveToken(tokenFile, tt.token)
+				if err := saveToken(tokenFile, tt.token); err != nil {
+					t.Fatalf("failed to setup initial token: %v", err)
+				}
 			}
 
 			fts := &fileTokenSource{
