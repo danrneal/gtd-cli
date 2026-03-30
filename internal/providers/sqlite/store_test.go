@@ -244,12 +244,20 @@ func TestCreateList(t *testing.T) {
 			defer db.Close()
 
 			if tt.wantList != nil {
+				query := `
+					SELECT id, name, position, external_id
+					FROM lists
+					WHERE name = ?
+				`
+
 				var gotList model.List
 				wantName := strings.TrimSpace(tt.list.Name)
-
-				err = db.QueryRow(
-					"SELECT id, name, position, external_id FROM lists WHERE name = ?", wantName,
-				).Scan(&gotList.ID, &gotList.Name, &gotList.Position, &gotList.ExternalID)
+				err = db.QueryRow(query, wantName).Scan(
+					&gotList.ID,
+					&gotList.Name,
+					&gotList.Position,
+					&gotList.ExternalID,
+				)
 				if err != nil {
 					t.Fatalf("failed to query list: %v", err)
 				}
@@ -283,7 +291,7 @@ func TestListLists(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
@@ -343,7 +351,7 @@ func TestListLists(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-3", "Complex", time.Now(),
 				)
@@ -352,11 +360,11 @@ func TestListLists(t *testing.T) {
 					`
 						INSERT INTO items (
 							id,
-							title, 
+							title,
 							description,
-							list_id, 
-							tags, 
-							modified, 
+							list_id,
+							tags,
+							modified,
 							created
 						) VALUES (?, ?, ?, ?, ?, ?, ?)
 					`, "item-2", "Task 2", "", "list-3", `["a", "b"]`, time.Now(), time.Now(),
@@ -384,7 +392,7 @@ func TestListLists(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-4", "Broken", time.Now(),
 				)
@@ -393,11 +401,11 @@ func TestListLists(t *testing.T) {
 					`
 						INSERT INTO items (
 							id,
-							title, 
+							title,
 							description,
-							list_id, 
-							tags, 
-							modified, 
+							list_id,
+							tags,
+							modified,
 							created
 						) VALUES (?, ?, ?, ?, ?, ?, ?)
 					`, "item-3", "Task 3", "", "list-4", `{badjson`, time.Now(), time.Now(),
@@ -410,7 +418,7 @@ func TestListLists(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (name, modified) 
+						INSERT INTO lists (name, modified)
 						VALUES (?, ?)
 					`, "Inbox", time.Now(),
 				)
@@ -500,7 +508,7 @@ func TestUpdateList(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Old Name", time.Now(),
 				)
@@ -508,15 +516,15 @@ func TestUpdateList(t *testing.T) {
 				mustExec(t, db,
 					`
 						INSERT INTO items (
-							id, 
-							title, 
+							id,
+							title,
 							description,
-							list_id, 
-							position, 
-							status, 
-							modified, 
+							list_id,
+							position,
+							status,
+							modified,
 							created
-						) 
+						)
 						VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 					`, "item-1", "A", "", "list-1", 0, "not_started", time.Now(), time.Now(),
 				)
@@ -524,13 +532,13 @@ func TestUpdateList(t *testing.T) {
 				mustExec(t, db,
 					`
 						INSERT INTO items (
-							id, 
-							title, 
+							id,
+							title,
 							description,
-							list_id, 
-							position, 
-							status, 
-							modified, 
+							list_id,
+							position,
+							status,
+							modified,
 							created
 						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 					`, "item-2", "B", "", "list-1", 1, "not_started", time.Now(), time.Now(),
@@ -665,7 +673,7 @@ func TestUpdateList(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Valid", time.Now(),
 				)
@@ -692,11 +700,11 @@ func TestUpdateList(t *testing.T) {
 				mustExec(t, db,
 					`
 						INSERT INTO lists (
-							id, 
-							name, 
-							modified, 
+							id,
+							name,
+							modified,
 							external_id
-						) 
+						)
 						VALUES (?, ?, ?, ?)
 					`, "list-1", "Original", time.Now(), "ext-1",
 				)
@@ -723,11 +731,11 @@ func TestUpdateList(t *testing.T) {
 				mustExec(t, db,
 					`
 						INSERT INTO lists (
-							id, 
-							name, 
-							modified, 
+							id,
+							name,
+							modified,
 							external_id
-						) 
+						)
 						VALUES (?, ?, ?, ?)
 					`, "list-1", "Original Name", time.Now(), "ext-L1",
 				)
@@ -757,11 +765,11 @@ func TestUpdateList(t *testing.T) {
 				mustExec(t, db,
 					`
 						INSERT INTO lists (
-							id, 
-							name, 
-							modified, 
+							id,
+							name,
+							modified,
 							external_id
-						) 
+						)
 						VALUES (?, ?, ?, ?)
 					`, "list-1", "List 1", time.Now(), "ext-L1",
 				)
@@ -769,14 +777,14 @@ func TestUpdateList(t *testing.T) {
 				mustExec(t, db,
 					`
 						INSERT INTO items (
-							id, 
-							title, 
+							id,
+							title,
 							description,
-							list_id, 
-							modified, 
-							created, 
+							list_id,
+							modified,
+							created,
 							external_id
-						) 
+						)
 						VALUES (?, ?, ?, ?, ?, ?, ?)
 					`, "item-1", "Original Title", "", "list-1", time.Now(), time.Now(), "ext-I1",
 				)
@@ -818,7 +826,7 @@ func TestUpdateList(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-delete", "To Be Deleted", time.Now(),
 				)
@@ -826,13 +834,13 @@ func TestUpdateList(t *testing.T) {
 				mustExec(t, db,
 					`
 						INSERT INTO items (
-							id, 
-							title, 
+							id,
+							title,
 							description,
-							list_id, 
-							position, 
-							status, 
-							modified, 
+							list_id,
+							position,
+							status,
+							modified,
 							created
 						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 					`, "item-delete", "Cleanup Item", "", "list-delete", 0, "not_started", time.Now(), time.Now(),
@@ -860,11 +868,11 @@ func TestUpdateList(t *testing.T) {
 				mustExec(t, db,
 					`
 						INSERT INTO lists (
-							id, 
-							name, 
-							modified, 
+							id,
+							name,
+							modified,
 							external_id
-						) 
+						)
 						VALUES (?, ?, ?, ?)
 					`, "list-delete", "To Be Deleted", time.Now(), "ext-list-delete",
 				)
@@ -872,10 +880,10 @@ func TestUpdateList(t *testing.T) {
 				mustExec(t, db,
 					`
 						INSERT INTO items (
-							id, 
-							title, 
-							list_id, 
-							modified, 
+							id,
+							title,
+							list_id,
+							modified,
 							created
 						) VALUES (?, ?, ?, ?, ?)
 					`, "item-delete", "Cleanup Item", "list-delete", time.Now(), time.Now(),
@@ -932,11 +940,11 @@ func TestUpdateList(t *testing.T) {
 				mustExec(t, db,
 					`
 						INSERT INTO lists (
-							id, 
-							name, 
-							status, 
+							id,
+							name,
+							status,
 							modified
-						) 
+						)
 						VALUES (?, ?, ?, ?)
 					`, "list-rollback", "Stable Name", "open", time.Now(),
 				)
@@ -970,7 +978,7 @@ func TestUpdateList(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Valid", time.Now(),
 				)
@@ -1009,7 +1017,7 @@ func TestUpdateList(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Valid List", time.Now(),
 				)
@@ -1036,7 +1044,7 @@ func TestUpdateList(t *testing.T) {
 			setupDB: func(_ *testing.T, db *sql.DB) string {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "List", time.Now(),
 				)
@@ -1065,7 +1073,7 @@ func TestUpdateList(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Valid", time.Now(),
 				)
@@ -1141,14 +1149,18 @@ func TestUpdateList(t *testing.T) {
 				return
 			}
 
-			var gotList model.List
-			err = db.QueryRow(
-				`
+			query := `
 					SELECT name, position, status
-					FROM lists 
+					FROM lists
 					WHERE id = ?
-				`, id,
-			).Scan(&gotList.Name, &gotList.Position, &gotList.Status)
+			`
+
+			var gotList model.List
+			err = db.QueryRow(query, id).Scan(
+				&gotList.Name,
+				&gotList.Position,
+				&gotList.Status,
+			)
 			if err != nil {
 				t.Fatalf("failed to query list: %v", err)
 			}
@@ -1197,7 +1209,7 @@ func TestDeleteList(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) model.List {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "To Delete", time.Now(),
 				)
@@ -1228,11 +1240,11 @@ func TestDeleteList(t *testing.T) {
 				mustExec(t, db,
 					`
 						INSERT INTO lists (
-							id, 
-							name, 
-							modified, 
+							id,
+							name,
+							modified,
 							external_id
-						) 
+						)
 						VALUES (?, ?, ?, ?)
 					`, "list-ext-del", "List to Delete", time.Now(), "ext-del-1",
 				)
@@ -1271,7 +1283,7 @@ func TestDeleteList(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) model.List {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "To Delete", time.Now(),
 				)
@@ -1373,7 +1385,7 @@ func TestCreateItem(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
@@ -1391,7 +1403,7 @@ func TestCreateItem(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
@@ -1538,8 +1550,9 @@ func TestCreateItem(t *testing.T) {
 			}
 
 			var count int
+			query := "SELECT COUNT(*) FROM items WHERE title = ?"
 			wantTitle := strings.TrimSpace(tt.item.Title)
-			err = db.QueryRow("SELECT COUNT(*) FROM items WHERE title = ?", wantTitle).Scan(&count)
+			err = db.QueryRow(query, wantTitle).Scan(&count)
 			if err != nil {
 				t.Fatalf("failed to query item: %v", err)
 			}
@@ -1554,10 +1567,28 @@ func TestCreateItem(t *testing.T) {
 					tagsJSON string
 				)
 
-				err = db.QueryRow(
-					`SELECT list_id, title, COALESCE(description, ''), status, tags, project_id, waiting_on 
-					FROM items WHERE title = ?`, wantTitle,
-				).Scan(&gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Status, &tagsJSON, &gotItem.ProjectID, &gotItem.WaitingOn)
+				query := `
+					SELECT
+						list_id,
+					    title,
+						COALESCE(description, ''),
+						status,
+						tags,
+						project_id,
+						waiting_on
+					FROM items
+					WHERE title = ?
+				`
+
+				err = db.QueryRow(query, wantTitle).Scan(
+					&gotItem.ListID,
+					&gotItem.Title,
+					&gotItem.Description,
+					&gotItem.Status,
+					&tagsJSON,
+					&gotItem.ProjectID,
+					&gotItem.WaitingOn,
+				)
 				if err != nil {
 					t.Fatalf("failed to query item: %v", err)
 				}
@@ -1936,13 +1967,28 @@ func TestUpdateItem(t *testing.T) {
 				tagsJSON string
 			)
 
-			err = db.QueryRow(
-				`
-					SELECT id, list_id, title, COALESCE(description, ''), status, tags, position
-					FROM items 
-					WHERE id = ?
-				`, id,
-			).Scan(&gotItem.ID, &gotItem.ListID, &gotItem.Title, &gotItem.Description, &gotItem.Status, &tagsJSON, &gotItem.Position)
+			query := `
+				SELECT
+					id,
+					list_id,
+					title,
+					COALESCE(description, ''),
+					status,
+					tags,
+					position
+				FROM items
+				WHERE id = ?
+			`
+
+			err = db.QueryRow(query, id).Scan(
+				&gotItem.ID,
+				&gotItem.ListID,
+				&gotItem.Title,
+				&gotItem.Description,
+				&gotItem.Status,
+				&tagsJSON,
+				&gotItem.Position,
+			)
 			if err != nil {
 				t.Fatalf("failed to query item: %v", err)
 			}
@@ -1998,11 +2044,11 @@ func TestDeleteItem(t *testing.T) {
 					`
 						INSERT INTO items (
 							id,
-							title, 
-							description, 
-							list_id, 
-							tags, 
-							modified, 
+							title,
+							description,
+							list_id,
+							tags,
+							modified,
 							created
 						) VALUES (?, ?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Item to Delete", "", "list-1", time.Now(), time.Now(),
@@ -2029,11 +2075,11 @@ func TestDeleteItem(t *testing.T) {
 					`
 						INSERT INTO items (
 							id,
-							title, 
-							description, 
-							list_id, 
-							tags, 
-							modified, 
+							title,
+							description,
+							list_id,
+							tags,
+							modified,
 							created,
 							external_id
 						) VALUES (?, ?, ?, ?, '[]', ?, ?, ?)
@@ -2074,7 +2120,7 @@ func TestDeleteItem(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) model.Item {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
@@ -2083,11 +2129,11 @@ func TestDeleteItem(t *testing.T) {
 					`
 						INSERT INTO items (
 							id,
-							title, 
-							description, 
-							list_id, 
-							tags, 
-							modified, 
+							title,
+							description,
+							list_id,
+							tags,
+							modified,
 							created
 						) VALUES (?, ?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),

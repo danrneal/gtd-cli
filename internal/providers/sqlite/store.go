@@ -103,14 +103,15 @@ func (s *Store) CreateList(ctx context.Context, list model.List) (string, error)
 		) VALUES (?, ?, ?, ?, ?, ?);
 	`
 
-	if _, err := s.db.ExecContext(ctx, query,
+	_, err := s.db.ExecContext(ctx, query,
 		list.ID,
 		list.Name,
 		list.Position,
 		model.StatusOpen,
 		list.Modified,
 		list.ExternalID,
-	); err != nil {
+	)
+	if err != nil {
 		return "", fmt.Errorf("failed to insert list %q: %w", list.Name, err)
 	}
 
@@ -344,7 +345,8 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item, _ string) (stri
 	}
 
 	if item.ListID == "" {
-		listID, err := s.getListID(ctx, item.ExternalListID)
+		var listID string
+		listID, err = s.getListID(ctx, item.ExternalListID)
 		if err != nil {
 			return "", err
 		}
@@ -371,7 +373,7 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item, _ string) (stri
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         `
 
-	if _, err := s.db.ExecContext(ctx, query,
+	_, err = s.db.ExecContext(ctx, query,
 		item.ID,
 		item.ListID,
 		item.Position,
@@ -386,7 +388,8 @@ func (s *Store) CreateItem(ctx context.Context, item model.Item, _ string) (stri
 		item.Modified,
 		item.Created,
 		item.ExternalID,
-	); err != nil {
+	)
+	if err != nil {
 		return "", fmt.Errorf("failed to insert item %q: %w", item.Title, err)
 	}
 
@@ -544,8 +547,8 @@ func (s *Store) updateItemLocation(ctx context.Context, tx *sql.Tx, item model.I
 	}
 
 	query := `
-		UPDATE items SET 
-			list_id = ?, 
+		UPDATE items SET
+			list_id = ?,
 			position = ?
 		WHERE id = ? OR external_id = ?;
 	`

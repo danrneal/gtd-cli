@@ -121,7 +121,7 @@ func TestCreateList(t *testing.T) {
 					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
-							"id": "new-list-id", 
+							"id": "new-list-id",
 							"title": "New List"
 						}
 					`)),
@@ -198,7 +198,7 @@ func TestListLists(t *testing.T) {
 							{
 								"items": [
 									{
-										"id": "L1", 
+										"id": "L1",
 										"title": "Inbox",
 										"updated": "2024-01-01T12:00:00Z"
 									}
@@ -218,8 +218,8 @@ func TestListLists(t *testing.T) {
 							{
 								"items": [
 									{
-										"id": "T1", 
-										"title": "Task 1", 
+										"id": "T1",
+										"title": "Task 1",
 										"position": "0001"
 									}
 								]
@@ -401,7 +401,7 @@ func TestUpdateList(t *testing.T) {
 					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
-							"id": "L1", 
+							"id": "L1",
 							"title": "Updated List"
 						}
 					`)),
@@ -443,7 +443,7 @@ func TestUpdateList(t *testing.T) {
 						StatusCode: http.StatusOK,
 						Body: io.NopCloser(bytes.NewBufferString(`
 							{
-								"id": "L1", 
+								"id": "L1",
 								"title": "My List"
 							}
 						`)),
@@ -502,7 +502,7 @@ func TestUpdateList(t *testing.T) {
 						StatusCode: http.StatusOK,
 						Body: io.NopCloser(bytes.NewBufferString(`
 							{
-								"id": "L2", 
+								"id": "L2",
 								"title": "Target List"
 							}
 						`)),
@@ -563,7 +563,7 @@ func TestUpdateList(t *testing.T) {
 						StatusCode: http.StatusOK,
 						Body: io.NopCloser(bytes.NewBufferString(`
 							{
-								"id": "L2", 
+								"id": "L2",
 								"title": "Target List"
 							}
 						`)),
@@ -643,7 +643,7 @@ func TestUpdateList(t *testing.T) {
 						StatusCode: http.StatusOK,
 						Body: io.NopCloser(bytes.NewBufferString(`
 							{
-								"id": "L1", 
+								"id": "L1",
 								"title": "My List"
 							}
 						`)),
@@ -1009,15 +1009,15 @@ func TestListItems(t *testing.T) {
 						{
 							"items": [
 								{
-									"id": "t2", 
-									"title": "Task 2", 
-									"position": "0002", 
+									"id": "t2",
+									"title": "Task 2",
+									"position": "0002",
 									"status": "needsAction"
 								},
 								{
-									"id": "t1", 
-									"title": "Task 1", 
-									"position": "0001", 
+									"id": "t1",
+									"title": "Task 1",
+									"position": "0001",
 									"status": "needsAction"
 								}
 							]
@@ -1061,8 +1061,8 @@ func TestListItems(t *testing.T) {
 						{
 							"items": [
 								{
-									"id": "t1", 
-									"title": "Alice - Send Mail - Jan 23", 
+									"id": "t1",
+									"title": "Alice - Send Mail - Jan 23",
 									"position": "0001"
 								}
 							]
@@ -1098,8 +1098,8 @@ func TestListItems(t *testing.T) {
 						{
 							"items": [
 								{
-									"id": "t1", 
-									"title": "Task +ProjectA", 
+									"id": "t1",
+									"title": "Task +ProjectA",
 									"position": "0001"
 								}
 							]
@@ -1135,8 +1135,8 @@ func TestListItems(t *testing.T) {
 						{
 							"items": [
 								{
-									"id": "t1", 
-									"title": "Task due:2024-01-01", 
+									"id": "t1",
+									"title": "Task due:2024-01-01",
 									"position": "0001"
 								}
 							]
@@ -1172,8 +1172,8 @@ func TestListItems(t *testing.T) {
 						{
 							"items": [
 								{
-									"id": "t1", 
-									"title": "Task #tag1 #tag2", 
+									"id": "t1",
+									"title": "Task #tag1 #tag2",
 									"position": "0001"
 								}
 							]
@@ -1209,9 +1209,9 @@ func TestListItems(t *testing.T) {
 						{
 							"items": [
 								{
-									"id": "t1", 
-									"title": "Task", 
-									"status": "completed", 
+									"id": "t1",
+									"title": "Task",
+									"status": "completed",
 									"position": "0001"
 								}
 							]
@@ -1246,9 +1246,9 @@ func TestListItems(t *testing.T) {
 						{
 							"items": [
 								{
-									"id": "t1", 
-									"title": "Task", 
-									"notes": "My notes", 
+									"id": "t1",
+									"title": "Task",
+									"notes": "My notes",
 									"position": "0001"
 								}
 							]
@@ -1284,9 +1284,9 @@ func TestListItems(t *testing.T) {
 						{
 							"items": [
 								{
-									"id": "t1", 
-									"title": "Task", 
-									"due": "2024-01-01T00:00:00Z", 
+									"id": "t1",
+									"title": "Task",
+									"due": "2024-01-01T00:00:00Z",
 									"position": "0001"
 								}
 							]
@@ -1322,9 +1322,9 @@ func TestListItems(t *testing.T) {
 						{
 							"items": [
 								{
-									"id": "t1", 
-									"title": "Task", 
-									"updated": "2024-01-01T12:00:00Z", 
+									"id": "t1",
+									"title": "Task",
+									"updated": "2024-01-01T12:00:00Z",
 									"position": "0001"
 								}
 							]
@@ -1458,7 +1458,7 @@ func TestUpdateItem(t *testing.T) {
 					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
-							"id": "T1", 
+							"id": "T1",
 							"title": "Updated Task"
 						}
 					`)),
@@ -1494,7 +1494,7 @@ func TestUpdateItem(t *testing.T) {
 					StatusCode: http.StatusOK,
 					Body: io.NopCloser(bytes.NewBufferString(`
 						{
-							"id": "T1", 
+							"id": "T1",
 							"status": "completed"
 						}
 					`)),

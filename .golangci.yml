@@ -12,7 +12,7 @@ formatters:
 
   settings:
     goimports:
-      local-prefixes: 
+      local-prefixes:
         - github.com/danrneal/gtd.nvim
 
     golines:
