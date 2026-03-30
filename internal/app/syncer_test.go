@@ -145,12 +145,14 @@ func (f *FakeProvider) UpdateList(_ context.Context, updatedList model.List, _ [
 
 	if f.Name == "generic" {
 		for i, list := range f.Lists {
-			if f.GetKey(&list) == "" && list.Name == updatedList.Name {
-				updatedListKey := f.GetKey(&updatedList)
-				f.SetKey(&list, updatedListKey)
-				f.Lists[i] = list
-				break
+			if f.GetKey(&list) != "" || list.Name != updatedList.Name {
+				continue
 			}
+
+			updatedListKey := f.GetKey(&updatedList)
+			f.SetKey(&list, updatedListKey)
+			f.Lists[i] = list
+			break
 		}
 	}
 
@@ -162,45 +164,49 @@ func (f *FakeProvider) UpdateList(_ context.Context, updatedList model.List, _ [
 					f.GetKey(&item) == "" &&
 					item.Title == updatedItem.Title
 
-				if isMatch(&item, &updatedItem) || genericMatch {
-					item.Position = i
-					listItems = append(listItems, item)
-					list.Items = append(list.Items[:k], list.Items[k+1:]...)
-					f.Lists[j] = list
-					break
+				if !isMatch(&item, &updatedItem) && !genericMatch {
+					continue
 				}
+
+				item.Position = i
+				listItems = append(listItems, item)
+				list.Items = append(list.Items[:k], list.Items[k+1:]...)
+				f.Lists[j] = list
+				break
 			}
 		}
 	}
 
 	for i, list := range f.Lists {
-		if isMatch(&list, &updatedList) {
-			list.Position = updatedList.Position
-			list.Status = updatedList.Status
-			list.Name = updatedList.Name
-			list.Modified = updatedList.Modified
-			if updatedList.ExternalID != nil {
-				list.ExternalID = updatedList.ExternalID
-			}
-
-			list.Items = append(list.Items, listItems...)
-			if updatedList.Status == model.StatusDeleted {
-				list.Items = []model.Item{}
-			}
-
-			for j, item := range list.Items {
-				if f.Name != "external" {
-					item.ListID = list.ID
-				}
-
-				item.ExternalListID = list.ExternalID
-				list.Items[j] = item
-			}
-
-			f.Lists[i] = list
-
-			return nil
+		if !isMatch(&list, &updatedList) {
+			continue
 		}
+
+		list.Position = updatedList.Position
+		list.Status = updatedList.Status
+		list.Name = updatedList.Name
+		list.Modified = updatedList.Modified
+		if updatedList.ExternalID != nil {
+			list.ExternalID = updatedList.ExternalID
+		}
+
+		list.Items = append(list.Items, listItems...)
+		if updatedList.Status == model.StatusDeleted {
+			list.Items = []model.Item{}
+		}
+
+		for j, item := range list.Items {
+			if f.Name != "external" {
+				item.ListID = list.ID
+			}
+
+			item.ExternalListID = list.ExternalID
+			list.Items[j] = item
+		}
+
+		f.Lists[i] = list
+
+		return nil
 	}
 
 	return fmt.Errorf("list not found: %s", updatedList.ID)
@@ -234,18 +240,20 @@ func (f *FakeProvider) CreateItem(_ context.Context, item model.Item, _ string) 
 	}
 
 	for i, list := range f.Lists {
-		if isParent(list, item) {
-			if f.Name == "external" {
-				item.ID = ""
-			}
-
-			item.ListID = list.ID
-			item.ExternalListID = list.ExternalID
-			list.Items = append(list.Items, item)
-			f.Lists[i] = list
-
-			return itemKey, nil
+		if !isParent(list, item) {
+			continue
 		}
+
+		if f.Name == "external" {
+			item.ID = ""
+		}
+
+		item.ListID = list.ID
+		item.ExternalListID = list.ExternalID
+		list.Items = append(list.Items, item)
+		f.Lists[i] = list
+
+		return itemKey, nil
 	}
 
 	return "", fmt.Errorf("list ID and external list ID not found: %s, %v", item.ListID, item.ExternalListID)
@@ -263,55 +271,59 @@ func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem model.Item) err
 	if f.Name == "generic" {
 		for i, list := range f.Lists {
 			for j, item := range list.Items {
-				if f.GetKey(&item) == "" && item.Title == updatedItem.Title {
-					updatedItemKey := f.GetKey(&updatedItem)
-					f.SetKey(&item, updatedItemKey)
-					list.Items[j] = item
-					f.Lists[i] = list
-					break
+				if f.GetKey(&item) != "" || item.Title != updatedItem.Title {
+					continue
 				}
+
+				updatedItemKey := f.GetKey(&updatedItem)
+				f.SetKey(&item, updatedItemKey)
+				list.Items[j] = item
+				f.Lists[i] = list
+				break
 			}
 		}
 	}
 
 	for i, list := range f.Lists {
 		for j, item := range list.Items {
-			if isMatch(&item, &updatedItem) {
-				if !isParent(list, updatedItem) {
-					return fmt.Errorf(
-						"item parent mismatch: item %s belongs to list %s (ID=%s, ExtID=%v), "+
-							"but update request specifies parent ID=%s, ExtID=%v",
-						updatedItem.Title,
-						list.Name,
-						list.ID,
-						list.ExternalID,
-						updatedItem.ListID,
-						updatedItem.ExternalListID,
-					)
-				}
-
-				item.Status = updatedItem.Status
-				item.Title = updatedItem.Title
-				item.Description = updatedItem.Description
-				item.ProjectID = updatedItem.ProjectID
-				item.WaitingOn = updatedItem.WaitingOn
-				item.Snoozed = updatedItem.Snoozed
-				item.Due = updatedItem.Due
-				item.Tags = updatedItem.Tags
-				item.Modified = updatedItem.Modified
-				if updatedItem.ExternalID != nil {
-					item.ExternalID = updatedItem.ExternalID
-				}
-
-				if updatedItem.ExternalListID != nil {
-					item.ExternalListID = updatedItem.ExternalListID
-				}
-
-				list.Items[j] = item
-				f.Lists[i] = list
-
-				return nil
+			if !isMatch(&item, &updatedItem) {
+				continue
 			}
+
+			if !isParent(list, updatedItem) {
+				return fmt.Errorf(
+					"item parent mismatch: item %s belongs to list %s (ID=%s, ExtID=%v), "+
+						"but update request specifies parent ID=%s, ExtID=%v",
+					updatedItem.Title,
+					list.Name,
+					list.ID,
+					list.ExternalID,
+					updatedItem.ListID,
+					updatedItem.ExternalListID,
+				)
+			}
+
+			item.Status = updatedItem.Status
+			item.Title = updatedItem.Title
+			item.Description = updatedItem.Description
+			item.ProjectID = updatedItem.ProjectID
+			item.WaitingOn = updatedItem.WaitingOn
+			item.Snoozed = updatedItem.Snoozed
+			item.Due = updatedItem.Due
+			item.Tags = updatedItem.Tags
+			item.Modified = updatedItem.Modified
+			if updatedItem.ExternalID != nil {
+				item.ExternalID = updatedItem.ExternalID
+			}
+
+			if updatedItem.ExternalListID != nil {
+				item.ExternalListID = updatedItem.ExternalListID
+			}
+
+			list.Items[j] = item
+			f.Lists[i] = list
+
+			return nil
 		}
 	}
 
@@ -321,12 +333,14 @@ func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem model.Item) err
 func (f *FakeProvider) DeleteItem(_ context.Context, deletedItem model.Item) error {
 	for i, list := range f.Lists {
 		for j, item := range list.Items {
-			if isMatch(&item, &deletedItem) {
-				list.Items = append(list.Items[:j], list.Items[j+1:]...)
-				f.Lists[i] = list
-
-				return nil
+			if !isMatch(&item, &deletedItem) {
+				continue
 			}
+
+			list.Items = append(list.Items[:j], list.Items[j+1:]...)
+			f.Lists[i] = list
+
+			return nil
 		}
 	}
 

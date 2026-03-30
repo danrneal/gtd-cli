@@ -339,10 +339,6 @@ linters:
       - common-false-positives
     rules:
       - path: '_test\.go'
-        text: "early-return"
-        linters:
-          - revive
-      - path: '_test\.go'
         linters:
           - bodyclose
           - dupl

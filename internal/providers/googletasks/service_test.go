@@ -275,14 +275,12 @@ func TestFileTokenSource_Token(t *testing.T) {
 				wantToken = tt.token
 			}
 
-			if tt.wantSave || tt.token != nil {
-				opts := []cmp.Option{
-					cmpopts.IgnoreUnexported(oauth2.Token{}),
-				}
+			if !tt.wantSave && tt.token == nil {
+				return
+			}
 
-				if diff := cmp.Diff(*wantToken, savedToken, opts...); diff != "" {
-					t.Errorf("File save mismatch (-want +got):\n%s", diff)
-				}
+			if diff := cmp.Diff(*wantToken, savedToken, opts...); diff != "" {
+				t.Errorf("File save mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

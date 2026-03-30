@@ -250,32 +250,34 @@ func TestCreateList(t *testing.T) {
 
 			defer db.Close()
 
-			if tt.wantList != nil {
-				query := `
-					SELECT id, name, position, external_id
-					FROM lists
-					WHERE name = ?
-				`
+			if tt.wantList == nil {
+				return
+			}
 
-				var gotList model.List
-				wantName := strings.TrimSpace(tt.list.Name)
-				err = db.QueryRow(query, wantName).Scan(
-					&gotList.ID,
-					&gotList.Name,
-					&gotList.Position,
-					&gotList.ExternalID,
-				)
-				if err != nil {
-					t.Fatalf("failed to query list: %v", err)
-				}
+			query := `
+				SELECT id, name, position, external_id
+				FROM lists
+				WHERE name = ?
+			`
 
-				opts := []cmp.Option{
-					cmpopts.IgnoreFields(model.List{}, "ID", "Modified", "Items"),
-				}
+			var gotList model.List
+			wantName := strings.TrimSpace(tt.list.Name)
+			err = db.QueryRow(query, wantName).Scan(
+				&gotList.ID,
+				&gotList.Name,
+				&gotList.Position,
+				&gotList.ExternalID,
+			)
+			if err != nil {
+				t.Fatalf("failed to query list: %v", err)
+			}
 
-				if diff := cmp.Diff(tt.wantList, &gotList, opts...); diff != "" {
-					t.Errorf("CreateList() mismatch (-want +got):\n%s", diff)
-				}
+			opts := []cmp.Option{
+				cmpopts.IgnoreFields(model.List{}, "ID", "Modified", "Items"),
+			}
+
+			if diff := cmp.Diff(tt.wantList, &gotList, opts...); diff != "" {
+				t.Errorf("CreateList() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -1182,29 +1184,31 @@ func TestUpdateList(t *testing.T) {
 
 			gotList.ID = id
 
-			opts := []cmp.Option{
+			listOpts := []cmp.Option{
 				cmpopts.IgnoreFields(model.List{}, "Modified", "ID", "ExternalID", "Items"),
 			}
 
-			if diff := cmp.Diff(*tt.wantList, gotList, opts...); diff != "" {
+			if diff := cmp.Diff(*tt.wantList, gotList, listOpts...); diff != "" {
 				t.Errorf("UpdateList() mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantItems != nil {
-				tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
-				items, err := store.listAllItems(context.Background(), tx)
-				tx.Rollback()
-				if err != nil {
-					t.Fatalf("failed to list all items: %v", err)
-				}
+			if tt.wantItems == nil {
+				return
+			}
 
-				itemOpts := []cmp.Option{
-					cmpopts.IgnoreFields(model.Item{}, "Modified", "Created", "Snoozed", "Due"),
-				}
+			tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
+			items, err := store.listAllItems(context.Background(), tx)
+			tx.Rollback()
+			if err != nil {
+				t.Fatalf("failed to list all items: %v", err)
+			}
 
-				if diff := cmp.Diff(tt.wantItems, items, itemOpts...); diff != "" {
-					t.Errorf("UpdateList() items mismatch (-want +got):\n%s", diff)
-				}
+			itemOpts := []cmp.Option{
+				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created", "Snoozed", "Due"),
+			}
+
+			if diff := cmp.Diff(tt.wantItems, items, itemOpts...); diff != "" {
+				t.Errorf("UpdateList() items mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -1573,9 +1577,9 @@ func TestCreateItem(t *testing.T) {
 			}
 
 			var count int
-			query := "SELECT COUNT(*) FROM items WHERE title = ?"
+			countQuery := "SELECT COUNT(*) FROM items WHERE title = ?"
 			wantTitle := strings.TrimSpace(tt.item.Title)
-			err = db.QueryRow(query, wantTitle).Scan(&count)
+			err = db.QueryRow(countQuery, wantTitle).Scan(&count)
 			if err != nil {
 				t.Fatalf("failed to query item: %v", err)
 			}
@@ -1584,61 +1588,63 @@ func TestCreateItem(t *testing.T) {
 				t.Errorf("expected 1 item with title %q, got %d", wantTitle, count)
 			}
 
-			if tt.wantItem != nil {
-				var (
-					gotItem  model.Item
-					tagsJSON string
-				)
+			if tt.wantItem == nil {
+				return
+			}
 
-				query := `
-					SELECT
-						list_id,
-					    title,
-						COALESCE(description, ''),
-						status,
-						tags,
-						project_id,
-						waiting_on
-					FROM items
-					WHERE title = ?
-				`
+			var (
+				gotItem  model.Item
+				tagsJSON string
+			)
 
-				err = db.QueryRow(query, wantTitle).Scan(
-					&gotItem.ListID,
-					&gotItem.Title,
-					&gotItem.Description,
-					&gotItem.Status,
-					&tagsJSON,
-					&gotItem.ProjectID,
-					&gotItem.WaitingOn,
-				)
-				if err != nil {
-					t.Fatalf("failed to query item: %v", err)
-				}
+			itemQuery := `
+				SELECT
+					list_id,
+					title,
+					COALESCE(description, ''),
+					status,
+					tags,
+					project_id,
+					waiting_on
+				FROM items
+				WHERE title = ?
+			`
 
-				if err := json.Unmarshal([]byte(tagsJSON), &gotItem.Tags); err != nil {
-					t.Fatalf("failed to unmarshal tags: %v", err)
-				}
+			err = db.QueryRow(itemQuery, wantTitle).Scan(
+				&gotItem.ListID,
+				&gotItem.Title,
+				&gotItem.Description,
+				&gotItem.Status,
+				&tagsJSON,
+				&gotItem.ProjectID,
+				&gotItem.WaitingOn,
+			)
+			if err != nil {
+				t.Fatalf("failed to query item: %v", err)
+			}
 
-				if gotItem.Tags == nil {
-					gotItem.Tags = []string{}
-				}
+			if err := json.Unmarshal([]byte(tagsJSON), &gotItem.Tags); err != nil {
+				t.Fatalf("failed to unmarshal tags: %v", err)
+			}
 
-				opts := []cmp.Option{
-					cmpopts.IgnoreFields(
-						model.Item{},
-						"ID",
-						"Modified",
-						"Created",
-						"Snoozed",
-						"Due",
-						"ExternalID",
-					),
-				}
+			if gotItem.Tags == nil {
+				gotItem.Tags = []string{}
+			}
 
-				if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {
-					t.Errorf("CreateItem() mismatch (-want +got):\n%s", diff)
-				}
+			opts := []cmp.Option{
+				cmpopts.IgnoreFields(
+					model.Item{},
+					"ID",
+					"Modified",
+					"Created",
+					"Snoozed",
+					"Due",
+					"ExternalID",
+				),
+			}
+
+			if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {
+				t.Errorf("CreateItem() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
