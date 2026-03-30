@@ -12,7 +12,8 @@ formatters:
 
   settings:
     goimports:
-      local-prefixes: github.com/danrneal/gtd.nvim
+      local-prefixes: 
+        - github.com/danrneal/gtd.nvim
 
     golines:
       max-len: 120
@@ -44,7 +45,6 @@ linters:
     - funcorder
     - funlen
     - gocheckcompilerdirectives
-    - ginkgolinter
     - gochecknoglobals
     - gochecknoinits
     - gocognit
@@ -64,6 +64,7 @@ linters:
     - intrange
     - iotamixing
     - ireturn
+    - lll
     - loggercheck
     - makezero
     - mirror
@@ -95,7 +96,6 @@ linters:
     - tagalign
     - tagliatelle
     - testableexamples
-    - testifylint
     - thelper
     - tparallel
     - unconvert
@@ -111,34 +111,6 @@ linters:
     - wsl_v5
 
   settings:
-    revive:
-      rules:
-        - name: argument-limit
-          arguments: [5]
-        - name: call-to-gc
-        - name: comment-spacings
-        - name: confusing-naming
-        - name: deep-exit
-        - name: defer
-        - name: early-return
-          arguments: ["allow-jump"]
-        - name: enforce-repeated-arg-type-style
-          arguments: ["short"]
-        - name: filename-format
-        - name: flag-parameter
-        - name: function-result-limit
-        - name: get-return
-        - name: if-return
-        - name: import-shadowing
-        - name: max-control-nesting
-        - name: modifies-value-receiver
-        - name: redundant-import-alias
-        - name: redundant-test-main-exit
-        - name: superfluous-else
-        - name: time-naming
-        - name: unconditional-recursion
-        - name: useless-break
-
     cyclop:
       max-complexity: 30
       package-average: 10.0
@@ -170,14 +142,6 @@ linters:
     funcorder:
       struct-method: false
 
-    ginkgolinter:
-      forbid-focus-container: true
-      force-expect-to: true
-      validate-async-intervals: true
-      forbid-spec-pollution: true
-      force-succeed: true
-      force-tonot: true
-
     gocognit:
       min-complexity: 20
 
@@ -207,6 +171,9 @@ linters:
         - generic
         - (or|er)$
 
+    lll:
+      tab-width: 4
+
     misspell:
       locale: US
 
@@ -224,6 +191,34 @@ linters:
     reassign:
       patterns:
         - ".*"
+
+    revive:
+      rules:
+        - name: argument-limit
+          arguments: [5]
+        - name: call-to-gc
+        - name: comment-spacings
+        - name: confusing-naming
+        - name: deep-exit
+        - name: defer
+        - name: early-return
+          arguments: ["allow-jump"]
+        - name: enforce-repeated-arg-type-style
+          arguments: ["short"]
+        - name: filename-format
+        - name: flag-parameter
+        - name: function-result-limit
+        - name: get-return
+        - name: if-return
+        - name: import-shadowing
+        - name: max-control-nesting
+        - name: modifies-value-receiver
+        - name: redundant-import-alias
+        - name: redundant-test-main-exit
+        - name: superfluous-else
+        - name: time-naming
+        - name: unconditional-recursion
+        - name: useless-break
 
     rowserrcheck:
       packages:

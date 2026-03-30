@@ -281,15 +281,12 @@ func TestListLists(t *testing.T) {
 		{
 			name: "valid list (empty items)",
 			setupDB: func(t *testing.T, db *sql.DB) {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified) 
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 			},
 			wantLists: []model.List{
 				{
@@ -303,32 +300,26 @@ func TestListLists(t *testing.T) {
 		{
 			name: "valid list (with items)",
 			setupDB: func(t *testing.T, db *sql.DB) {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-2", "Work", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id,
-							title, 
-							description, 
-							list_id, 
-							tags, 
-							modified, 
+							title,
+							description,
+							list_id,
+							tags,
+							modified,
 							created
 						) VALUES (?, ?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Task 1", "", "list-2", time.Now(), time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 			},
 			wantLists: []model.List{
 				{
@@ -350,17 +341,14 @@ func TestListLists(t *testing.T) {
 		{
 			name: "valid list (with complex items)",
 			setupDB: func(t *testing.T, db *sql.DB) {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified) 
 						VALUES (?, ?, ?)
 					`, "list-3", "Complex", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id,
@@ -373,9 +361,6 @@ func TestListLists(t *testing.T) {
 						) VALUES (?, ?, ?, ?, ?, ?, ?)
 					`, "item-2", "Task 2", "", "list-3", `["a", "b"]`, time.Now(), time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 			},
 			wantLists: []model.List{
 				{
@@ -397,17 +382,14 @@ func TestListLists(t *testing.T) {
 		{
 			name: "corrupt item data (bad tags)",
 			setupDB: func(t *testing.T, db *sql.DB) {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified) 
 						VALUES (?, ?, ?)
 					`, "list-4", "Broken", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id,
@@ -420,24 +402,18 @@ func TestListLists(t *testing.T) {
 						) VALUES (?, ?, ?, ?, ?, ?, ?)
 					`, "item-3", "Task 3", "", "list-4", `{badjson`, time.Now(), time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 			},
 			wantErr: true,
 		},
 		{
 			name: "context cancellation",
 			setupDB: func(t *testing.T, db *sql.DB) {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (name, modified) 
 						VALUES (?, ?)
 					`, "Inbox", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())
@@ -522,17 +498,14 @@ func TestUpdateList(t *testing.T) {
 		{
 			name: "valid update (rename and reorder)",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified) 
 						VALUES (?, ?, ?)
 					`, "list-1", "Old Name", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				if _, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id, 
@@ -545,11 +518,10 @@ func TestUpdateList(t *testing.T) {
 							created
 						) 
 						VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-					`, "item-1", "A", "", "list-1", 0, "not_started", time.Now(), time.Now()); err != nil {
-					t.Fatalf("failed to insert item 1: %v", err)
-				}
+					`, "item-1", "A", "", "list-1", 0, "not_started", time.Now(), time.Now(),
+				)
 
-				if _, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id, 
@@ -561,9 +533,8 @@ func TestUpdateList(t *testing.T) {
 							modified, 
 							created
 						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-					`, "item-2", "B", "", "list-1", 1, "not_started", time.Now(), time.Now()); err != nil {
-					t.Fatalf("failed to insert item 2: %v", err)
-				}
+					`, "item-2", "B", "", "list-1", 1, "not_started", time.Now(), time.Now(),
+				)
 
 				return "list-1"
 			},
@@ -621,34 +592,28 @@ func TestUpdateList(t *testing.T) {
 		{
 			name: "valid update (optimization skip)",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-opt", "Optimization", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
-							id, 
-							title, 
+							id,
+							title,
 							description,
-							list_id, 
-							position, 
-							status, 
-							tags, 
-							modified, 
+							list_id,
+							position,
+							status,
+							tags,
+							modified,
 							created
 						) VALUES (?, ?, ?, ?, ?, ?, '[]', ?, ?)
 					`, "item-opt", "Task Opt", "", "list-opt", 99, "not_started", time.Now(), time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 
 				return "list-opt"
 			},
@@ -698,15 +663,12 @@ func TestUpdateList(t *testing.T) {
 		{
 			name: "default status (open)",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified) 
 						VALUES (?, ?, ?)
 					`, "list-1", "Valid", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
 				return "list-1"
 			},
@@ -727,7 +689,7 @@ func TestUpdateList(t *testing.T) {
 		{
 			name: "preserve external id when nil",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (
 							id, 
@@ -738,9 +700,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?, ?)
 					`, "list-1", "Original", time.Now(), "ext-1",
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
 				return "list-1"
 			},
@@ -761,7 +720,7 @@ func TestUpdateList(t *testing.T) {
 		{
 			name: "update list by external id",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (
 							id, 
@@ -772,9 +731,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?, ?)
 					`, "list-1", "Original Name", time.Now(), "ext-L1",
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
 				return "list-1"
 			},
@@ -798,7 +754,7 @@ func TestUpdateList(t *testing.T) {
 		{
 			name: "update item by external id",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (
 							id, 
@@ -809,11 +765,8 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?, ?)
 					`, "list-1", "List 1", time.Now(), "ext-L1",
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id, 
@@ -827,9 +780,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?, ?, ?, ?, ?)
 					`, "item-1", "Original Title", "", "list-1", time.Now(), time.Now(), "ext-I1",
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 
 				return "list-1"
 			},
@@ -866,17 +816,14 @@ func TestUpdateList(t *testing.T) {
 		{
 			name: "soft delete list cascades to hard delete items",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified) 
 						VALUES (?, ?, ?)
 					`, "list-delete", "To Be Deleted", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id, 
@@ -890,9 +837,6 @@ func TestUpdateList(t *testing.T) {
 						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 					`, "item-delete", "Cleanup Item", "", "list-delete", 0, "not_started", time.Now(), time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 
 				return "list-delete"
 			},
@@ -913,7 +857,7 @@ func TestUpdateList(t *testing.T) {
 		{
 			name: "soft delete with item external id only",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (
 							id, 
@@ -924,11 +868,8 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?, ?)
 					`, "list-delete", "To Be Deleted", time.Now(), "ext-list-delete",
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id, 
@@ -939,9 +880,6 @@ func TestUpdateList(t *testing.T) {
 						) VALUES (?, ?, ?, ?, ?)
 					`, "item-delete", "Cleanup Item", "list-delete", time.Now(), time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 
 				return "list-delete"
 			},
@@ -967,7 +905,11 @@ func TestUpdateList(t *testing.T) {
 				return ""
 			},
 			setupList: func(_ string) model.List {
-				return model.List{Name: "Headless Update"}
+				list := model.List{
+					Name: "Headless Update",
+				}
+
+				return list
 			},
 			wantErr: true,
 		},
@@ -987,7 +929,7 @@ func TestUpdateList(t *testing.T) {
 		{
 			name: "transaction rollback on item failure",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (
 							id, 
@@ -998,9 +940,6 @@ func TestUpdateList(t *testing.T) {
 						VALUES (?, ?, ?, ?)
 					`, "list-rollback", "Stable Name", "open", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
 				return "list-rollback"
 			},
@@ -1029,15 +968,12 @@ func TestUpdateList(t *testing.T) {
 		{
 			name: "empty name",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified) 
 						VALUES (?, ?, ?)
 					`, "list-1", "Valid", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
 				return "list-1"
 			},
@@ -1071,15 +1007,12 @@ func TestUpdateList(t *testing.T) {
 		{
 			name: "missing item identifiers",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified) 
 						VALUES (?, ?, ?)
 					`, "list-1", "Valid List", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
 				return "list-1"
 			},
@@ -1088,7 +1021,9 @@ func TestUpdateList(t *testing.T) {
 					ID:   id,
 					Name: "Valid List",
 					Items: []model.Item{
-						{Title: "Headless Item"},
+						{
+							Title: "Headless Item",
+						},
 					},
 				}
 
@@ -1099,7 +1034,7 @@ func TestUpdateList(t *testing.T) {
 		{
 			name: "nonexistent item id",
 			setupDB: func(_ *testing.T, db *sql.DB) string {
-				_, _ = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified) 
 						VALUES (?, ?, ?)
@@ -1128,15 +1063,12 @@ func TestUpdateList(t *testing.T) {
 		{
 			name: "context cancellation",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified) 
 						VALUES (?, ?, ?)
 					`, "list-1", "Valid", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
 				return "list-1"
 			},
@@ -1263,33 +1195,29 @@ func TestDeleteList(t *testing.T) {
 		{
 			name: "valid delete with cascade",
 			setupDB: func(t *testing.T, db *sql.DB) model.List {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified) 
 						VALUES (?, ?, ?)
 					`, "list-1", "To Delete", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id,
-							title, 
-							list_id, 
-							tags, 
-							modified, 
+							title,
+							list_id,
+							tags,
+							modified,
 							created
 						) VALUES (?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Linked Item", "list-1", time.Now(), time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 
-				list := model.List{ID: "list-1"}
+				list := model.List{
+					ID: "list-1",
+				}
 
 				return list
 			},
@@ -1297,7 +1225,7 @@ func TestDeleteList(t *testing.T) {
 		{
 			name: "delete list by external id",
 			setupDB: func(t *testing.T, db *sql.DB) model.List {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (
 							id, 
@@ -1308,9 +1236,6 @@ func TestDeleteList(t *testing.T) {
 						VALUES (?, ?, ?, ?)
 					`, "list-ext-del", "List to Delete", time.Now(), "ext-del-1",
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
 				list := model.List{
 					ExternalID: stringPtr("ext-del-1"),
@@ -1322,14 +1247,21 @@ func TestDeleteList(t *testing.T) {
 		{
 			name: "delete list missing identifiers",
 			setupDB: func(_ *testing.T, _ *sql.DB) model.List {
-				return model.List{Name: "Headless List"}
+				list := model.List{
+					Name: "Headless List",
+				}
+
+				return list
 			},
 			wantErr: true,
 		},
 		{
 			name: "nonexistent id",
 			setupDB: func(_ *testing.T, _ *sql.DB) model.List {
-				list := model.List{ID: "non-existent"}
+				list := model.List{
+					ID: "non-existent",
+				}
+
 				return list
 			},
 			wantErr: true,
@@ -1337,15 +1269,12 @@ func TestDeleteList(t *testing.T) {
 		{
 			name: "context cancellation",
 			setupDB: func(t *testing.T, db *sql.DB) model.List {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified) 
 						VALUES (?, ?, ?)
 					`, "list-1", "To Delete", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
 				list := model.List{
 					ID: "list-1",
@@ -1442,15 +1371,12 @@ func TestCreateItem(t *testing.T) {
 		{
 			name: "valid item minimal fields (auto-trimmed title)",
 			setupDB: func(t *testing.T, db *sql.DB) {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified) 
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 			},
 			item: model.Item{
 				ListID:   "list-1",
@@ -1463,15 +1389,12 @@ func TestCreateItem(t *testing.T) {
 		{
 			name: "valid item complex fields (multiline desc)",
 			setupDB: func(t *testing.T, db *sql.DB) {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified) 
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 			},
 			item: model.Item{
 				ListID:      "list-1",
@@ -1497,15 +1420,12 @@ func TestCreateItem(t *testing.T) {
 		{
 			name: "create item resolving list id by external id",
 			setupDB: func(t *testing.T, db *sql.DB) {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified, external_id) 
+						INSERT INTO lists (id, name, modified, external_id)
 						VALUES (?, ?, ?, ?)
 					`, "list-1", "External List", time.Now(), "ext-L1",
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 			},
 			item: model.Item{
 				ExternalListID: stringPtr("ext-L1"),
@@ -1674,32 +1594,26 @@ func TestUpdateItem(t *testing.T) {
 		{
 			name: "valid update (complex fields)",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id,
-							title, 
-							description, 
-							list_id, 
-							tags, 
-							modified, 
+							title,
+							description,
+							list_id,
+							tags,
+							modified,
 							created
 						) VALUES (?, ?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Original", "", "list-1", time.Now(), time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 
 				return "item-1"
 			},
@@ -1730,33 +1644,27 @@ func TestUpdateItem(t *testing.T) {
 		{
 			name: "update item by external id only",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id,
-							title, 
-							description, 
-							list_id, 
-							tags, 
-							modified, 
+							title,
+							description,
+							list_id,
+							tags,
+							modified,
 							created,
 							external_id
 						) VALUES (?, ?, ?, ?, '[]', ?, ?, ?)
 					`, "item-1", "Original", "", "list-1", time.Now(), time.Now(), "ext-I1",
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 
 				return "item-1"
 			},
@@ -1781,33 +1689,27 @@ func TestUpdateItem(t *testing.T) {
 		{
 			name: "preserve item external id when nil",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id,
-							title, 
-							description, 
-							list_id, 
-							tags, 
-							modified, 
+							title,
+							description,
+							list_id,
+							tags,
+							modified,
 							created,
 							external_id
 						) VALUES (?, ?, ?, ?, '[]', ?, ?, ?)
 					`, "item-1", "Original", "", "list-1", time.Now(), time.Now(), "ext-I1",
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 
 				return "item-1"
 			},
@@ -1836,39 +1738,37 @@ func TestUpdateItem(t *testing.T) {
 				return ""
 			},
 			setupItem: func(_ string) model.Item {
-				return model.Item{Title: "Headless Item"}
+				item := model.Item{
+					Title: "Headless Item",
+				}
+
+				return item
 			},
 			wantErr: true,
 		},
 		{
 			name: "invalid status",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id,
-							title, 
-							description, 
-							list_id, 
-							tags, 
-							modified, 
+							title,
+							description,
+							list_id,
+							tags,
+							modified,
 							created
 						) VALUES (?, ?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 
 				return "item-1"
 			},
@@ -1888,32 +1788,26 @@ func TestUpdateItem(t *testing.T) {
 		{
 			name: "empty title",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id,
-							title, 
-							description, 
-							list_id, 
-							tags, 
-							modified, 
+							title,
+							description,
+							list_id,
+							tags,
+							modified,
 							created
 						) VALUES (?, ?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 
 				return "item-1"
 			},
@@ -1949,32 +1843,26 @@ func TestUpdateItem(t *testing.T) {
 		{
 			name: "context cancellation",
 			setupDB: func(t *testing.T, db *sql.DB) string {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id,
-							title, 
-							description, 
-							list_id, 
-							tags, 
-							modified, 
+							title,
+							description,
+							list_id,
+							tags,
+							modified,
 							created
 						) VALUES (?, ?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 
 				return "item-1"
 			},
@@ -2099,17 +1987,14 @@ func TestDeleteItem(t *testing.T) {
 		{
 			name: "valid delete",
 			setupDB: func(t *testing.T, db *sql.DB) model.Item {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id,
@@ -2122,9 +2007,6 @@ func TestDeleteItem(t *testing.T) {
 						) VALUES (?, ?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Item to Delete", "", "list-1", time.Now(), time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 
 				item := model.Item{
 					ID: "item-1",
@@ -2136,17 +2018,14 @@ func TestDeleteItem(t *testing.T) {
 		{
 			name: "delete item by external id",
 			setupDB: func(t *testing.T, db *sql.DB) model.Item {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified) 
+						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id,
@@ -2160,9 +2039,6 @@ func TestDeleteItem(t *testing.T) {
 						) VALUES (?, ?, ?, ?, '[]', ?, ?, ?)
 					`, "item-1", "Item to Delete", "", "list-1", time.Now(), time.Now(), "ext-I1",
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 
 				item := model.Item{
 					ExternalID: stringPtr("ext-I1"),
@@ -2174,14 +2050,21 @@ func TestDeleteItem(t *testing.T) {
 		{
 			name: "delete item missing identifiers",
 			setupDB: func(_ *testing.T, _ *sql.DB) model.Item {
-				return model.Item{Title: "Headless Item"}
+				item := model.Item{
+					Title: "Headless Item",
+				}
+
+				return item
 			},
 			wantErr: true,
 		},
 		{
 			name: "nonexistent id",
 			setupDB: func(_ *testing.T, _ *sql.DB) model.Item {
-				item := model.Item{ID: "non-existent"}
+				item := model.Item{
+					ID: "non-existent",
+				}
+
 				return item
 			},
 			wantErr: true,
@@ -2189,17 +2072,14 @@ func TestDeleteItem(t *testing.T) {
 		{
 			name: "context cancellation",
 			setupDB: func(t *testing.T, db *sql.DB) model.Item {
-				_, err := db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified) 
 						VALUES (?, ?, ?)
 					`, "list-1", "Inbox", time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert list: %v", err)
-				}
 
-				_, err = db.Exec(
+				mustExec(t, db,
 					`
 						INSERT INTO items (
 							id,
@@ -2212,9 +2092,6 @@ func TestDeleteItem(t *testing.T) {
 						) VALUES (?, ?, ?, ?, '[]', ?, ?)
 					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),
 				)
-				if err != nil {
-					t.Fatalf("failed to insert item: %v", err)
-				}
 
 				item := model.Item{
 					ID: "item-1",
@@ -2287,6 +2164,14 @@ func TestDeleteItem(t *testing.T) {
 				t.Errorf("DeleteItem() items mismatch (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+// mustExec is a test helper that executes a query and fails the test if it returns an error.
+func mustExec(t *testing.T, db *sql.DB, query string, args ...any) {
+	t.Helper()
+	if _, err := db.Exec(query, args...); err != nil {
+		t.Fatalf("failed to execute query: %v", err)
 	}
 }
 

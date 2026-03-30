@@ -276,7 +276,8 @@ func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem model.Item) err
 			if isMatch(&item, &updatedItem) {
 				if !isParent(list, updatedItem) {
 					return fmt.Errorf(
-						"item parent mismatch: item %s belongs to list %s (ID=%s, ExtID=%v), but update request specifies parent ID=%s, ExtID=%v",
+						"item parent mismatch: item %s belongs to list %s (ID=%s, ExtID=%v), "+
+							"but update request specifies parent ID=%s, ExtID=%v",
 						updatedItem.Title,
 						list.Name,
 						list.ID,

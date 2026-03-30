@@ -262,7 +262,7 @@ func (c *Client) DeleteItem(ctx context.Context, item model.Item) error {
 	return nil
 }
 
-// renderTitle constructs the task title string by combining the title with metadata fields (project, tags, due date, waiting on).
+// renderTitle constructs the task title by combining it with metadata (project, tags, due date, waiting on).
 func renderTitle(item model.Item) string {
 	titleParts := []string{item.Title}
 	if item.ProjectID != nil {
