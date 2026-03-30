@@ -69,6 +69,7 @@ linters:
     - makezero
     - mirror
     - misspell
+    - mnd
     - modernize
     - musttag
     - nakedret
@@ -176,6 +177,25 @@ linters:
 
     misspell:
       locale: US
+
+    mnd:
+      ignored-functions:
+        - args.Error
+        - bytes.SplitN
+        - flag.Arg
+        - flag.Duration.*
+        - flag.Float.*
+        - flag.Int.*
+        - flag.Uint.*
+        - os.Chmod
+        - os.Mkdir.*
+        - os.OpenFile
+        - os.WriteFile
+        - prometheus.ExponentialBuckets.*
+        - prometheus.LinearBuckets
+        - strconv.Format.*
+        - strconv.Parse.*
+        - strings.SplitN
 
     nakedret:
       max-func-lines: 0

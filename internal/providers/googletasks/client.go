@@ -20,6 +20,7 @@ type Client struct {
 }
 
 const (
+	maxTaskResults    = 100
 	statusNeedsAction = "needsAction"
 	statusCompleted   = "completed"
 )
@@ -160,7 +161,7 @@ func (c *Client) CreateItem(ctx context.Context, item model.Item, previousItemID
 // listItems retrieves all tasks from the specified list and converts them to internal Items.
 // It handles fetching, sorting, and parsing metadata from task titles.
 func (c *Client) listItems(ctx context.Context, list model.List) ([]model.Item, error) {
-	resp, err := c.service.Tasks.List(*list.ExternalID).ShowHidden(true).MaxResults(100).Context(ctx).Do()
+	resp, err := c.service.Tasks.List(*list.ExternalID).ShowHidden(true).MaxResults(maxTaskResults).Context(ctx).Do()
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve tasks for list %q: %w", list.Name, err)
 	}

@@ -29,7 +29,7 @@ func Parse(reader io.Reader) ([]model.List, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		trimmedLine := strings.TrimSpace(line)
-		if matches := listRegex.FindStringSubmatch(trimmedLine); len(matches) > 1 {
+		if matches := listRegex.FindStringSubmatch(trimmedLine); matches != nil {
 			if item.Title != "" {
 				item.Description = text.MultilineTrim(item.Description)
 				list.Items = append(list.Items, item)
@@ -40,11 +40,7 @@ func Parse(reader io.Reader) ([]model.List, error) {
 			}
 
 			listName := strings.TrimSpace(matches[1])
-			listID := ""
-			if len(matches) >= 3 {
-				listID = strings.TrimSpace(matches[2])
-			}
-
+			listID := strings.TrimSpace(matches[2])
 			list = model.List{
 				ID:    listID,
 				Name:  listName,
@@ -54,7 +50,7 @@ func Parse(reader io.Reader) ([]model.List, error) {
 			continue
 		}
 
-		if matches := itemRegex.FindStringSubmatch(trimmedLine); len(matches) >= 3 {
+		if matches := itemRegex.FindStringSubmatch(trimmedLine); matches != nil {
 			if list.Name == "" {
 				continue
 			}
@@ -72,11 +68,7 @@ func Parse(reader io.Reader) ([]model.List, error) {
 				itemStatus = model.StatusDone
 			}
 
-			itemID := ""
-			if len(matches) >= 4 {
-				itemID = strings.TrimSpace(matches[3])
-			}
-
+			itemID := strings.TrimSpace(matches[3])
 			item = model.Item{
 				ID:     itemID,
 				ListID: list.ID,
