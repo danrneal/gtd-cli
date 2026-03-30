@@ -99,7 +99,6 @@ linters:
     - tagalign
     - tagliatelle
     - testableexamples
-    - thelper
     - tparallel
     - unconvert
     - unparam
@@ -305,16 +304,6 @@ linters:
         - binding
         - validate
       strict: true
-
-    thelper:
-      test:
-        begin: false
-      benchmark:
-        begin: false
-      tb:
-        begin: false
-      fuzz:
-        begin: false
 
     usetesting:
       os-temp-dir: true
