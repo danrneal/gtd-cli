@@ -473,9 +473,10 @@ func TestUpdateList(t *testing.T) {
 					return resp
 				}
 
+				respBody := "Unexpected Request: " + req.URL.String()
 				resp := &http.Response{
 					StatusCode: http.StatusBadRequest,
-					Body:       io.NopCloser(bytes.NewBufferString("Unexpected Request: " + req.URL.String())),
+					Body:       io.NopCloser(bytes.NewBufferString(respBody)),
 					Header:     make(http.Header),
 				}
 

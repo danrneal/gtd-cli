@@ -158,7 +158,10 @@ func (f *FakeProvider) UpdateList(_ context.Context, updatedList model.List, _ [
 	for i, updatedItem := range updatedList.Items {
 		for j, list := range f.Lists {
 			for k, item := range list.Items {
-				genericMatch := f.Name == "generic" && f.GetKey(&item) == "" && item.Title == updatedItem.Title
+				genericMatch := f.Name == "generic" &&
+					f.GetKey(&item) == "" &&
+					item.Title == updatedItem.Title
+
 				if isMatch(&item, &updatedItem) || genericMatch {
 					item.Position = i
 					listItems = append(listItems, item)

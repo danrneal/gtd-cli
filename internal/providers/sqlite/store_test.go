@@ -1602,7 +1602,15 @@ func TestCreateItem(t *testing.T) {
 				}
 
 				opts := []cmp.Option{
-					cmpopts.IgnoreFields(model.Item{}, "ID", "Modified", "Created", "Snoozed", "Due", "ExternalID"),
+					cmpopts.IgnoreFields(
+						model.Item{},
+						"ID",
+						"Modified",
+						"Created",
+						"Snoozed",
+						"Due",
+						"ExternalID",
+					),
 				}
 
 				if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {

@@ -82,7 +82,11 @@ func TestTokenFromFile(t *testing.T) {
 				return
 			}
 
-			if diff := cmp.Diff(tt.wantToken, gotToken, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
+			opts := []cmp.Option{
+				cmpopts.IgnoreUnexported(oauth2.Token{}),
+			}
+
+			if diff := cmp.Diff(tt.wantToken, gotToken, opts...); diff != "" {
 				t.Errorf("tokenFromFile() mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -146,7 +150,11 @@ func TestSaveToken(t *testing.T) {
 				t.Fatalf("failed to unmarshal saved token: %v", err)
 			}
 
-			if diff := cmp.Diff(*tt.token, savedToken, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
+			opts := []cmp.Option{
+				cmpopts.IgnoreUnexported(oauth2.Token{}),
+			}
+
+			if diff := cmp.Diff(*tt.token, savedToken, opts...); diff != "" {
 				t.Errorf("saveToken() mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -239,7 +247,11 @@ func TestFileTokenSource_Token(t *testing.T) {
 				return
 			}
 
-			if diff := cmp.Diff(tt.wantToken, got, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
+			opts := []cmp.Option{
+				cmpopts.IgnoreUnexported(oauth2.Token{}),
+			}
+
+			if diff := cmp.Diff(tt.wantToken, got, opts...); diff != "" {
 				t.Errorf("Token() mismatch (-want +got):\n%s", diff)
 			}
 
@@ -255,7 +267,11 @@ func TestFileTokenSource_Token(t *testing.T) {
 			}
 
 			if tt.wantSave || tt.token != nil {
-				if diff := cmp.Diff(*wantToken, savedToken, cmpopts.IgnoreUnexported(oauth2.Token{})); diff != "" {
+				opts := []cmp.Option{
+					cmpopts.IgnoreUnexported(oauth2.Token{}),
+				}
+
+				if diff := cmp.Diff(*wantToken, savedToken, opts...); diff != "" {
 					t.Errorf("File save mismatch (-want +got):\n%s", diff)
 				}
 			}
