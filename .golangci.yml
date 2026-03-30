@@ -29,6 +29,7 @@ linters:
     - contextcheck
     - copyloopvar
     - cyclop
+    - depguard
     - dogsled
     - durationcheck
     - dupl
@@ -115,6 +116,47 @@ linters:
     cyclop:
       max-complexity: 30
       package-average: 10.0
+
+    depguard:
+      rules:
+        "assertion libraries":
+          files:
+            - "$all"
+          deny:
+            - pkg: github.com/onsi/ginkgo
+              desc: Use standard library testing package instead
+            - pkg: github.com/onsi/gomega
+              desc: Use standard library testing package and go-cmp instead
+            - pkg: github.com/stretchr/testify
+              desc: Use standard library testing package and go-cmp instead, do not use assertion libraries
+        "deprecated":
+          files:
+            - "$all"
+          deny:
+            - pkg: github.com/gofrs/uuid$
+              desc: Use github.com/gofrs/uuid/v5 or later, it was not a go module before v5
+            - pkg: github.com/golang/protobuf
+              desc: Use google.golang.org/protobuf instead, see https://developers.google.com/protocol-buffers/docs/reference/go/faq#modules
+            - pkg: github.com/pkg/errors
+              desc: Use standard library errors and fmt.Errorf("%w") instead
+            - pkg: github.com/satori/go.uuid
+              desc: Use github.com/google/uuid instead, satori's package is not maintained
+            - pkg: golang.org/x/net/context
+              desc: Use standard library context package instead
+            - pkg: io/ioutil
+              desc: Use the io or os packages instead (deprecated since Go 1.16)
+        "non-main files":
+          files:
+            - "!**/main.go"
+          deny:
+            - pkg: log$
+              desc: Use log/slog instead, see https://go.dev/blog/slog
+        "non-test files":
+          files:
+            - "!$test"
+          deny:
+            - pkg: math/rand$
+              desc: Use math/rand/v2 instead, see https://go.dev/blog/randv2
 
     dupword:
       keywords:

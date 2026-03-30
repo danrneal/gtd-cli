@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 
@@ -85,7 +84,8 @@ func tokenFromFile(file string) (*oauth2.Token, error) {
 // tokenFromWeb requests a token from the web, then returns the retrieved token.
 func tokenFromWeb(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error) {
 	authCodeURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	log.Printf("Go to the following link in your browser then type the authorization code: \n%v\n", authCodeURL)
+	prompt := "Go to the following link in your browser then type the authorization code: \n%v\n"
+	fmt.Fprintf(os.Stderr, prompt, authCodeURL)
 
 	var authCode string
 	if _, err := fmt.Scan(&authCode); err != nil {
@@ -136,7 +136,7 @@ func (fts *fileTokenSource) Token() (*oauth2.Token, error) {
 	if fts.token == nil || token.AccessToken != fts.token.AccessToken {
 		fts.token = token
 		if err := saveToken(fts.tokenFile, token); err != nil {
-			log.Printf("failed to save new token: %v", err)
+			fmt.Fprintf(os.Stderr, "failed to save new token: %v\n", err)
 		}
 	}
 
