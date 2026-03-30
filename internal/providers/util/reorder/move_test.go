@@ -9,6 +9,8 @@ import (
 )
 
 func TestCalculateMoves(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		updatedList  model.List
@@ -183,6 +185,8 @@ func TestCalculateMoves(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := CalculateMoves(tt.updatedList, tt.currentItems)
 			if diff := cmp.Diff(tt.wantMoves, got); diff != "" {
 				t.Errorf("CalculateMoves() mismatch (-want +got):\n%s", diff)

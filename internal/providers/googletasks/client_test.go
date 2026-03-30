@@ -25,6 +25,7 @@ func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func TestGetKey(t *testing.T) {
+	t.Parallel()
 	client := &Client{}
 
 	tests := []struct {
@@ -48,6 +49,8 @@ func TestGetKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := client.GetKey(tt.resource)
 			if got != tt.wantKey {
 				t.Errorf("GetKey() = %v, want %v", got, tt.wantKey)
@@ -57,6 +60,7 @@ func TestGetKey(t *testing.T) {
 }
 
 func TestSetKey(t *testing.T) {
+	t.Parallel()
 	client := &Client{}
 
 	tests := []struct {
@@ -73,6 +77,8 @@ func TestSetKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			client.SetKey(tt.resource, tt.key)
 
 			got := client.GetKey(tt.resource)
@@ -84,6 +90,8 @@ func TestSetKey(t *testing.T) {
 }
 
 func TestCreateList(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		list    model.List
@@ -157,6 +165,8 @@ func TestCreateList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockClient := &http.Client{
 				Transport: &mockTransport{
 					roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -182,6 +192,8 @@ func TestCreateList(t *testing.T) {
 }
 
 func TestListLists(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		handler   func(req *http.Request) *http.Response
@@ -317,6 +329,8 @@ func TestListLists(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockClient := &http.Client{
 				Transport: &mockTransport{
 					roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -351,6 +365,8 @@ func TestListLists(t *testing.T) {
 }
 
 func TestUpdateList(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		list         model.List
@@ -677,6 +693,8 @@ func TestUpdateList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockClient := &http.Client{
 				Transport: &mockTransport{
 					roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -698,6 +716,8 @@ func TestUpdateList(t *testing.T) {
 }
 
 func TestDeleteList(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		list    model.List
@@ -760,6 +780,8 @@ func TestDeleteList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockClient := &http.Client{
 				Transport: &mockTransport{
 					roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -781,6 +803,8 @@ func TestDeleteList(t *testing.T) {
 }
 
 func TestCreateItem(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name           string
 		listID         string
@@ -964,6 +988,8 @@ func TestCreateItem(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockClient := &http.Client{
 				Transport: &mockTransport{
 					roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -989,6 +1015,8 @@ func TestCreateItem(t *testing.T) {
 }
 
 func TestListItems(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		list      model.List
@@ -1374,6 +1402,8 @@ func TestListItems(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockClient := &http.Client{
 				Transport: &mockTransport{
 					roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1408,6 +1438,8 @@ func TestListItems(t *testing.T) {
 }
 
 func TestUpdateItem(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		listID  string
@@ -1568,6 +1600,8 @@ func TestUpdateItem(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockClient := &http.Client{
 				Transport: &mockTransport{
 					roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1589,6 +1623,8 @@ func TestUpdateItem(t *testing.T) {
 }
 
 func TestDeleteItem(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		item    model.Item
@@ -1653,6 +1689,8 @@ func TestDeleteItem(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockClient := &http.Client{
 				Transport: &mockTransport{
 					roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1674,6 +1712,8 @@ func TestDeleteItem(t *testing.T) {
 }
 
 func TestRenderTitle(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		item      model.Item
@@ -1723,6 +1763,8 @@ func TestRenderTitle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := renderTitle(tt.item)
 			if got != tt.wantTitle {
 				t.Errorf("renderTitle() = %q, want %q", got, tt.wantTitle)

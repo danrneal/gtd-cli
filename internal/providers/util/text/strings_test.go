@@ -7,6 +7,8 @@ import (
 )
 
 func TestMultilineTrim(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    string
@@ -31,6 +33,8 @@ func TestMultilineTrim(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := MultilineTrim(tt.input)
 			if diff := cmp.Diff(tt.expected, got); diff != "" {
 				t.Errorf("MultilineTrim() mismatch (-want +got):\n%s", diff)

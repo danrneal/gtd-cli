@@ -13,6 +13,7 @@ import (
 )
 
 func TestTokenFromFile(t *testing.T) {
+	t.Parallel()
 	validToken := &oauth2.Token{
 		AccessToken: "access-abc",
 		TokenType:   "Bearer",
@@ -65,6 +66,8 @@ func TestTokenFromFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			tmpDir := t.TempDir()
 			tokenFile := tt.setupFile(t, tmpDir)
 			gotToken, err := tokenFromFile(tokenFile)
@@ -94,6 +97,7 @@ func TestTokenFromFile(t *testing.T) {
 }
 
 func TestSaveToken(t *testing.T) {
+	t.Parallel()
 	validToken := &oauth2.Token{
 		AccessToken:  "access-123",
 		TokenType:    "Bearer",
@@ -119,6 +123,8 @@ func TestSaveToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			tmpDir := t.TempDir()
 			tokenFile := tt.setupFile(t, tmpDir)
 			err := saveToken(tokenFile, tt.token)
@@ -171,6 +177,7 @@ func (m *mockTokenSource) Token() (*oauth2.Token, error) {
 }
 
 func TestFileTokenSource_Token(t *testing.T) {
+	t.Parallel()
 	oldToken := &oauth2.Token{
 		AccessToken: "old",
 	}
@@ -220,6 +227,8 @@ func TestFileTokenSource_Token(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			tmpDir := t.TempDir()
 			tokenFile := filepath.Join(tmpDir, "token.json")
 			if tt.token != nil {

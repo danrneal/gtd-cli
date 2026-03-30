@@ -384,6 +384,7 @@ func isParent(list model.List, item model.Item) bool {
 }
 
 func TestOneWaySync(t *testing.T) {
+	t.Parallel()
 	baseTime := time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
 
 	tests := []struct {
@@ -3766,6 +3767,8 @@ func TestOneWaySync(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var s *Syncer
 			switch {
 			case tt.src.Name == "store":

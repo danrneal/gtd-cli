@@ -18,6 +18,8 @@ import (
 )
 
 func TestNewStore(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		setupDBPath  func(t *testing.T) string
@@ -97,6 +99,7 @@ func TestNewStore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := context.Background()
 
 			dbPath := tt.setupDBPath(t)
@@ -131,6 +134,8 @@ func TestNewStore(t *testing.T) {
 }
 
 func TestCreateList(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		list     model.List
@@ -198,6 +203,8 @@ func TestCreateList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var (
 				ctx    context.Context
 				cancel context.CancelFunc
@@ -275,6 +282,8 @@ func TestCreateList(t *testing.T) {
 }
 
 func TestListLists(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		setupDB   func(t *testing.T, db *sql.DB)
@@ -435,6 +444,8 @@ func TestListLists(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var (
 				ctx    context.Context
 				cancel context.CancelFunc
@@ -493,6 +504,8 @@ func TestListLists(t *testing.T) {
 }
 
 func TestUpdateList(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		setupDB      func(t *testing.T, db *sql.DB) string
@@ -1101,6 +1114,8 @@ func TestUpdateList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var (
 				ctx    context.Context
 				cancel context.CancelFunc
@@ -1196,6 +1211,8 @@ func TestUpdateList(t *testing.T) {
 }
 
 func TestDeleteList(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		setupDB   func(t *testing.T, db *sql.DB) model.List
@@ -1306,6 +1323,8 @@ func TestDeleteList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var (
 				ctx    context.Context
 				cancel context.CancelFunc
@@ -1372,6 +1391,8 @@ func TestDeleteList(t *testing.T) {
 }
 
 func TestCreateItem(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		setupDB  func(t *testing.T, db *sql.DB)
@@ -1500,6 +1521,8 @@ func TestCreateItem(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var (
 				ctx    context.Context
 				cancel context.CancelFunc
@@ -1622,6 +1645,8 @@ func TestCreateItem(t *testing.T) {
 }
 
 func TestUpdateItem(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		setupDB   func(t *testing.T, db *sql.DB) string
@@ -1927,6 +1952,8 @@ func TestUpdateItem(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var (
 				ctx    context.Context
 				cancel context.CancelFunc
@@ -2032,6 +2059,8 @@ func TestUpdateItem(t *testing.T) {
 }
 
 func TestDeleteItem(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		setupDB  func(t *testing.T, db *sql.DB) model.Item
@@ -2165,6 +2194,8 @@ func TestDeleteItem(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var (
 				ctx    context.Context
 				cancel context.CancelFunc
