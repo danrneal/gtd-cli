@@ -47,7 +47,7 @@ func (c *Client) SetKey(resource model.Resource, key string) {
 }
 
 // CreateList creates a new task list on the Google Tasks service.
-func (c *Client) CreateList(ctx context.Context, list model.List) (string, error) {
+func (c *Client) CreateList(ctx context.Context, list *model.List) (string, error) {
 	tasklist := &tasks.TaskList{
 		Title: list.Name,
 	}
@@ -95,7 +95,7 @@ func (c *Client) ListLists(ctx context.Context) ([]model.List, error) {
 }
 
 // UpdateList updates an existing task list on Google Tasks.
-func (c *Client) UpdateList(ctx context.Context, list model.List, currentItems []model.Item) error {
+func (c *Client) UpdateList(ctx context.Context, list *model.List, currentItems []model.Item) error {
 	tasklist := &tasks.TaskList{
 		Title: list.Name,
 	}
@@ -115,7 +115,7 @@ func (c *Client) UpdateList(ctx context.Context, list model.List, currentItems [
 }
 
 // DeleteList deletes a task list from Google Tasks.
-func (c *Client) DeleteList(ctx context.Context, list model.List) error {
+func (c *Client) DeleteList(ctx context.Context, list *model.List) error {
 	if err := c.service.Tasklists.Delete(*list.ExternalID).Context(ctx).Do(); err != nil {
 		return fmt.Errorf("failed to delete tasklist: %w", err)
 	}

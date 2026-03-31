@@ -83,7 +83,7 @@ func (f *FakeProvider) SetKey(resource model.Resource, key string) {
 	}
 }
 
-func (f *FakeProvider) CreateList(_ context.Context, list model.List) (string, error) {
+func (f *FakeProvider) CreateList(_ context.Context, list *model.List) (string, error) {
 	if list.Status != "" && list.Status != model.StatusOpen {
 		return "", errors.New("new lists must have status 'open'")
 	}
@@ -92,20 +92,21 @@ func (f *FakeProvider) CreateList(_ context.Context, list model.List) (string, e
 		return "", errors.New("list name cannot be empty")
 	}
 
-	listKey := f.GetKey(&list)
+	listKey := f.GetKey(list)
 	if listKey == "" {
 		f.ListCounter++
 		listKey = fmt.Sprintf("%s-list-%d", f.Name, f.ListCounter)
-		f.SetKey(&list, listKey)
+		f.SetKey(list, listKey)
 	}
 
+	createdList := *list
 	if f.Name == "external" {
-		list.ID = ""
+		createdList.ID = ""
 	}
 
-	list.Status = model.StatusOpen
-	list.Items = []model.Item{}
-	f.Lists = append(f.Lists, list)
+	createdList.Status = model.StatusOpen
+	createdList.Items = []model.Item{}
+	f.Lists = append(f.Lists, createdList)
 
 	return listKey, nil
 }
@@ -130,7 +131,7 @@ func (f *FakeProvider) ListLists(_ context.Context) ([]model.List, error) {
 	return lists, nil
 }
 
-func (f *FakeProvider) UpdateList(_ context.Context, updatedList model.List, _ []model.Item) error {
+func (f *FakeProvider) UpdateList(_ context.Context, updatedList *model.List, _ []model.Item) error {
 	if updatedList.Status == "" {
 		updatedList.Status = model.StatusOpen
 	}
@@ -149,7 +150,7 @@ func (f *FakeProvider) UpdateList(_ context.Context, updatedList model.List, _ [
 				continue
 			}
 
-			updatedListKey := f.GetKey(&updatedList)
+			updatedListKey := f.GetKey(updatedList)
 			f.SetKey(&list, updatedListKey)
 			f.Lists[i] = list
 			break
@@ -178,7 +179,7 @@ func (f *FakeProvider) UpdateList(_ context.Context, updatedList model.List, _ [
 	}
 
 	for i, list := range f.Lists {
-		if !isMatch(&list, &updatedList) {
+		if !isMatch(&list, updatedList) {
 			continue
 		}
 
@@ -212,9 +213,9 @@ func (f *FakeProvider) UpdateList(_ context.Context, updatedList model.List, _ [
 	return fmt.Errorf("list not found: %s", updatedList.ID)
 }
 
-func (f *FakeProvider) DeleteList(_ context.Context, deletedList model.List) error {
+func (f *FakeProvider) DeleteList(_ context.Context, deletedList *model.List) error {
 	for i, list := range f.Lists {
-		if isMatch(&list, &deletedList) {
+		if isMatch(&list, deletedList) {
 			f.Lists = append(f.Lists[:i], f.Lists[i+1:]...)
 			return nil
 		}

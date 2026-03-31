@@ -94,14 +94,14 @@ func TestCreateList(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		list    model.List
+		list    *model.List
 		handler func(req *http.Request) *http.Response
 		wantErr bool
 		wantID  string
 	}{
 		{
 			name: "success",
-			list: model.List{
+			list: &model.List{
 				Name: "New List",
 			},
 			handler: func(req *http.Request) *http.Response {
@@ -143,7 +143,7 @@ func TestCreateList(t *testing.T) {
 		},
 		{
 			name: "api error",
-			list: model.List{
+			list: &model.List{
 				Name: "Fail List",
 			},
 			handler: func(_ *http.Request) *http.Response {
@@ -369,14 +369,14 @@ func TestUpdateList(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		list         model.List
+		list         *model.List
 		currentItems []model.Item
 		handler      func(req *http.Request) *http.Response
 		wantErr      bool
 	}{
 		{
 			name: "success (rename only)",
-			list: model.List{
+			list: &model.List{
 				Name:       "Updated List",
 				ExternalID: stringPtr("L1"),
 			},
@@ -430,7 +430,7 @@ func TestUpdateList(t *testing.T) {
 		},
 		{
 			name: "success with reordering",
-			list: model.List{
+			list: &model.List{
 				Name:       "My List",
 				ExternalID: stringPtr("L1"),
 				Items: []model.Item{
@@ -502,7 +502,7 @@ func TestUpdateList(t *testing.T) {
 		},
 		{
 			name: "success with relocation (change list)",
-			list: model.List{
+			list: &model.List{
 				Name:       "Target List",
 				ExternalID: stringPtr("L2"),
 				Items: []model.Item{
@@ -557,7 +557,7 @@ func TestUpdateList(t *testing.T) {
 		},
 		{
 			name: "success with relocation and reorder",
-			list: model.List{
+			list: &model.List{
 				Name:       "Target List",
 				ExternalID: stringPtr("L2"),
 				Items: []model.Item{
@@ -619,7 +619,7 @@ func TestUpdateList(t *testing.T) {
 		},
 		{
 			name: "update failure",
-			list: model.List{
+			list: &model.List{
 				Name:       "Fail List",
 				ExternalID: stringPtr("L1"),
 			},
@@ -636,7 +636,7 @@ func TestUpdateList(t *testing.T) {
 		},
 		{
 			name: "move failure",
-			list: model.List{
+			list: &model.List{
 				Name:       "My List",
 				ExternalID: stringPtr("L1"),
 				Items: []model.Item{
@@ -720,13 +720,13 @@ func TestDeleteList(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		list    model.List
+		list    *model.List
 		handler func(req *http.Request) *http.Response
 		wantErr bool
 	}{
 		{
 			name: "success",
-			list: model.List{
+			list: &model.List{
 				ExternalID: stringPtr("L1"),
 			},
 			handler: func(req *http.Request) *http.Response {
@@ -762,7 +762,7 @@ func TestDeleteList(t *testing.T) {
 		},
 		{
 			name: "api error",
-			list: model.List{
+			list: &model.List{
 				ExternalID: stringPtr("L1"),
 			},
 			handler: func(_ *http.Request) *http.Response {

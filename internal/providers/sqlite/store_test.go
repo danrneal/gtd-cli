@@ -138,14 +138,14 @@ func TestCreateList(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		list     model.List
+		list     *model.List
 		setupCtx func() (context.Context, context.CancelFunc)
 		wantList *model.List
 		wantErr  bool
 	}{
 		{
 			name: "valid list (auto-trimmed)",
-			list: model.List{
+			list: &model.List{
 				Name:     " Inbox ",
 				Position: 0,
 				Modified: time.Now(),
@@ -157,7 +157,7 @@ func TestCreateList(t *testing.T) {
 		},
 		{
 			name: "valid list with external id",
-			list: model.List{
+			list: &model.List{
 				Name:       "Work",
 				Position:   1,
 				Modified:   time.Now(),
@@ -171,7 +171,7 @@ func TestCreateList(t *testing.T) {
 		},
 		{
 			name: "invalid status",
-			list: model.List{
+			list: &model.List{
 				Name:   "Invalid",
 				Status: model.StatusDeleted,
 			},
@@ -179,7 +179,7 @@ func TestCreateList(t *testing.T) {
 		},
 		{
 			name: "empty list name",
-			list: model.List{
+			list: &model.List{
 				Name:     "",
 				Modified: time.Now(),
 			},
@@ -187,7 +187,7 @@ func TestCreateList(t *testing.T) {
 		},
 		{
 			name: "canceled context",
-			list: model.List{
+			list: &model.List{
 				Name:     "Canceled",
 				Modified: time.Now(),
 			},
@@ -1151,7 +1151,7 @@ func TestUpdateList(t *testing.T) {
 
 			id := tt.setupDB(t, db)
 			list := tt.setupList(id)
-			err = store.UpdateList(ctx, list, currentItems)
+			err = store.UpdateList(ctx, &list, currentItems)
 
 			if tt.wantErr {
 				if err == nil {
@@ -1356,7 +1356,7 @@ func TestDeleteList(t *testing.T) {
 			defer db.Close()
 
 			list := tt.setupDB(t, db)
-			err = store.DeleteList(ctx, list)
+			err = store.DeleteList(ctx, &list)
 
 			if tt.wantErr {
 				if err == nil {

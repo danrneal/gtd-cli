@@ -35,7 +35,7 @@ func (c *Client) SetKey(resource model.Resource, key string) {
 }
 
 // CreateList creates a new list in the markdown file.
-func (c *Client) CreateList(_ context.Context, _ model.List) (string, error) {
+func (c *Client) CreateList(_ context.Context, _ *model.List) (string, error) {
 	// we might need to itroduce a previousListID param
 	return "", nil
 }
@@ -46,12 +46,12 @@ func (c *Client) ListLists(_ context.Context) ([]model.List, error) {
 }
 
 // UpdateList updates an existing list and its items in the markdown file.
-func (c *Client) UpdateList(_ context.Context, _ model.List, _ []model.Item) error {
+func (c *Client) UpdateList(_ context.Context, _ *model.List, _ []model.Item) error {
 	return nil
 }
 
 // DeleteList removes a list from the markdown file.
-func (c *Client) DeleteList(_ context.Context, _ model.List) error {
+func (c *Client) DeleteList(_ context.Context, _ *model.List) error {
 	return nil
 }
 

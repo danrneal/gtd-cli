@@ -81,14 +81,14 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 		listKey := s.getKey(&srcList)
 		dstList, ok := dstListsMap[listKey]
 		if !ok {
-			dstListKey, err := dst.CreateList(ctx, srcList)
+			dstListKey, err := dst.CreateList(ctx, &srcList)
 			if err != nil {
 				return false, fmt.Errorf("failed to create list %q in destination: %w", srcList.Name, err)
 			}
 
 			if listKey == "" {
 				s.setKey(&srcList, dstListKey)
-				if err := src.UpdateList(ctx, srcList, srcList.Items); err != nil {
+				if err := src.UpdateList(ctx, &srcList, srcList.Items); err != nil {
 					return false, fmt.Errorf(
 						"failed to backfill external key for list %q in source: %w",
 						srcList.Name,
@@ -136,7 +136,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 		}
 
 		if isNewList || srcList.Modified.After(dstList.Modified) {
-			if err := dst.UpdateList(ctx, srcList, dstList.Items); err != nil {
+			if err := dst.UpdateList(ctx, &srcList, dstList.Items); err != nil {
 				return false, fmt.Errorf("failed to update list %q in destination: %w", srcList.Name, err)
 			}
 
@@ -178,18 +178,18 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 
 		if srcList, ok := srcListsMap[listKey]; !ok {
 			dstList.Status = model.StatusDeleted
-			if err := dst.UpdateList(ctx, dstList, dstList.Items); err != nil {
+			if err := dst.UpdateList(ctx, &dstList, dstList.Items); err != nil {
 				return false, fmt.Errorf("failed to mark list %q as deleted in destination: %w", dstList.Name, err)
 			}
 
 			updated = true
 			continue
 		} else if srcList.Status == model.StatusDeleted {
-			if err := dst.DeleteList(ctx, dstList); err != nil {
+			if err := dst.DeleteList(ctx, &dstList); err != nil {
 				return false, fmt.Errorf("failed to permanently delete list %q from destination: %w", dstList.Name, err)
 			}
 
-			if err := src.DeleteList(ctx, srcList); err != nil {
+			if err := src.DeleteList(ctx, &srcList); err != nil {
 				return false, fmt.Errorf("failed to permanently delete list %q from source: %w", srcList.Name, err)
 			}
 

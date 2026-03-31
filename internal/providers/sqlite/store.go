@@ -81,7 +81,7 @@ func (s *Store) createTables(ctx context.Context) error {
 }
 
 // CreateList inserts a new list into the database.
-func (s *Store) CreateList(ctx context.Context, list model.List) (string, error) {
+func (s *Store) CreateList(ctx context.Context, list *model.List) (string, error) {
 	list.ID = uuid.NewString()[:8]
 	if list.Status != "" && list.Status != model.StatusOpen {
 		return "", errors.New("new lists must have status 'open'")
@@ -210,7 +210,7 @@ func (s *Store) getListID(ctx context.Context, externalID *string) (string, erro
 // Parameters:
 //   - list: The list with the desired state. It identifies the record via ID or ExternalID.
 //   - currentItems: The items currently associated with this list, used to optimize position updates.
-func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []model.Item) error {
+func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems []model.Item) error {
 	if list.ID == "" && list.ExternalID == nil {
 		return errors.New("failed to update list: no internal or external ID provided")
 	}
@@ -301,7 +301,7 @@ func (s *Store) UpdateList(ctx context.Context, list model.List, currentItems []
 }
 
 // DeleteList deletes a list from the database.
-func (s *Store) DeleteList(ctx context.Context, list model.List) error {
+func (s *Store) DeleteList(ctx context.Context, list *model.List) error {
 	if list.ID == "" && list.ExternalID == nil {
 		return errors.New("failed to delete list: no internal or external ID provided")
 	}
@@ -601,7 +601,7 @@ func (s *Store) DeleteItem(ctx context.Context, item model.Item) error {
 
 // deleteListItems hard-deletes all items associated with the given list.
 // It is used to clean up orphaned items when a list is soft-deleted (tombstoned).
-func (s *Store) deleteListItems(ctx context.Context, tx *sql.Tx, list model.List) error {
+func (s *Store) deleteListItems(ctx context.Context, tx *sql.Tx, list *model.List) error {
 	query := `DELETE FROM items WHERE list_id = ?`
 	if _, err := tx.ExecContext(ctx, query, list.ID); err != nil {
 		return fmt.Errorf("failed to delete items from list %q (ID: %s): %w", list.Name, list.ID, err)
