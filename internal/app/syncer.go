@@ -108,18 +108,18 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 				continue
 			}
 
-			itemKey := s.getKey(&srcItem)
+			itemKey := s.getKey(srcItem)
 			if _, ok := dstItemsMap[itemKey]; !ok {
 				srcItem.ListID = srcList.ID
 				srcItem.ExternalListID = srcList.ExternalID
-				dstItemKey, err := dst.CreateItem(ctx, &srcItem, prevItemID)
+				dstItemKey, err := dst.CreateItem(ctx, srcItem, prevItemID)
 				if err != nil {
 					return false, fmt.Errorf("failed to create item %q in destination: %w", srcItem.Title, err)
 				}
 
 				if itemKey == "" {
-					s.setKey(&srcItem, dstItemKey)
-					if err := src.UpdateItem(ctx, &srcItem); err != nil {
+					s.setKey(srcItem, dstItemKey)
+					if err := src.UpdateItem(ctx, srcItem); err != nil {
 						return false, fmt.Errorf(
 							"failed to backfill external key for item %q in source: %w",
 							srcItem.Title,
@@ -148,7 +148,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 				continue
 			}
 
-			itemKey := s.getKey(&srcItem)
+			itemKey := s.getKey(srcItem)
 			dstItem, ok := dstItemsMap[itemKey]
 			//nolint:revive // Complex logic pending refactor
 			if ok && srcItem.Modified.After(dstItem.Modified) {
@@ -157,7 +157,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 				}
 
 				srcItem.ListID = srcList.ID
-				if err := dst.UpdateItem(ctx, &srcItem); err != nil {
+				if err := dst.UpdateItem(ctx, srcItem); err != nil {
 					return false, fmt.Errorf("failed to update item %q in destination: %w", srcItem.Title, err)
 				}
 
@@ -202,20 +202,20 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 				continue
 			}
 
-			itemKey := s.getKey(&dstItem)
+			itemKey := s.getKey(dstItem)
 			if itemKey == "" {
 				continue
 			}
 
 			if srcItem, ok := srcItemsMap[itemKey]; !ok {
 				dstItem.Status = model.StatusDeleted
-				if err := dst.UpdateItem(ctx, &dstItem); err != nil {
+				if err := dst.UpdateItem(ctx, dstItem); err != nil {
 					return false, fmt.Errorf("failed to mark item %q as deleted in destination: %w", dstItem.Title, err)
 				}
 
 				updated = true
 			} else if srcItem.Status == model.StatusDeleted {
-				if err := dst.DeleteItem(ctx, &dstItem); err != nil {
+				if err := dst.DeleteItem(ctx, dstItem); err != nil {
 					return false, fmt.Errorf(
 						"failed to permanently delete item %q from destination: %w",
 						dstItem.Title,
@@ -241,12 +241,12 @@ func (s *Syncer) createResourceMaps(lists []model.List) (map[string]model.List, 
 	itemsMap := make(map[string]model.Item)
 	for _, list := range lists {
 		for _, item := range list.Items {
-			itemKey := s.getKey(&item)
+			itemKey := s.getKey(item)
 			if itemKey == "" {
 				continue
 			}
 
-			itemsMap[itemKey] = item
+			itemsMap[itemKey] = *item
 		}
 
 		listKey := s.getKey(&list)

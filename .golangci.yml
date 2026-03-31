@@ -193,12 +193,15 @@ linters:
       enable-all: true
       disabled-checks:
         - unnamedResult
-        - rangeValCopy
       settings:
         captLocal:
           paramsOnly: false
         elseif:
           skipBalanced: false
+        rangeExprCopy:
+          skipTestFuncs: false
+        rangeValCopy:
+          skipTestFuncs: false
         truncateCmp:
           skipArchDependent: false
         underef:

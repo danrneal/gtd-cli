@@ -257,7 +257,7 @@ func TestListLists(t *testing.T) {
 					ExternalID: stringPtr("L1"),
 					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "Task 1",
 							ExternalID:     stringPtr("T1"),
@@ -370,7 +370,7 @@ func TestUpdateList(t *testing.T) {
 	tests := []struct {
 		name         string
 		list         *model.List
-		currentItems []model.Item
+		currentItems []*model.Item
 		handler      func(req *http.Request) *http.Response
 		wantErr      bool
 	}{
@@ -433,7 +433,7 @@ func TestUpdateList(t *testing.T) {
 			list: &model.List{
 				Name:       "My List",
 				ExternalID: stringPtr("L1"),
-				Items: []model.Item{
+				Items: []*model.Item{
 					{
 						ExternalID:     stringPtr("A"),
 						ExternalListID: stringPtr("L1"),
@@ -448,7 +448,7 @@ func TestUpdateList(t *testing.T) {
 					},
 				},
 			},
-			currentItems: []model.Item{
+			currentItems: []*model.Item{
 				{ExternalID: stringPtr("B")},
 				{ExternalID: stringPtr("C")},
 				{ExternalID: stringPtr("A")},
@@ -505,14 +505,14 @@ func TestUpdateList(t *testing.T) {
 			list: &model.List{
 				Name:       "Target List",
 				ExternalID: stringPtr("L2"),
-				Items: []model.Item{
+				Items: []*model.Item{
 					{
 						ExternalID:     stringPtr("A"),
 						ExternalListID: stringPtr("L1"),
 					},
 				},
 			},
-			currentItems: []model.Item{},
+			currentItems: []*model.Item{},
 			handler: func(req *http.Request) *http.Response {
 				if req.Method == http.MethodPatch && req.URL.Path == "/tasks/v1/users/@me/lists/L2" {
 					resp := &http.Response{
@@ -560,7 +560,7 @@ func TestUpdateList(t *testing.T) {
 			list: &model.List{
 				Name:       "Target List",
 				ExternalID: stringPtr("L2"),
-				Items: []model.Item{
+				Items: []*model.Item{
 					{
 						ExternalID:     stringPtr("B"),
 						ExternalListID: stringPtr("L2"),
@@ -571,7 +571,7 @@ func TestUpdateList(t *testing.T) {
 					},
 				},
 			},
-			currentItems: []model.Item{
+			currentItems: []*model.Item{
 				{ExternalID: stringPtr("B")},
 			},
 			handler: func(req *http.Request) *http.Response {
@@ -639,7 +639,7 @@ func TestUpdateList(t *testing.T) {
 			list: &model.List{
 				Name:       "My List",
 				ExternalID: stringPtr("L1"),
-				Items: []model.Item{
+				Items: []*model.Item{
 					{
 						ExternalID:     stringPtr("A"),
 						ExternalListID: stringPtr("L1"),
@@ -650,7 +650,7 @@ func TestUpdateList(t *testing.T) {
 					},
 				},
 			},
-			currentItems: []model.Item{
+			currentItems: []*model.Item{
 				{ExternalID: stringPtr("B")},
 				{ExternalID: stringPtr("A")},
 			},
@@ -1021,7 +1021,7 @@ func TestListItems(t *testing.T) {
 		name      string
 		list      *model.List
 		handler   func(req *http.Request) *http.Response
-		wantItems []model.Item
+		wantItems []*model.Item
 		wantErr   bool
 	}{
 		{
@@ -1057,7 +1057,7 @@ func TestListItems(t *testing.T) {
 
 				return resp
 			},
-			wantItems: []model.Item{
+			wantItems: []*model.Item{
 				{
 					ListID:         "1",
 					Title:          "Task 1",
@@ -1102,7 +1102,7 @@ func TestListItems(t *testing.T) {
 
 				return resp
 			},
-			wantItems: []model.Item{
+			wantItems: []*model.Item{
 				{
 					ListID:         "1",
 					Title:          "Send Mail",
@@ -1139,7 +1139,7 @@ func TestListItems(t *testing.T) {
 
 				return resp
 			},
-			wantItems: []model.Item{
+			wantItems: []*model.Item{
 				{
 					ListID:         "1",
 					Title:          "Task",
@@ -1176,7 +1176,7 @@ func TestListItems(t *testing.T) {
 
 				return resp
 			},
-			wantItems: []model.Item{
+			wantItems: []*model.Item{
 				{
 					ListID:         "1",
 					Title:          "Task",
@@ -1213,7 +1213,7 @@ func TestListItems(t *testing.T) {
 
 				return resp
 			},
-			wantItems: []model.Item{
+			wantItems: []*model.Item{
 				{
 					ListID:         "1",
 					Title:          "Task",
@@ -1251,7 +1251,7 @@ func TestListItems(t *testing.T) {
 
 				return resp
 			},
-			wantItems: []model.Item{
+			wantItems: []*model.Item{
 				{
 					ListID:         "1",
 					Title:          "Task",
@@ -1288,7 +1288,7 @@ func TestListItems(t *testing.T) {
 
 				return resp
 			},
-			wantItems: []model.Item{
+			wantItems: []*model.Item{
 				{
 					ListID:         "1",
 					Title:          "Task",
@@ -1326,7 +1326,7 @@ func TestListItems(t *testing.T) {
 
 				return resp
 			},
-			wantItems: []model.Item{
+			wantItems: []*model.Item{
 				{
 					ListID:         "1",
 					Title:          "Task",
@@ -1364,7 +1364,7 @@ func TestListItems(t *testing.T) {
 
 				return resp
 			},
-			wantItems: []model.Item{
+			wantItems: []*model.Item{
 				{
 					ListID:         "1",
 					Title:          "Task",

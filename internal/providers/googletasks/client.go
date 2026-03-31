@@ -95,7 +95,7 @@ func (c *Client) ListLists(ctx context.Context) ([]model.List, error) {
 }
 
 // UpdateList updates an existing task list on Google Tasks.
-func (c *Client) UpdateList(ctx context.Context, list *model.List, currentItems []model.Item) error {
+func (c *Client) UpdateList(ctx context.Context, list *model.List, currentItems []*model.Item) error {
 	tasklist := &tasks.TaskList{
 		Title: list.Name,
 	}
@@ -160,7 +160,7 @@ func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemI
 
 // listItems retrieves all tasks from the specified list and converts them to internal Items.
 // It handles fetching, sorting, and parsing metadata from task titles.
-func (c *Client) listItems(ctx context.Context, list *model.List) ([]model.Item, error) {
+func (c *Client) listItems(ctx context.Context, list *model.List) ([]*model.Item, error) {
 	resp, err := c.service.Tasks.List(*list.ExternalID).ShowHidden(true).MaxResults(maxTaskResults).Context(ctx).Do()
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve tasks for list %q: %w", list.Name, err)
@@ -170,7 +170,7 @@ func (c *Client) listItems(ctx context.Context, list *model.List) ([]model.Item,
 		return resp.Items[i].Position < resp.Items[j].Position
 	})
 
-	var items []model.Item
+	var items []*model.Item
 	for i, task := range resp.Items {
 		var item model.Item
 		if list.Name == "Waiting For" {
@@ -203,7 +203,7 @@ func (c *Client) listItems(ctx context.Context, list *model.List) ([]model.Item,
 		externalID := task.Id
 		item.ExternalID = &externalID
 		item.ExternalListID = list.ExternalID
-		items = append(items, item)
+		items = append(items, &item)
 	}
 
 	return items, nil

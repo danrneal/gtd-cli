@@ -14,14 +14,14 @@ func TestCalculateMoves(t *testing.T) {
 	tests := []struct {
 		name         string
 		updatedList  *model.List
-		currentItems []model.Item
+		currentItems []*model.Item
 		wantMoves    []Move
 	}{
 		{
 			name: "no change",
 			updatedList: &model.List{
 				ExternalID: stringPtr("L1"),
-				Items: []model.Item{
+				Items: []*model.Item{
 					{
 						ExternalID:     stringPtr("A"),
 						ExternalListID: stringPtr("L1"),
@@ -36,7 +36,7 @@ func TestCalculateMoves(t *testing.T) {
 					},
 				},
 			},
-			currentItems: []model.Item{
+			currentItems: []*model.Item{
 				{ExternalID: stringPtr("A")},
 				{ExternalID: stringPtr("B")},
 				{ExternalID: stringPtr("C")},
@@ -48,7 +48,7 @@ func TestCalculateMoves(t *testing.T) {
 			name: "reorder to top (A moves to top)",
 			updatedList: &model.List{
 				ExternalID: stringPtr("L1"),
-				Items: []model.Item{
+				Items: []*model.Item{
 					{
 						ExternalID:     stringPtr("A"),
 						ExternalListID: stringPtr("L1"),
@@ -63,7 +63,7 @@ func TestCalculateMoves(t *testing.T) {
 					},
 				},
 			},
-			currentItems: []model.Item{
+			currentItems: []*model.Item{
 				{ExternalID: stringPtr("B")},
 				{ExternalID: stringPtr("C")},
 				{ExternalID: stringPtr("A")},
@@ -83,7 +83,7 @@ func TestCalculateMoves(t *testing.T) {
 			name: "reorder within list (C moves down)",
 			updatedList: &model.List{
 				ExternalID: stringPtr("L1"),
-				Items: []model.Item{
+				Items: []*model.Item{
 					{
 						ExternalID:     stringPtr("A"),
 						ExternalListID: stringPtr("L1"),
@@ -98,7 +98,7 @@ func TestCalculateMoves(t *testing.T) {
 					},
 				},
 			},
-			currentItems: []model.Item{
+			currentItems: []*model.Item{
 				{ExternalID: stringPtr("A")},
 				{ExternalID: stringPtr("C")},
 				{ExternalID: stringPtr("D")},
@@ -118,7 +118,7 @@ func TestCalculateMoves(t *testing.T) {
 			name: "initial sync (current items empty)",
 			updatedList: &model.List{
 				ExternalID: stringPtr("L1"),
-				Items: []model.Item{
+				Items: []*model.Item{
 					{
 						ExternalID:     stringPtr("A"),
 						ExternalListID: stringPtr("L1"),
@@ -129,7 +129,7 @@ func TestCalculateMoves(t *testing.T) {
 					},
 				},
 			},
-			currentItems: []model.Item{},
+			currentItems: []*model.Item{},
 			wantMoves: []Move{
 				{
 					ItemID:            "A",
@@ -151,7 +151,7 @@ func TestCalculateMoves(t *testing.T) {
 			name: "move from other list / insert (B is new)",
 			updatedList: &model.List{
 				ExternalID: stringPtr("L1"),
-				Items: []model.Item{
+				Items: []*model.Item{
 					{
 						ExternalID:     stringPtr("A"),
 						ExternalListID: stringPtr("L1"),
@@ -166,7 +166,7 @@ func TestCalculateMoves(t *testing.T) {
 					},
 				},
 			},
-			currentItems: []model.Item{
+			currentItems: []*model.Item{
 				{ExternalID: stringPtr("A")},
 				{ExternalID: stringPtr("C")},
 				{ExternalID: stringPtr("D")},

@@ -133,7 +133,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 		return nil, err
 	}
 
-	itemsByListID := make(map[string][]model.Item)
+	itemsByListID := make(map[string][]*model.Item)
 	for _, item := range items {
 		itemsByListID[item.ListID] = append(itemsByListID[item.ListID], item)
 	}
@@ -175,7 +175,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 		if items, ok := itemsByListID[list.ID]; ok {
 			list.Items = items
 		} else {
-			list.Items = []model.Item{}
+			list.Items = []*model.Item{}
 		}
 
 		lists = append(lists, list)
@@ -210,7 +210,7 @@ func (s *Store) getListID(ctx context.Context, externalID *string) (string, erro
 // Parameters:
 //   - list: The list with the desired state. It identifies the record via ID or ExternalID.
 //   - currentItems: The items currently associated with this list, used to optimize position updates.
-func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems []model.Item) error {
+func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems []*model.Item) error {
 	if list.ID == "" && list.ExternalID == nil {
 		return errors.New("failed to update list: no internal or external ID provided")
 	}
@@ -288,7 +288,7 @@ func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems [
 		}
 
 		item.ListID = list.ID
-		if err := s.updateItemLocation(ctx, tx, &item); err != nil {
+		if err := s.updateItemLocation(ctx, tx, item); err != nil {
 			return err
 		}
 	}
@@ -397,7 +397,7 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) (str
 }
 
 // listAllItems returns all items from the database using the provided transaction.
-func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]model.Item, error) {
+func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, error) {
 	query := `
 		SELECT
 			i.id,
@@ -428,7 +428,7 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]model.Item, err
 
 	defer rows.Close()
 
-	var items []model.Item
+	var items []*model.Item
 	for rows.Next() {
 		var (
 			item     model.Item
@@ -462,7 +462,7 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]model.Item, err
 			}
 		}
 
-		items = append(items, item)
+		items = append(items, &item)
 	}
 
 	if err := rows.Err(); err != nil {

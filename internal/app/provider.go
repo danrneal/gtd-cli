@@ -13,7 +13,7 @@ import (
 type Provider interface {
 	CreateList(ctx context.Context, list *model.List) (string, error)
 	ListLists(ctx context.Context) ([]model.List, error)
-	UpdateList(ctx context.Context, list *model.List, currentItems []model.Item) error
+	UpdateList(ctx context.Context, list *model.List, currentItems []*model.Item) error
 	DeleteList(ctx context.Context, list *model.List) error
 
 	CreateItem(ctx context.Context, item *model.Item, previousItemID string) (string, error)

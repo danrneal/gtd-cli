@@ -46,7 +46,7 @@ func (c *Client) ListLists(_ context.Context) ([]model.List, error) {
 }
 
 // UpdateList updates an existing list and its items in the markdown file.
-func (c *Client) UpdateList(_ context.Context, _ *model.List, _ []model.Item) error {
+func (c *Client) UpdateList(_ context.Context, _ *model.List, _ []*model.Item) error {
 	return nil
 }
 
@@ -61,7 +61,7 @@ func (c *Client) CreateItem(_ context.Context, _ *model.Item, _ string) (string,
 }
 
 //nolint:unused // TODO: implement later
-func (c *Client) listItems(_ context.Context, _ *model.List) ([]model.Item, error) {
+func (c *Client) listItems(_ context.Context, _ *model.List) ([]*model.Item, error) {
 	// Not sure we need this func
 	return nil, nil
 }

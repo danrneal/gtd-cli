@@ -312,7 +312,7 @@ func TestListLists(t *testing.T) {
 					ID:     "list-1",
 					Name:   "Inbox",
 					Status: model.StatusOpen,
-					Items:  []model.Item{},
+					Items:  []*model.Item{},
 				},
 			},
 		},
@@ -345,7 +345,7 @@ func TestListLists(t *testing.T) {
 					ID:     "list-2",
 					Name:   "Work",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "item-1",
 							ListID: "list-2",
@@ -386,7 +386,7 @@ func TestListLists(t *testing.T) {
 					ID:     "list-3",
 					Name:   "Complex",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "item-2",
 							ListID: "list-3",
@@ -512,10 +512,10 @@ func TestUpdateList(t *testing.T) {
 		name         string
 		setupDB      func(t *testing.T, db *sql.DB) string
 		setupList    func(id string) model.List
-		setupCurrent func() []model.Item
+		setupCurrent func() []*model.Item
 		setupCtx     func() (context.Context, context.CancelFunc)
 		wantList     *model.List
-		wantItems    []model.Item
+		wantItems    []*model.Item
 		wantErr      bool
 	}{
 		{
@@ -567,7 +567,7 @@ func TestUpdateList(t *testing.T) {
 					Name:     "  New Name  ",
 					Position: 5,
 					Modified: time.Now(),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "item-2",
 							ListID:   id,
@@ -593,7 +593,7 @@ func TestUpdateList(t *testing.T) {
 				Position: 5,
 				Status:   model.StatusOpen,
 			},
-			wantItems: []model.Item{
+			wantItems: []*model.Item{
 				{
 					ID:       "item-2",
 					ListID:   "list-1",
@@ -644,7 +644,7 @@ func TestUpdateList(t *testing.T) {
 				list := model.List{
 					ID:   id,
 					Name: "Optimization",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "item-opt",
 							ListID:   id,
@@ -656,8 +656,8 @@ func TestUpdateList(t *testing.T) {
 
 				return list
 			},
-			setupCurrent: func() []model.Item {
-				items := []model.Item{
+			setupCurrent: func() []*model.Item {
+				items := []*model.Item{
 					{
 						ID:       "item-opt",
 						ListID:   "list-opt",
@@ -672,7 +672,7 @@ func TestUpdateList(t *testing.T) {
 				Name:   "Optimization",
 				Status: model.StatusOpen,
 			},
-			wantItems: []model.Item{
+			wantItems: []*model.Item{
 				{
 					ID:       "item-opt",
 					ListID:   "list-opt",
@@ -810,7 +810,7 @@ func TestUpdateList(t *testing.T) {
 				list := model.List{
 					Name:       "List 1",
 					ExternalID: stringPtr("ext-L1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ExternalID: stringPtr("ext-I1"),
 							Title:      "Updated Title",
@@ -824,7 +824,7 @@ func TestUpdateList(t *testing.T) {
 				Name:   "List 1",
 				Status: model.StatusOpen,
 			},
-			wantItems: []model.Item{
+			wantItems: []*model.Item{
 				{
 					ID:             "item-1",
 					ListID:         "list-1",
@@ -971,7 +971,7 @@ func TestUpdateList(t *testing.T) {
 					ID:     id,
 					Name:   "Attempted Change",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "non-existent-item",
 							ListID:   id,
@@ -1043,7 +1043,7 @@ func TestUpdateList(t *testing.T) {
 				list := model.List{
 					ID:   id,
 					Name: "Valid List",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title: "Headless Item",
 						},
@@ -1070,7 +1070,7 @@ func TestUpdateList(t *testing.T) {
 				list := model.List{
 					ID:   id,
 					Name: "List",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "missing-item",
 							ListID:   id,
@@ -1144,7 +1144,7 @@ func TestUpdateList(t *testing.T) {
 
 			defer db.Close()
 
-			var currentItems []model.Item
+			var currentItems []*model.Item
 			if tt.setupCurrent != nil {
 				currentItems = tt.setupCurrent()
 			}
@@ -1222,7 +1222,7 @@ func TestDeleteList(t *testing.T) {
 		setupDB   func(t *testing.T, db *sql.DB) model.List
 		setupCtx  func() (context.Context, context.CancelFunc)
 		wantLists []model.List
-		wantItems []model.Item
+		wantItems []*model.Item
 		wantErr   bool
 	}{
 		{
@@ -2251,7 +2251,7 @@ func TestDeleteItem(t *testing.T) {
 				t.Fatalf("failed to get all items: %v", err)
 			}
 
-			if diff := cmp.Diff([]model.Item(nil), items); diff != "" {
+			if diff := cmp.Diff([]*model.Item(nil), items); diff != "" {
 				t.Errorf("DeleteItem() items mismatch (-want +got):\n%s", diff)
 			}
 		})

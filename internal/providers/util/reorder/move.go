@@ -28,7 +28,7 @@ type Move struct {
 //	A slice of Move operations. The sequence of moves assumes they are applied in order.
 //	Positions are 0-indexed relative to the list at the time of the move.
 //	It uses a Longest Common Subsequence (LCS) algorithm to minimize the number of moves by identifying stable items.
-func CalculateMoves(list *model.List, currentItems []model.Item) []Move {
+func CalculateMoves(list *model.List, currentItems []*model.Item) []Move {
 	var moves []Move
 	stableItemIDs := calculateStableItemIDs(list.Items, currentItems)
 	previousItemID := ""
@@ -51,7 +51,7 @@ func CalculateMoves(list *model.List, currentItems []model.Item) []Move {
 	return moves
 }
 
-func calculateStableItemIDs(updatedItems, currentItems []model.Item) map[string]bool {
+func calculateStableItemIDs(updatedItems, currentItems []*model.Item) map[string]bool {
 	currentItemIDs := make(map[string]int)
 	for i, currentItem := range currentItems {
 		currentItemIDs[*currentItem.ExternalID] = i

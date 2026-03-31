@@ -32,7 +32,7 @@ func Parse(reader io.Reader) ([]model.List, error) {
 		if matches := listRegex.FindStringSubmatch(trimmedLine); matches != nil {
 			if item.Title != "" {
 				item.Description = text.MultilineTrim(item.Description)
-				list.Items = append(list.Items, item)
+				list.Items = append(list.Items, &item)
 			}
 
 			if list.Name != "" {
@@ -44,7 +44,7 @@ func Parse(reader io.Reader) ([]model.List, error) {
 			list = model.List{
 				ID:    listID,
 				Name:  listName,
-				Items: []model.Item{},
+				Items: []*model.Item{},
 			}
 
 			continue
@@ -57,7 +57,7 @@ func Parse(reader io.Reader) ([]model.List, error) {
 
 			if item.Title != "" {
 				item.Description = text.MultilineTrim(item.Description)
-				list.Items = append(list.Items, item)
+				list.Items = append(list.Items, &item)
 			}
 
 			itemStatus := model.StatusNotStarted
@@ -124,7 +124,7 @@ func Parse(reader io.Reader) ([]model.List, error) {
 
 	if item.Title != "" {
 		item.Description = text.MultilineTrim(item.Description)
-		list.Items = append(list.Items, item)
+		list.Items = append(list.Items, &item)
 	}
 
 	if list.Name != "" {

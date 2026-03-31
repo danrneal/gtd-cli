@@ -105,7 +105,7 @@ func (f *FakeProvider) CreateList(_ context.Context, list *model.List) (string, 
 	}
 
 	createdList.Status = model.StatusOpen
-	createdList.Items = []model.Item{}
+	createdList.Items = []*model.Item{}
 	f.Lists = append(f.Lists, createdList)
 
 	return listKey, nil
@@ -118,8 +118,12 @@ func (f *FakeProvider) ListLists(_ context.Context) ([]model.List, error) {
 			return list.Items[i].Position < list.Items[j].Position
 		})
 
-		items := make([]model.Item, len(list.Items))
-		copy(items, list.Items)
+		items := make([]*model.Item, len(list.Items))
+		for i, item := range list.Items {
+			fetchedItem := *item
+			items[i] = &fetchedItem
+		}
+
 		list.Items = items
 		lists = append(lists, list)
 	}
@@ -131,7 +135,7 @@ func (f *FakeProvider) ListLists(_ context.Context) ([]model.List, error) {
 	return lists, nil
 }
 
-func (f *FakeProvider) UpdateList(_ context.Context, updatedList *model.List, _ []model.Item) error {
+func (f *FakeProvider) UpdateList(_ context.Context, updatedList *model.List, _ []*model.Item) error {
 	if updatedList.Status == "" {
 		updatedList.Status = model.StatusOpen
 	}
@@ -157,15 +161,15 @@ func (f *FakeProvider) UpdateList(_ context.Context, updatedList *model.List, _ 
 		}
 	}
 
-	listItems := []model.Item{}
+	listItems := []*model.Item{}
 	for i, updatedItem := range updatedList.Items {
 		for j, list := range f.Lists {
 			for k, item := range list.Items {
 				genericMatch := f.Name == "generic" &&
-					f.GetKey(&item) == "" &&
+					f.GetKey(item) == "" &&
 					item.Title == updatedItem.Title
 
-				if !isMatch(&item, &updatedItem) && !genericMatch {
+				if !isMatch(item, updatedItem) && !genericMatch {
 					continue
 				}
 
@@ -193,7 +197,7 @@ func (f *FakeProvider) UpdateList(_ context.Context, updatedList *model.List, _ 
 
 		list.Items = append(list.Items, listItems...)
 		if updatedList.Status == model.StatusDeleted {
-			list.Items = []model.Item{}
+			list.Items = []*model.Item{}
 		}
 
 		for j, item := range list.Items {
@@ -252,7 +256,7 @@ func (f *FakeProvider) CreateItem(_ context.Context, item *model.Item, _ string)
 
 		createdItem.ListID = list.ID
 		createdItem.ExternalListID = list.ExternalID
-		list.Items = append(list.Items, createdItem)
+		list.Items = append(list.Items, &createdItem)
 		f.Lists[i] = list
 
 		return itemKey, nil
@@ -273,12 +277,12 @@ func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem *model.Item) er
 	if f.Name == "generic" {
 		for i, list := range f.Lists {
 			for j, item := range list.Items {
-				if f.GetKey(&item) != "" || item.Title != updatedItem.Title {
+				if f.GetKey(item) != "" || item.Title != updatedItem.Title {
 					continue
 				}
 
 				updatedItemKey := f.GetKey(updatedItem)
-				f.SetKey(&item, updatedItemKey)
+				f.SetKey(item, updatedItemKey)
 				list.Items[j] = item
 				f.Lists[i] = list
 				break
@@ -288,7 +292,7 @@ func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem *model.Item) er
 
 	for i, list := range f.Lists {
 		for j, item := range list.Items {
-			if !isMatch(&item, updatedItem) {
+			if !isMatch(item, updatedItem) {
 				continue
 			}
 
@@ -335,7 +339,7 @@ func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem *model.Item) er
 func (f *FakeProvider) DeleteItem(_ context.Context, deletedItem *model.Item) error {
 	for i, list := range f.Lists {
 		for j, item := range list.Items {
-			if !isMatch(&item, deletedItem) {
+			if !isMatch(item, deletedItem) {
 				continue
 			}
 
@@ -506,7 +510,7 @@ func TestOneWaySync(t *testing.T) {
 			src: NewFakeProvider("store", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:  "I1",
 							Status: model.StatusNotStarted,
@@ -525,7 +529,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1",
@@ -540,7 +544,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1",
@@ -558,7 +562,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					ID:   "store-list-1",
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:  "I1",
 							Status: model.StatusNotStarted,
@@ -574,7 +578,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1",
@@ -589,7 +593,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1",
@@ -607,7 +611,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:  "I1",
 							Status: model.StatusNotStarted,
@@ -624,7 +628,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
@@ -641,7 +645,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
@@ -658,7 +662,7 @@ func TestOneWaySync(t *testing.T) {
 			src: NewFakeProvider("external", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:  "I1",
 							Status: model.StatusNotStarted,
@@ -677,7 +681,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
@@ -693,7 +697,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
@@ -712,7 +716,7 @@ func TestOneWaySync(t *testing.T) {
 			src: NewFakeProvider("store", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:  "I1",
 							Status: model.StatusDeleted,
@@ -731,7 +735,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1",
@@ -756,7 +760,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:  "I1",
 							Status: model.StatusDeleted,
@@ -773,7 +777,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
@@ -798,7 +802,7 @@ func TestOneWaySync(t *testing.T) {
 			src: NewFakeProvider("store", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:  "I1",
 							Status: model.StatusNotStarted,
@@ -812,7 +816,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1",
@@ -827,7 +831,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1",
@@ -844,7 +848,7 @@ func TestOneWaySync(t *testing.T) {
 			src: NewFakeProvider("generic", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:  "I1",
 							Status: model.StatusNotStarted,
@@ -858,7 +862,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1",
@@ -873,7 +877,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1",
@@ -890,7 +894,7 @@ func TestOneWaySync(t *testing.T) {
 			src: NewFakeProvider("store", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:  "I1",
 							Status: model.StatusNotStarted,
@@ -905,7 +909,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
@@ -922,7 +926,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
@@ -939,7 +943,7 @@ func TestOneWaySync(t *testing.T) {
 			src: NewFakeProvider("external", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:  "I1",
 							Status: model.StatusNotStarted,
@@ -953,7 +957,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
@@ -969,7 +973,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
@@ -989,12 +993,12 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1",
 					Modified: baseTime.Add(1),
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I1"},
 					},
 				},
@@ -1004,7 +1008,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:       "store-list-1",
 					Name:     "L1",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:    "store-item-1",
 							Title: "I1",
@@ -1018,14 +1022,14 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 0,
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					ID:       "store-list-2",
 					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
@@ -1041,14 +1045,14 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L1",
 					Position: 0,
 					Status:   model.StatusOpen,
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					ID:       "store-list-2",
 					Name:     "L2",
 					Position: 1,
 					Status:   model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
@@ -1067,12 +1071,12 @@ func TestOneWaySync(t *testing.T) {
 					ID:       "store-list-1",
 					Name:     "L1",
 					Modified: baseTime.Add(1),
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:    "store-item-1",
 							Title: "I1",
@@ -1084,7 +1088,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I1"},
 					},
 				},
@@ -1095,14 +1099,14 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 0,
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					ID:       "store-list-2",
 					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
@@ -1118,14 +1122,14 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L1",
 					Position: 0,
 					Status:   model.StatusOpen,
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					ID:       "store-list-2",
 					Name:     "L2",
 					Position: 1,
 					Status:   model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
@@ -1144,12 +1148,12 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Modified:   baseTime.Add(1),
 					ExternalID: stringPtr("external-list-1"),
-					Items:      []model.Item{},
+					Items:      []*model.Item{},
 				},
 				{
 					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
@@ -1161,7 +1165,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I1"},
 					},
 				},
@@ -1173,7 +1177,7 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   0,
 					ExternalID: stringPtr("external-list-1"),
-					Items:      []model.Item{},
+					Items:      []*model.Item{},
 				},
 				{
 					ID:         "store-list-2",
@@ -1181,7 +1185,7 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
@@ -1199,14 +1203,14 @@ func TestOneWaySync(t *testing.T) {
 					Position:   0,
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items:      []model.Item{},
+					Items:      []*model.Item{},
 				},
 				{
 					Name:       "L2",
 					Position:   1,
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Position:       0,
@@ -1224,12 +1228,12 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1",
 					Modified: baseTime.Add(1),
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I1"},
 					},
 				},
@@ -1239,7 +1243,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
 					Modified:   baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
@@ -1253,14 +1257,14 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   0,
 					ExternalID: stringPtr("external-list-1"),
-					Items:      []model.Item{},
+					Items:      []*model.Item{},
 				},
 				{
 					Name:       "L2",
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Position:       0,
@@ -1277,7 +1281,7 @@ func TestOneWaySync(t *testing.T) {
 					Position:   0,
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items:      []model.Item{},
+					Items:      []*model.Item{},
 				},
 				{
 					ID:         "store-list-2",
@@ -1285,7 +1289,7 @@ func TestOneWaySync(t *testing.T) {
 					Position:   1,
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
@@ -1305,12 +1309,12 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1",
 					Modified: baseTime.Add(1),
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-2",
 							Title:  "I2",
@@ -1334,7 +1338,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:       "store-list-1",
 					Name:     "L1",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1",
@@ -1349,14 +1353,14 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 0,
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					ID:       "store-list-2",
 					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
@@ -1387,14 +1391,14 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 0,
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					ID:       "store-list-2",
 					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
@@ -1428,12 +1432,12 @@ func TestOneWaySync(t *testing.T) {
 					ID:       "store-list-1",
 					Name:     "L1",
 					Modified: baseTime.Add(1),
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:  "I2",
 							Status: model.StatusNotStarted,
@@ -1454,7 +1458,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:  "I1",
 							Status: model.StatusInProgress,
@@ -1468,14 +1472,14 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 0,
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					ID:       "store-list-2",
 					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
@@ -1506,14 +1510,14 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 0,
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					ID:       "store-list-2",
 					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
@@ -1547,12 +1551,12 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Modified:   baseTime.Add(1),
 					ExternalID: stringPtr("external-list-1"),
-					Items:      []model.Item{},
+					Items:      []*model.Item{},
 				},
 				{
 					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-2",
 							Title:  "I2",
@@ -1576,7 +1580,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:  "I1",
 							Status: model.StatusInProgress,
@@ -1591,7 +1595,7 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   0,
 					ExternalID: stringPtr("external-list-1"),
-					Items:      []model.Item{},
+					Items:      []*model.Item{},
 				},
 				{
 					ID:         "store-list-2",
@@ -1599,7 +1603,7 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-2",
 							Title:          "I2",
@@ -1636,14 +1640,14 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   0,
 					ExternalID: stringPtr("external-list-1"),
-					Items:      []model.Item{},
+					Items:      []*model.Item{},
 				},
 				{
 					Name:       "L2",
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I2",
 							Position:       0,
@@ -1676,12 +1680,12 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1",
 					Modified: baseTime.Add(1),
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I2",
 							Status:     model.StatusNotStarted,
@@ -1705,7 +1709,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
 					Modified:   baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
@@ -1720,14 +1724,14 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   0,
 					ExternalID: stringPtr("external-list-1"),
-					Items:      []model.Item{},
+					Items:      []*model.Item{},
 				},
 				{
 					Name:       "L2",
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I2",
 							Position:       0,
@@ -1759,7 +1763,7 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   0,
 					ExternalID: stringPtr("external-list-1"),
-					Items:      []model.Item{},
+					Items:      []*model.Item{},
 				},
 				{
 					ID:         "store-list-2",
@@ -1767,7 +1771,7 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-2",
 							Title:          "I2",
@@ -1931,7 +1935,7 @@ func TestOneWaySync(t *testing.T) {
 			src: NewFakeProvider("store", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:    "I1 Updated",
 							Status:   model.StatusDone,
@@ -1944,7 +1948,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					ID:   "store-list-1",
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-1",
 							Title:    "I1 Original",
@@ -1960,7 +1964,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1 Updated",
@@ -1975,7 +1979,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1 Updated",
@@ -1993,7 +1997,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					ID:   "store-list-1",
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-1",
 							Title:    "I1 Updated",
@@ -2007,7 +2011,7 @@ func TestOneWaySync(t *testing.T) {
 			dst: NewFakeProvider("store", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:    "I1 Original",
 							Status:   model.StatusDone,
@@ -2021,7 +2025,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1 Updated",
@@ -2036,7 +2040,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1 Updated",
@@ -2054,7 +2058,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1 Updated",
 							Status:     model.StatusDone,
@@ -2067,7 +2071,7 @@ func TestOneWaySync(t *testing.T) {
 			dst: NewFakeProvider("external", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:    "I1 Original",
 							Status:   model.StatusNotStarted,
@@ -2082,7 +2086,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1 Updated",
@@ -2099,7 +2103,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I1 Updated",
 							Status:         model.StatusDone,
@@ -2116,7 +2120,7 @@ func TestOneWaySync(t *testing.T) {
 			src: NewFakeProvider("external", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:    "I1 Updated",
 							Status:   model.StatusNotStarted,
@@ -2129,7 +2133,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1 Original",
 							Status:     model.StatusDone,
@@ -2144,7 +2148,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I1 Updated",
 							Status:         model.StatusNotStarted,
@@ -2160,7 +2164,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1 Updated",
@@ -2180,7 +2184,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1",
 							Status:     model.StatusInProgress,
@@ -2193,7 +2197,7 @@ func TestOneWaySync(t *testing.T) {
 			dst: NewFakeProvider("external", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:    "I1",
 							Status:   model.StatusNotStarted,
@@ -2208,7 +2212,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
@@ -2225,7 +2229,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Status:         model.StatusInProgress,
@@ -2242,7 +2246,7 @@ func TestOneWaySync(t *testing.T) {
 			src: NewFakeProvider("external", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:    "I1",
 							Status:   model.StatusNotStarted,
@@ -2255,7 +2259,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1",
 							Status:     model.StatusInProgress,
@@ -2270,7 +2274,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
@@ -2286,7 +2290,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
@@ -2306,7 +2310,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1 Updated",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I1"},
 						{Title: "I2"},
 					},
@@ -2317,7 +2321,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:       "store-list-1",
 					Name:     "L1 Original",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:    "store-item-2",
 							Title: "I2",
@@ -2334,7 +2338,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1 Updated",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
@@ -2355,7 +2359,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1 Updated",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
@@ -2380,7 +2384,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:       "store-list-1",
 					Name:     "L1 Updated",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:    "store-item-2",
 							Title: "I2",
@@ -2396,7 +2400,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1 Original",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I1"},
 						{Title: "I2"},
 					},
@@ -2407,7 +2411,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1 Updated",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
@@ -2428,7 +2432,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1 Updated",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
@@ -2453,7 +2457,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1 Updated",
 					Modified:   baseTime.Add(1),
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
@@ -2469,7 +2473,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1 Original",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I2",
 							ExternalID: stringPtr("external-item-2"),
@@ -2487,7 +2491,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
@@ -2512,7 +2516,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Position:       0,
@@ -2536,7 +2540,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1 Updated",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I2",
 							ExternalID: stringPtr("external-item-2"),
@@ -2553,7 +2557,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1 Original",
 					Modified:   baseTime,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
@@ -2570,7 +2574,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I2",
 							Position:       0,
@@ -2592,7 +2596,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-2",
 							Title:          "I2",
@@ -2620,12 +2624,12 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1",
 					Modified: baseTime.Add(1),
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I1"},
 						{Title: "I2"},
 						{Title: "I3"},
@@ -2637,7 +2641,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:       "store-list-1",
 					Name:     "L1",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:    "store-item-2",
 							Title: "I2",
@@ -2648,7 +2652,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:       "store-list-2",
 					Name:     "L2",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:    "store-item-1",
 							Title: "I1",
@@ -2666,14 +2670,14 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 0,
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					ID:       "store-list-2",
 					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
@@ -2701,14 +2705,14 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 0,
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					ID:       "store-list-2",
 					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
@@ -2739,13 +2743,13 @@ func TestOneWaySync(t *testing.T) {
 					ID:       "store-list-1",
 					Name:     "L1",
 					Modified: baseTime.Add(1),
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					ID:       "store-list-2",
 					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:    "store-item-2",
 							Title: "I2",
@@ -2765,14 +2769,14 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I1"},
 					},
 				},
 				{
 					Name:     "L2",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I2"},
 						{Title: "I3"},
 					},
@@ -2784,14 +2788,14 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 0,
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					ID:       "store-list-2",
 					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
@@ -2819,14 +2823,14 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 0,
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					ID:       "store-list-2",
 					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
@@ -2857,13 +2861,13 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
 					Modified:   baseTime.Add(1),
-					Items:      []model.Item{},
+					Items:      []*model.Item{},
 				},
 				{
 					Name:       "L2",
 					ExternalID: stringPtr("external-list-2"),
 					Modified:   baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
@@ -2883,7 +2887,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I2",
 							ExternalID: stringPtr("external-item-2"),
@@ -2893,7 +2897,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L2",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
@@ -2912,7 +2916,7 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   0,
 					ExternalID: stringPtr("external-list-1"),
-					Items:      []model.Item{},
+					Items:      []*model.Item{},
 				},
 				{
 					ID:         "store-list-2",
@@ -2920,7 +2924,7 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
@@ -2954,14 +2958,14 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   0,
 					ExternalID: stringPtr("external-list-1"),
-					Items:      []model.Item{},
+					Items:      []*model.Item{},
 				},
 				{
 					Name:       "L2",
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Position:       0,
@@ -2991,12 +2995,12 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1",
 					Modified: baseTime.Add(1),
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 				{
 					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I2",
 							ExternalID: stringPtr("external-item-2"),
@@ -3017,7 +3021,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
 					Modified:   baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
@@ -3028,7 +3032,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L2",
 					ExternalID: stringPtr("external-list-2"),
 					Modified:   baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I2",
 							ExternalID: stringPtr("external-item-2"),
@@ -3046,14 +3050,14 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   0,
 					ExternalID: stringPtr("external-list-1"),
-					Items:      []model.Item{},
+					Items:      []*model.Item{},
 				},
 				{
 					Name:       "L2",
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I2",
 							Position:       0,
@@ -3082,7 +3086,7 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   0,
 					ExternalID: stringPtr("external-list-1"),
-					Items:      []model.Item{},
+					Items:      []*model.Item{},
 				},
 				{
 					ID:         "store-list-2",
@@ -3090,7 +3094,7 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-2",
 							Title:          "I2",
@@ -3132,7 +3136,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					ID:   "store-list-1",
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:    "store-item-1",
 							Title: "I1",
@@ -3150,7 +3154,7 @@ func TestOneWaySync(t *testing.T) {
 			dst: NewFakeProvider("store", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I1"},
 					},
 				},
@@ -3177,7 +3181,7 @@ func TestOneWaySync(t *testing.T) {
 			dst: NewFakeProvider("external", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I1"},
 					},
 				},
@@ -3193,7 +3197,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
@@ -3257,7 +3261,7 @@ func TestOneWaySync(t *testing.T) {
 			src: NewFakeProvider("store", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:  "I1",
 							Status: model.StatusDeleted,
@@ -3269,7 +3273,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					ID:   "store-list-1",
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:    "store-item-1",
 							Title: "I1",
@@ -3304,7 +3308,7 @@ func TestOneWaySync(t *testing.T) {
 			dst: NewFakeProvider("store", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I1"},
 					},
 				},
@@ -3321,7 +3325,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1",
@@ -3339,7 +3343,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
@@ -3351,7 +3355,7 @@ func TestOneWaySync(t *testing.T) {
 			dst: NewFakeProvider("external", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I1"},
 					},
 				},
@@ -3382,7 +3386,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
@@ -3403,7 +3407,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
 					Status:     model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
@@ -3428,7 +3432,7 @@ func TestOneWaySync(t *testing.T) {
 			dst: NewFakeProvider("store", []model.List{
 				{
 					Name: "L1",
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:  "I1",
 							Status: model.StatusDeleted,
@@ -3448,7 +3452,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1",
@@ -3469,7 +3473,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1",
 							Status:     model.StatusDeleted,
@@ -3491,7 +3495,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
@@ -3516,7 +3520,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I1"},
 					},
 				},
@@ -3526,7 +3530,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:       "store-list-1",
 					Name:     "L1",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:    "store-item-1",
 							Title: "I1",
@@ -3537,7 +3541,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:       "store-list-2",
 					Name:     "L2",
 					Modified: baseTime,
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 			}),
 			wantSrcLists: []model.List{
@@ -3546,7 +3550,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1",
@@ -3561,7 +3565,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1",
@@ -3585,7 +3589,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:       "store-list-2",
 					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:    "store-item-1",
 							Title: "I1",
@@ -3597,14 +3601,14 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I1"},
 					},
 				},
 				{
 					Name:     "L2",
 					Modified: baseTime,
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 			}),
 			wantSrcLists: []model.List{
@@ -3613,7 +3617,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1",
@@ -3628,7 +3632,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 1,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
 							Title:  "I1",
@@ -3652,7 +3656,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L2",
 					ExternalID: stringPtr("external-list-2"),
 					Modified:   baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
@@ -3664,14 +3668,14 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L1",
 					Modified: baseTime,
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I1"},
 					},
 				},
 				{
 					Name:     "L2",
 					Modified: baseTime,
-					Items:    []model.Item{},
+					Items:    []*model.Item{},
 				},
 			}),
 			wantSrcLists: []model.List{
@@ -3681,7 +3685,7 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
@@ -3698,7 +3702,7 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I1",
 							ExternalListID: stringPtr("external-list-2"),
@@ -3720,7 +3724,7 @@ func TestOneWaySync(t *testing.T) {
 				{
 					Name:     "L2",
 					Modified: baseTime.Add(1),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{Title: "I1"},
 					},
 				},
@@ -3730,7 +3734,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Modified:   baseTime,
 					ExternalID: stringPtr("external-list-1"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
@@ -3741,7 +3745,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L2",
 					Modified:   baseTime,
 					ExternalID: stringPtr("external-list-2"),
-					Items:      []model.Item{},
+					Items:      []*model.Item{},
 				},
 			}),
 			wantSrcLists: []model.List{
@@ -3750,7 +3754,7 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							Title:          "I1",
 							ExternalListID: stringPtr("external-list-2"),
@@ -3766,7 +3770,7 @@ func TestOneWaySync(t *testing.T) {
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: stringPtr("external-list-2"),
-					Items: []model.Item{
+					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",

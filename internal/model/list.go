@@ -10,7 +10,7 @@ type List struct {
 	Status     Status    `json:"status"`
 	Modified   time.Time `json:"modified"`
 	ExternalID *string   `json:"externalId"`
-	Items      []Item    `json:"items"`
+	Items      []*Item   `json:"items"`
 }
 
 // GetID returns the internal ID of the list.
