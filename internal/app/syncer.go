@@ -77,6 +77,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 			continue
 		}
 
+		isNewList := false
 		listKey := s.getKey(&srcList)
 		dstList, ok := dstListsMap[listKey]
 		if !ok {
@@ -97,7 +98,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 			}
 
 			dstList = srcList
-			dstList.Modified = dstList.Modified.Add(-1)
+			isNewList = true
 			updated = true
 		}
 
@@ -109,10 +110,6 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 
 			itemKey := s.getKey(&srcItem)
 			if _, ok := dstItemsMap[itemKey]; !ok {
-				if srcItem.Status == model.StatusOpen {
-					srcItem.Status = model.StatusNotStarted
-				}
-
 				srcItem.ListID = srcList.ID
 				srcItem.ExternalListID = srcList.ExternalID
 				dstItemKey, err := dst.CreateItem(ctx, srcItem, prevItemID)
@@ -138,7 +135,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 			prevItemID = itemKey
 		}
 
-		if srcList.Modified.After(dstList.Modified) {
+		if isNewList || srcList.Modified.After(dstList.Modified) {
 			if err := dst.UpdateList(ctx, srcList, dstList.Items); err != nil {
 				return false, fmt.Errorf("failed to update list %q in destination: %w", srcList.Name, err)
 			}
@@ -155,11 +152,8 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 			dstItem, ok := dstItemsMap[itemKey]
 			//nolint:revive // Complex logic pending refactor
 			if ok && srcItem.Modified.After(dstItem.Modified) {
-				if srcItem.Status == model.StatusOpen {
-					srcItem.Status = model.StatusNotStarted
-					if dstItem.Status == model.StatusInProgress {
-						srcItem.Status = model.StatusInProgress
-					}
+				if srcItem.Status == model.StatusNotStarted && dstItem.Status == model.StatusInProgress {
+					srcItem.Status = model.StatusInProgress
 				}
 
 				srcItem.ListID = srcList.ID

@@ -2,7 +2,8 @@
 version: "2"
 
 issues:
-  max-same-issues: 50
+  max-issues-per-linter: 0
+  max-same-issues: 0
 
 formatters:
   enable:
@@ -189,9 +190,19 @@ linters:
       min-complexity: 20
 
     gocritic:
+      enable-all: true
+      disabled-checks:
+        - unnamedResult
+        - hugeParam
+        - rangeExprCopy
+        - rangeValCopy
       settings:
         captLocal:
           paramsOnly: false
+        elseif:
+          skipBalanced: false
+        truncateCmp:
+          skipArchDependent: false
         underef:
           skipRecvDeref: false
 

@@ -358,7 +358,7 @@ func isValidListStatus(status model.Status) bool {
 
 func isValidItemStatus(status model.Status) bool {
 	switch status {
-	case model.StatusOpen, model.StatusNotStarted, model.StatusInProgress, model.StatusDone, model.StatusDeleted:
+	case model.StatusNotStarted, model.StatusInProgress, model.StatusDone, model.StatusDeleted:
 		return true
 	default:
 		return false
@@ -1946,7 +1946,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							ID:       "store-item-1",
 							Title:    "I1 Original",
-							Status:   model.StatusOpen,
+							Status:   model.StatusNotStarted,
 							ListID:   "store-list-1",
 							Modified: baseTime,
 						},
@@ -2068,7 +2068,7 @@ func TestOneWaySync(t *testing.T) {
 					Items: []model.Item{
 						{
 							Title:    "I1 Original",
-							Status:   model.StatusOpen,
+							Status:   model.StatusNotStarted,
 							Modified: baseTime,
 						},
 					},
@@ -2117,7 +2117,7 @@ func TestOneWaySync(t *testing.T) {
 					Items: []model.Item{
 						{
 							Title:    "I1 Updated",
-							Status:   model.StatusOpen,
+							Status:   model.StatusNotStarted,
 							Modified: baseTime.Add(1),
 						},
 					},
@@ -2145,7 +2145,7 @@ func TestOneWaySync(t *testing.T) {
 					Items: []model.Item{
 						{
 							Title:          "I1 Updated",
-							Status:         model.StatusOpen,
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-1"),
 							ExternalID:     stringPtr("external-item-1"),
 						},
@@ -2194,7 +2194,7 @@ func TestOneWaySync(t *testing.T) {
 					Items: []model.Item{
 						{
 							Title:    "I1",
-							Status:   model.StatusOpen,
+							Status:   model.StatusNotStarted,
 							Modified: baseTime,
 						},
 					},
@@ -2243,7 +2243,7 @@ func TestOneWaySync(t *testing.T) {
 					Items: []model.Item{
 						{
 							Title:    "I1",
-							Status:   model.StatusOpen,
+							Status:   model.StatusNotStarted,
 							Modified: baseTime.Add(1),
 						},
 					},
@@ -2271,7 +2271,7 @@ func TestOneWaySync(t *testing.T) {
 					Items: []model.Item{
 						{
 							Title:          "I1",
-							Status:         model.StatusOpen,
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-1"),
 							ExternalID:     stringPtr("external-item-1"),
 						},
