@@ -224,7 +224,7 @@ func (f *FakeProvider) DeleteList(_ context.Context, deletedList *model.List) er
 	return fmt.Errorf("list not found: %s", deletedList.Name)
 }
 
-func (f *FakeProvider) CreateItem(_ context.Context, item model.Item, _ string) (string, error) {
+func (f *FakeProvider) CreateItem(_ context.Context, item *model.Item, _ string) (string, error) {
 	if !isValidItemStatus(item.Status) {
 		return "", fmt.Errorf("invalid status: %q", item.Status)
 	}
@@ -233,25 +233,26 @@ func (f *FakeProvider) CreateItem(_ context.Context, item model.Item, _ string) 
 		return "", errors.New("item title cannot be empty")
 	}
 
-	itemKey := f.GetKey(&item)
+	itemKey := f.GetKey(item)
 	if itemKey == "" {
 		f.ItemCounter++
 		itemKey = fmt.Sprintf("%s-item-%d", f.Name, f.ItemCounter)
-		f.SetKey(&item, itemKey)
+		f.SetKey(item, itemKey)
 	}
 
 	for i, list := range f.Lists {
-		if !isParent(list, item) {
+		if !isParent(&list, item) {
 			continue
 		}
 
+		createdItem := *item
 		if f.Name == "external" {
-			item.ID = ""
+			createdItem.ID = ""
 		}
 
-		item.ListID = list.ID
-		item.ExternalListID = list.ExternalID
-		list.Items = append(list.Items, item)
+		createdItem.ListID = list.ID
+		createdItem.ExternalListID = list.ExternalID
+		list.Items = append(list.Items, createdItem)
 		f.Lists[i] = list
 
 		return itemKey, nil
@@ -260,7 +261,7 @@ func (f *FakeProvider) CreateItem(_ context.Context, item model.Item, _ string) 
 	return "", fmt.Errorf("list ID and external list ID not found: %s, %v", item.ListID, item.ExternalListID)
 }
 
-func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem model.Item) error {
+func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem *model.Item) error {
 	if !isValidItemStatus(updatedItem.Status) {
 		return fmt.Errorf("invalid status: %q", updatedItem.Status)
 	}
@@ -276,7 +277,7 @@ func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem model.Item) err
 					continue
 				}
 
-				updatedItemKey := f.GetKey(&updatedItem)
+				updatedItemKey := f.GetKey(updatedItem)
 				f.SetKey(&item, updatedItemKey)
 				list.Items[j] = item
 				f.Lists[i] = list
@@ -287,11 +288,11 @@ func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem model.Item) err
 
 	for i, list := range f.Lists {
 		for j, item := range list.Items {
-			if !isMatch(&item, &updatedItem) {
+			if !isMatch(&item, updatedItem) {
 				continue
 			}
 
-			if !isParent(list, updatedItem) {
+			if !isParent(&list, updatedItem) {
 				return fmt.Errorf(
 					"item parent mismatch: item %s belongs to list %s (ID=%s, ExtID=%v), "+
 						"but update request specifies parent ID=%s, ExtID=%v",
@@ -331,10 +332,10 @@ func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem model.Item) err
 	return fmt.Errorf("item not found: %s", updatedItem.ID)
 }
 
-func (f *FakeProvider) DeleteItem(_ context.Context, deletedItem model.Item) error {
+func (f *FakeProvider) DeleteItem(_ context.Context, deletedItem *model.Item) error {
 	for i, list := range f.Lists {
 		for j, item := range list.Items {
-			if !isMatch(&item, &deletedItem) {
+			if !isMatch(&item, deletedItem) {
 				continue
 			}
 
@@ -382,7 +383,7 @@ func isMatch(a, b model.Resource) bool {
 	return false
 }
 
-func isParent(list model.List, item model.Item) bool {
+func isParent(list *model.List, item *model.Item) bool {
 	if list.ID != "" && list.ID == item.ListID {
 		return true
 	}

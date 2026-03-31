@@ -56,18 +56,18 @@ func (c *Client) DeleteList(_ context.Context, _ *model.List) error {
 }
 
 // CreateItem adds a new item to a list in the markdown file.
-func (c *Client) CreateItem(_ context.Context, _ model.Item, _ string) (string, error) {
+func (c *Client) CreateItem(_ context.Context, _ *model.Item, _ string) (string, error) {
 	return "", nil
 }
 
 //nolint:unused // TODO: implement later
-func (c *Client) listItems(_ context.Context, _ model.List) ([]model.Item, error) {
+func (c *Client) listItems(_ context.Context, _ *model.List) ([]model.Item, error) {
 	// Not sure we need this func
 	return nil, nil
 }
 
 // UpdateItem updates an existing item in the markdown file.
-func (c *Client) UpdateItem(_ context.Context, _ model.Item) error {
+func (c *Client) UpdateItem(_ context.Context, _ *model.Item) error {
 	return nil
 }
 
@@ -77,6 +77,6 @@ func (c *Client) moveItem(_ context.Context, _ reorder.Move) error {
 }
 
 // DeleteItem removes an item from the markdown file.
-func (c *Client) DeleteItem(_ context.Context, _ model.Item) error {
+func (c *Client) DeleteItem(_ context.Context, _ *model.Item) error {
 	return nil
 }

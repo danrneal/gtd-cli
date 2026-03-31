@@ -82,7 +82,7 @@ func (c *Client) ListLists(ctx context.Context) ([]model.List, error) {
 			}
 		}
 
-		items, err := c.listItems(ctx, list)
+		items, err := c.listItems(ctx, &list)
 		if err != nil {
 			return nil, err
 		}
@@ -126,7 +126,7 @@ func (c *Client) DeleteList(ctx context.Context, list *model.List) error {
 // CreateItem creates a new task in the specified Google Task list.
 // If previousItemID is provided, the task is inserted after that item.
 // It renders the item's title to include metadata (project, tags, due date) compatible with the parser.
-func (c *Client) CreateItem(ctx context.Context, item model.Item, previousItemID string) (string, error) {
+func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemID string) (string, error) {
 	title := renderTitle(item)
 	status := statusNeedsAction
 	if item.Status == model.StatusDone {
@@ -160,7 +160,7 @@ func (c *Client) CreateItem(ctx context.Context, item model.Item, previousItemID
 
 // listItems retrieves all tasks from the specified list and converts them to internal Items.
 // It handles fetching, sorting, and parsing metadata from task titles.
-func (c *Client) listItems(ctx context.Context, list model.List) ([]model.Item, error) {
+func (c *Client) listItems(ctx context.Context, list *model.List) ([]model.Item, error) {
 	resp, err := c.service.Tasks.List(*list.ExternalID).ShowHidden(true).MaxResults(maxTaskResults).Context(ctx).Do()
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve tasks for list %q: %w", list.Name, err)
@@ -210,7 +210,7 @@ func (c *Client) listItems(ctx context.Context, list model.List) ([]model.Item, 
 }
 
 // UpdateItem updates an existing task in the specified Google Task list.
-func (c *Client) UpdateItem(ctx context.Context, item model.Item) error {
+func (c *Client) UpdateItem(ctx context.Context, item *model.Item) error {
 	title := renderTitle(item)
 	status := statusNeedsAction
 	if item.Status == model.StatusDone {
@@ -255,7 +255,7 @@ func (c *Client) moveItem(ctx context.Context, move reorder.Move) error {
 }
 
 // DeleteItem deletes a task from the specified Google Task list.
-func (c *Client) DeleteItem(ctx context.Context, item model.Item) error {
+func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
 	if err := c.service.Tasks.Delete(*item.ExternalListID, *item.ExternalID).Context(ctx).Do(); err != nil {
 		return fmt.Errorf("failed to delete task: %w", err)
 	}
@@ -264,7 +264,7 @@ func (c *Client) DeleteItem(ctx context.Context, item model.Item) error {
 }
 
 // renderTitle constructs the task title by combining it with metadata (project, tags, due date, waiting on).
-func renderTitle(item model.Item) string {
+func renderTitle(item *model.Item) string {
 	titleParts := []string{item.Title}
 	if item.ProjectID != nil {
 		projectIDStr := fmt.Sprintf("+%s", *item.ProjectID)

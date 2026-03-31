@@ -193,8 +193,6 @@ linters:
       enable-all: true
       disabled-checks:
         - unnamedResult
-        - hugeParam
-        - rangeExprCopy
         - rangeValCopy
       settings:
         captLocal:

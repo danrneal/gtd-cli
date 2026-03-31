@@ -16,9 +16,9 @@ type Provider interface {
 	UpdateList(ctx context.Context, list *model.List, currentItems []model.Item) error
 	DeleteList(ctx context.Context, list *model.List) error
 
-	CreateItem(ctx context.Context, item model.Item, previousItemID string) (string, error)
-	UpdateItem(ctx context.Context, item model.Item) error
-	DeleteItem(ctx context.Context, item model.Item) error
+	CreateItem(ctx context.Context, item *model.Item, previousItemID string) (string, error)
+	UpdateItem(ctx context.Context, item *model.Item) error
+	DeleteItem(ctx context.Context, item *model.Item) error
 }
 
 // RemoteProvider extends Provider with capabilities for managing external keys (Get/Set),

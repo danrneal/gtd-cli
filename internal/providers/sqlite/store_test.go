@@ -1400,7 +1400,7 @@ func TestCreateItem(t *testing.T) {
 	tests := []struct {
 		name     string
 		setupDB  func(t *testing.T, db *sql.DB)
-		item     model.Item
+		item     *model.Item
 		setupCtx func() (context.Context, context.CancelFunc)
 		wantItem *model.Item
 		wantErr  bool
@@ -1415,7 +1415,7 @@ func TestCreateItem(t *testing.T) {
 					`, "list-1", "Inbox", time.Now(),
 				)
 			},
-			item: model.Item{
+			item: &model.Item{
 				ListID:   "list-1",
 				Title:    "  Buy Milk  ",
 				Status:   model.StatusNotStarted,
@@ -1433,7 +1433,7 @@ func TestCreateItem(t *testing.T) {
 					`, "list-1", "Inbox", time.Now(),
 				)
 			},
-			item: model.Item{
+			item: &model.Item{
 				ListID:      "list-1",
 				Title:       "Complex Task",
 				Description: "  Line 1   \n  Line 2   \n    Line 3",
@@ -1464,7 +1464,7 @@ func TestCreateItem(t *testing.T) {
 					`, "list-1", "External List", time.Now(), "ext-L1",
 				)
 			},
-			item: model.Item{
+			item: &model.Item{
 				ExternalListID: stringPtr("ext-L1"),
 				Title:          "Resolved Item",
 				Status:         model.StatusNotStarted,
@@ -1481,7 +1481,7 @@ func TestCreateItem(t *testing.T) {
 		{
 			name:    "create item with nonexistent external list id",
 			setupDB: func(_ *testing.T, _ *sql.DB) {},
-			item: model.Item{
+			item: &model.Item{
 				ExternalListID: stringPtr("non-existent-ext-id"),
 				Title:          "Orphan Item",
 			},
@@ -1490,7 +1490,7 @@ func TestCreateItem(t *testing.T) {
 		{
 			name:    "invalid status",
 			setupDB: nil,
-			item: model.Item{
+			item: &model.Item{
 				ListID: "list-1",
 				Title:  "Invalid Status",
 				Status: "bad_status",
@@ -1500,7 +1500,7 @@ func TestCreateItem(t *testing.T) {
 		{
 			name:    "empty title",
 			setupDB: nil,
-			item: model.Item{
+			item: &model.Item{
 				ListID: "list-1",
 				Title:  "",
 			},
@@ -1509,7 +1509,7 @@ func TestCreateItem(t *testing.T) {
 		{
 			name:    "canceled context",
 			setupDB: nil,
-			item: model.Item{
+			item: &model.Item{
 				ListID: "list-1",
 				Title:  "Canceled",
 			},
@@ -1988,7 +1988,7 @@ func TestUpdateItem(t *testing.T) {
 
 			id := tt.setupDB(t, db)
 			item := tt.setupItem(id)
-			err = store.UpdateItem(ctx, item)
+			err = store.UpdateItem(ctx, &item)
 
 			if tt.wantErr {
 				if err == nil {
@@ -2229,7 +2229,7 @@ func TestDeleteItem(t *testing.T) {
 			defer db.Close()
 
 			item := tt.setupDB(t, db)
-			err = store.DeleteItem(ctx, item)
+			err = store.DeleteItem(ctx, &item)
 
 			if tt.wantErr {
 				if err == nil {

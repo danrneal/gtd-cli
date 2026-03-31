@@ -288,7 +288,7 @@ func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems [
 		}
 
 		item.ListID = list.ID
-		if err := s.updateItemLocation(ctx, tx, item); err != nil {
+		if err := s.updateItemLocation(ctx, tx, &item); err != nil {
 			return err
 		}
 	}
@@ -327,7 +327,7 @@ func (s *Store) DeleteList(ctx context.Context, list *model.List) error {
 // CreateItem inserts a new item into the database.
 // If item.ListID is empty, it attempts to resolve it using item.ExternalListID.
 // The previousItemID parameter is ignored by the SQLite store but kept for interface consistency.
-func (s *Store) CreateItem(ctx context.Context, item model.Item, _ string) (string, error) {
+func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) (string, error) {
 	item.ID = uuid.NewString()[:8]
 	if !isValidItemStatus(item.Status) {
 		return "", fmt.Errorf("invalid status: %q", item.Status)
@@ -474,7 +474,7 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]model.Item, err
 
 // UpdateItem updates an existing item in the database.
 // It identifies the record via ID or ExternalID.
-func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
+func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 	if item.ID == "" && item.ExternalID == nil {
 		return errors.New("failed to update item: no internal or external ID provided")
 	}
@@ -541,7 +541,7 @@ func (s *Store) UpdateItem(ctx context.Context, item model.Item) error {
 
 // updateItemLocation updates the list_id and position of an item.
 // It identifies the record via ID or ExternalID.
-func (s *Store) updateItemLocation(ctx context.Context, tx *sql.Tx, item model.Item) error {
+func (s *Store) updateItemLocation(ctx context.Context, tx *sql.Tx, item *model.Item) error {
 	if item.ID == "" && item.ExternalID == nil {
 		return errors.New("failed to update item location: no internal or external ID provided")
 	}
@@ -576,7 +576,7 @@ func (s *Store) updateItemLocation(ctx context.Context, tx *sql.Tx, item model.I
 }
 
 // DeleteItem deletes an item from the database.
-func (s *Store) DeleteItem(ctx context.Context, item model.Item) error {
+func (s *Store) DeleteItem(ctx context.Context, item *model.Item) error {
 	if item.ID == "" && item.ExternalID == nil {
 		return errors.New("failed to delete item: no internal or external ID provided")
 	}

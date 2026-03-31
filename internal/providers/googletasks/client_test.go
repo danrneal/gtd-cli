@@ -808,7 +808,7 @@ func TestCreateItem(t *testing.T) {
 	tests := []struct {
 		name           string
 		listID         string
-		item           model.Item
+		item           *model.Item
 		previousItemID string
 		handler        func(req *http.Request) *http.Response
 		wantErr        bool
@@ -817,7 +817,7 @@ func TestCreateItem(t *testing.T) {
 		{
 			name:   "simple item",
 			listID: "L1",
-			item: model.Item{
+			item: &model.Item{
 				Title:          "Simple",
 				ExternalListID: stringPtr("L1"),
 			},
@@ -877,7 +877,7 @@ func TestCreateItem(t *testing.T) {
 		{
 			name:   "completed item",
 			listID: "L1",
-			item: model.Item{
+			item: &model.Item{
 				Title:          "Done",
 				Status:         model.StatusDone,
 				ExternalListID: stringPtr("L1"),
@@ -908,7 +908,7 @@ func TestCreateItem(t *testing.T) {
 		{
 			name:   "snoozed item",
 			listID: "L1",
-			item: model.Item{
+			item: &model.Item{
 				Title:          "Snoozed",
 				Snoozed:        iso8601ToDate("2024-01-01"),
 				ExternalListID: stringPtr("L1"),
@@ -939,7 +939,7 @@ func TestCreateItem(t *testing.T) {
 		{
 			name:   "item with previous",
 			listID: "L1",
-			item: model.Item{
+			item: &model.Item{
 				Title:          "Task",
 				ExternalListID: stringPtr("L1"),
 			},
@@ -969,7 +969,7 @@ func TestCreateItem(t *testing.T) {
 		{
 			name:   "api error",
 			listID: "L1",
-			item: model.Item{
+			item: &model.Item{
 				Title:          "Fail",
 				ExternalListID: stringPtr("L1"),
 			},
@@ -1019,14 +1019,14 @@ func TestListItems(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		list      model.List
+		list      *model.List
 		handler   func(req *http.Request) *http.Response
 		wantItems []model.Item
 		wantErr   bool
 	}{
 		{
 			name: "basic properties (unsorted, position sort)",
-			list: model.List{
+			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
@@ -1078,7 +1078,7 @@ func TestListItems(t *testing.T) {
 		},
 		{
 			name: "waiting for parsing",
-			list: model.List{
+			list: &model.List{
 				ID:         "1",
 				Name:       "Waiting For",
 				ExternalID: stringPtr("L1"),
@@ -1115,7 +1115,7 @@ func TestListItems(t *testing.T) {
 		},
 		{
 			name: "project parsing",
-			list: model.List{
+			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
@@ -1152,7 +1152,7 @@ func TestListItems(t *testing.T) {
 		},
 		{
 			name: "due date parsing (title)",
-			list: model.List{
+			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
@@ -1189,7 +1189,7 @@ func TestListItems(t *testing.T) {
 		},
 		{
 			name: "multiple tags",
-			list: model.List{
+			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
@@ -1226,7 +1226,7 @@ func TestListItems(t *testing.T) {
 		},
 		{
 			name: "completed task",
-			list: model.List{
+			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
@@ -1263,7 +1263,7 @@ func TestListItems(t *testing.T) {
 		},
 		{
 			name: "description included",
-			list: model.List{
+			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
@@ -1301,7 +1301,7 @@ func TestListItems(t *testing.T) {
 		},
 		{
 			name: "native due date (snoozed)",
-			list: model.List{
+			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
@@ -1339,7 +1339,7 @@ func TestListItems(t *testing.T) {
 		},
 		{
 			name: "updated timestamp",
-			list: model.List{
+			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
@@ -1377,7 +1377,7 @@ func TestListItems(t *testing.T) {
 		},
 		{
 			name: "api error",
-			list: model.List{
+			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
@@ -1443,14 +1443,14 @@ func TestUpdateItem(t *testing.T) {
 	tests := []struct {
 		name    string
 		listID  string
-		item    model.Item
+		item    *model.Item
 		handler func(req *http.Request) *http.Response
 		wantErr bool
 	}{
 		{
 			name:   "simple item",
 			listID: "L1",
-			item: model.Item{
+			item: &model.Item{
 				Title:          "Updated Task",
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
@@ -1505,7 +1505,7 @@ func TestUpdateItem(t *testing.T) {
 		{
 			name:   "completed item",
 			listID: "L1",
-			item: model.Item{
+			item: &model.Item{
 				Title:          "Task",
 				Status:         model.StatusDone,
 				ExternalID:     stringPtr("T1"),
@@ -1541,7 +1541,7 @@ func TestUpdateItem(t *testing.T) {
 		{
 			name:   "snoozed item",
 			listID: "L1",
-			item: model.Item{
+			item: &model.Item{
 				Title:          "Task",
 				Snoozed:        iso8601ToDate("2024-01-01"),
 				ExternalID:     stringPtr("T1"),
@@ -1576,7 +1576,7 @@ func TestUpdateItem(t *testing.T) {
 		{
 			name:   "api error",
 			listID: "L1",
-			item: model.Item{
+			item: &model.Item{
 				Title:          "Fail",
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
@@ -1627,13 +1627,13 @@ func TestDeleteItem(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		item    model.Item
+		item    *model.Item
 		handler func(req *http.Request) *http.Response
 		wantErr bool
 	}{
 		{
 			name: "success",
-			item: model.Item{
+			item: &model.Item{
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
 			},
@@ -1670,7 +1670,7 @@ func TestDeleteItem(t *testing.T) {
 		},
 		{
 			name: "api error",
-			item: model.Item{
+			item: &model.Item{
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
 			},
@@ -1716,19 +1716,19 @@ func TestRenderTitle(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		item      model.Item
+		item      *model.Item
 		wantTitle string
 	}{
 		{
 			name: "simple title",
-			item: model.Item{
+			item: &model.Item{
 				Title: "Simple",
 			},
 			wantTitle: "Simple",
 		},
 		{
 			name: "title with projectid",
-			item: model.Item{
+			item: &model.Item{
 				Title:     "Task",
 				ProjectID: stringPtr("P1"),
 			},
@@ -1736,7 +1736,7 @@ func TestRenderTitle(t *testing.T) {
 		},
 		{
 			name: "title with due",
-			item: model.Item{
+			item: &model.Item{
 				Title: "Task",
 				Due:   iso8601ToDate("2024-12-31"),
 			},
@@ -1744,7 +1744,7 @@ func TestRenderTitle(t *testing.T) {
 		},
 		{
 			name: "title with multiple tags",
-			item: model.Item{
+			item: &model.Item{
 				Title: "Task",
 				Tags:  []string{"t1", "t2"},
 			},
@@ -1752,7 +1752,7 @@ func TestRenderTitle(t *testing.T) {
 		},
 		{
 			name: "title with waiting on",
-			item: model.Item{
+			item: &model.Item{
 				Title:     "Task",
 				WaitingOn: stringPtr("Alice"),
 				Created:   rfc3339ToDate("2024-01-02T10:00:00Z"),

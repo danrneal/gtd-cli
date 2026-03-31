@@ -112,14 +112,14 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 			if _, ok := dstItemsMap[itemKey]; !ok {
 				srcItem.ListID = srcList.ID
 				srcItem.ExternalListID = srcList.ExternalID
-				dstItemKey, err := dst.CreateItem(ctx, srcItem, prevItemID)
+				dstItemKey, err := dst.CreateItem(ctx, &srcItem, prevItemID)
 				if err != nil {
 					return false, fmt.Errorf("failed to create item %q in destination: %w", srcItem.Title, err)
 				}
 
 				if itemKey == "" {
 					s.setKey(&srcItem, dstItemKey)
-					if err := src.UpdateItem(ctx, srcItem); err != nil {
+					if err := src.UpdateItem(ctx, &srcItem); err != nil {
 						return false, fmt.Errorf(
 							"failed to backfill external key for item %q in source: %w",
 							srcItem.Title,
@@ -157,7 +157,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 				}
 
 				srcItem.ListID = srcList.ID
-				if err := dst.UpdateItem(ctx, srcItem); err != nil {
+				if err := dst.UpdateItem(ctx, &srcItem); err != nil {
 					return false, fmt.Errorf("failed to update item %q in destination: %w", srcItem.Title, err)
 				}
 
@@ -209,13 +209,13 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 
 			if srcItem, ok := srcItemsMap[itemKey]; !ok {
 				dstItem.Status = model.StatusDeleted
-				if err := dst.UpdateItem(ctx, dstItem); err != nil {
+				if err := dst.UpdateItem(ctx, &dstItem); err != nil {
 					return false, fmt.Errorf("failed to mark item %q as deleted in destination: %w", dstItem.Title, err)
 				}
 
 				updated = true
 			} else if srcItem.Status == model.StatusDeleted {
-				if err := dst.DeleteItem(ctx, dstItem); err != nil {
+				if err := dst.DeleteItem(ctx, &dstItem); err != nil {
 					return false, fmt.Errorf(
 						"failed to permanently delete item %q from destination: %w",
 						dstItem.Title,
@@ -223,7 +223,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 					)
 				}
 
-				if err := src.DeleteItem(ctx, srcItem); err != nil {
+				if err := src.DeleteItem(ctx, &srcItem); err != nil {
 					return false, fmt.Errorf("failed to permanently delete item %q from source: %w", srcItem.Title, err)
 				}
 
