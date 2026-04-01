@@ -75,28 +75,24 @@ func (f *FakeProvider) GetKey(resource model.Resource) string {
 	return ""
 }
 
-func (f *FakeProvider) SetKey(resource model.Resource, key string) {
-	if f.Name != "external" {
-		resource.SetID(key)
-	} else {
-		resource.SetExternalID(key)
-	}
-}
-
-func (f *FakeProvider) CreateList(_ context.Context, list *model.List) (string, error) {
+func (f *FakeProvider) CreateList(_ context.Context, list *model.List) error {
 	if list.Status != "" && list.Status != model.StatusOpen {
-		return "", errors.New("new lists must have status 'open'")
+		return errors.New("new lists must have status 'open'")
 	}
 
 	if list.Name == "" {
-		return "", errors.New("list name cannot be empty")
+		return errors.New("list name cannot be empty")
 	}
 
 	listKey := f.GetKey(list)
 	if listKey == "" {
 		f.ListCounter++
 		listKey = fmt.Sprintf("%s-list-%d", f.Name, f.ListCounter)
-		f.SetKey(list, listKey)
+		if f.Name == "external" {
+			list.ExternalID = &listKey
+		} else {
+			list.ID = listKey
+		}
 	}
 
 	createdList := *list
@@ -108,7 +104,7 @@ func (f *FakeProvider) CreateList(_ context.Context, list *model.List) (string, 
 	createdList.Items = []*model.Item{}
 	f.Lists = append(f.Lists, createdList)
 
-	return listKey, nil
+	return nil
 }
 
 func (f *FakeProvider) ListLists(_ context.Context) ([]model.List, error) {
@@ -154,8 +150,7 @@ func (f *FakeProvider) UpdateList(_ context.Context, updatedList *model.List, _ 
 				continue
 			}
 
-			updatedListKey := f.GetKey(updatedList)
-			f.SetKey(&list, updatedListKey)
+			list.ID = f.GetKey(updatedList)
 			f.Lists[i] = list
 			break
 		}
@@ -228,20 +223,24 @@ func (f *FakeProvider) DeleteList(_ context.Context, deletedList *model.List) er
 	return fmt.Errorf("list not found: %s", deletedList.Name)
 }
 
-func (f *FakeProvider) CreateItem(_ context.Context, item *model.Item, _ string) (string, error) {
+func (f *FakeProvider) CreateItem(_ context.Context, item *model.Item, _ string) error {
 	if !isValidItemStatus(item.Status) {
-		return "", fmt.Errorf("invalid status: %q", item.Status)
+		return fmt.Errorf("invalid status: %q", item.Status)
 	}
 
 	if item.Title == "" {
-		return "", errors.New("item title cannot be empty")
+		return errors.New("item title cannot be empty")
 	}
 
 	itemKey := f.GetKey(item)
 	if itemKey == "" {
 		f.ItemCounter++
 		itemKey = fmt.Sprintf("%s-item-%d", f.Name, f.ItemCounter)
-		f.SetKey(item, itemKey)
+		if f.Name == "external" {
+			item.ExternalID = &itemKey
+		} else {
+			item.ID = itemKey
+		}
 	}
 
 	for i, list := range f.Lists {
@@ -259,10 +258,10 @@ func (f *FakeProvider) CreateItem(_ context.Context, item *model.Item, _ string)
 		list.Items = append(list.Items, &createdItem)
 		f.Lists[i] = list
 
-		return itemKey, nil
+		return nil
 	}
 
-	return "", fmt.Errorf("list ID and external list ID not found: %s, %v", item.ListID, item.ExternalListID)
+	return fmt.Errorf("list ID and external list ID not found: %s, %v", item.ListID, item.ExternalListID)
 }
 
 func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem *model.Item) error {
@@ -281,8 +280,7 @@ func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem *model.Item) er
 					continue
 				}
 
-				updatedItemKey := f.GetKey(updatedItem)
-				f.SetKey(item, updatedItemKey)
+				item.ID = f.GetKey(updatedItem)
 				list.Items[j] = item
 				f.Lists[i] = list
 				break

@@ -59,45 +59,15 @@ func TestGetKey(t *testing.T) {
 	}
 }
 
-func TestSetKey(t *testing.T) {
-	t.Parallel()
-	client := &Client{}
-
-	tests := []struct {
-		name     string
-		resource model.Resource
-		key      string
-	}{
-		{
-			name:     "set list key",
-			resource: &model.List{},
-			key:      "L1",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			client.SetKey(tt.resource, tt.key)
-
-			got := client.GetKey(tt.resource)
-			if got != tt.key {
-				t.Errorf("SetKey() did not set key correctly, got %v, want %v", got, tt.key)
-			}
-		})
-	}
-}
-
 func TestCreateList(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		list    *model.List
-		handler func(req *http.Request) *http.Response
-		wantErr bool
-		wantID  string
+		name           string
+		list           *model.List
+		handler        func(req *http.Request) *http.Response
+		wantErr        bool
+		wantExternalID string
 	}{
 		{
 			name: "success",
@@ -138,8 +108,8 @@ func TestCreateList(t *testing.T) {
 
 				return resp
 			},
-			wantErr: false,
-			wantID:  "new-list-id",
+			wantErr:        false,
+			wantExternalID: "new-list-id",
 		},
 		{
 			name: "api error",
@@ -178,14 +148,20 @@ func TestCreateList(t *testing.T) {
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			tasksClient := NewClient(tasksService)
 
-			gotID, err := tasksClient.CreateList(context.Background(), tt.list)
+			err := tasksClient.CreateList(context.Background(), tt.list)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateList() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if !tt.wantErr && gotID != tt.wantID {
-				t.Errorf("CreateList() gotID = %v, want %v", gotID, tt.wantID)
+			if tt.wantErr {
+				return
+			}
+
+			if tt.list.ExternalID == nil {
+				t.Errorf("CreateList() failed to mutate ExternalID pointer")
+			} else if *tt.list.ExternalID != tt.wantExternalID {
+				t.Errorf("CreateList() mutated ExternalID = %v, want %v", *tt.list.ExternalID, tt.wantExternalID)
 			}
 		})
 	}
@@ -812,7 +788,7 @@ func TestCreateItem(t *testing.T) {
 		previousItemID string
 		handler        func(req *http.Request) *http.Response
 		wantErr        bool
-		wantID         string
+		wantExternalID string
 	}{
 		{
 			name:   "simple item",
@@ -871,8 +847,8 @@ func TestCreateItem(t *testing.T) {
 
 				return resp
 			},
-			wantErr: false,
-			wantID:  "T1",
+			wantErr:        false,
+			wantExternalID: "T1",
 		},
 		{
 			name:   "completed item",
@@ -902,8 +878,8 @@ func TestCreateItem(t *testing.T) {
 
 				return resp
 			},
-			wantErr: false,
-			wantID:  "T1",
+			wantErr:        false,
+			wantExternalID: "T1",
 		},
 		{
 			name:   "snoozed item",
@@ -933,8 +909,8 @@ func TestCreateItem(t *testing.T) {
 
 				return resp
 			},
-			wantErr: false,
-			wantID:  "T1",
+			wantErr:        false,
+			wantExternalID: "T1",
 		},
 		{
 			name:   "item with previous",
@@ -963,8 +939,8 @@ func TestCreateItem(t *testing.T) {
 
 				return resp
 			},
-			wantErr: false,
-			wantID:  "T1",
+			wantErr:        false,
+			wantExternalID: "T1",
 		},
 		{
 			name:   "api error",
@@ -1001,14 +977,20 @@ func TestCreateItem(t *testing.T) {
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			tasksClient := NewClient(tasksService)
 
-			gotID, err := tasksClient.CreateItem(context.Background(), tt.item, tt.previousItemID)
+			err := tasksClient.CreateItem(context.Background(), tt.item, tt.previousItemID)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateItem() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if !tt.wantErr && gotID != tt.wantID {
-				t.Errorf("CreateItem() gotID = %v, want %v", gotID, tt.wantID)
+			if tt.wantErr {
+				return
+			}
+
+			if tt.item.ExternalID == nil {
+				t.Errorf("CreateItem() failed to mutate ExternalID pointer")
+			} else if *tt.item.ExternalID != tt.wantExternalID {
+				t.Errorf("CreateItem() mutated ExternalID = %v, want %v", *tt.item.ExternalID, tt.wantExternalID)
 			}
 		})
 	}

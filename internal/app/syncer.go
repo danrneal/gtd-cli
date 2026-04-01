@@ -12,7 +12,6 @@ type Syncer struct {
 	local  Provider
 	remote RemoteProvider
 	getKey func(model.Resource) string
-	setKey func(model.Resource, string)
 }
 
 // NewSyncer creates a new Syncer instance with the given local and remote providers.
@@ -21,7 +20,6 @@ func NewSyncer(local Provider, remote RemoteProvider) *Syncer {
 		local:  local,
 		remote: remote,
 		getKey: remote.GetKey,
-		setKey: remote.SetKey,
 	}
 
 	return syncer
@@ -81,13 +79,12 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 		listKey := s.getKey(&srcList)
 		dstList, ok := dstListsMap[listKey]
 		if !ok {
-			dstListKey, err := dst.CreateList(ctx, &srcList)
+			err := dst.CreateList(ctx, &srcList)
 			if err != nil {
 				return false, fmt.Errorf("failed to create list %q in destination: %w", srcList.Name, err)
 			}
 
 			if listKey == "" {
-				s.setKey(&srcList, dstListKey)
 				if err := src.UpdateList(ctx, &srcList, srcList.Items); err != nil {
 					return false, fmt.Errorf(
 						"failed to backfill external key for list %q in source: %w",
@@ -112,13 +109,12 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 			if _, ok := dstItemsMap[itemKey]; !ok {
 				srcItem.ListID = srcList.ID
 				srcItem.ExternalListID = srcList.ExternalID
-				dstItemKey, err := dst.CreateItem(ctx, srcItem, prevItemID)
+				err := dst.CreateItem(ctx, srcItem, prevItemID)
 				if err != nil {
 					return false, fmt.Errorf("failed to create item %q in destination: %w", srcItem.Title, err)
 				}
 
 				if itemKey == "" {
-					s.setKey(srcItem, dstItemKey)
 					if err := src.UpdateItem(ctx, srcItem); err != nil {
 						return false, fmt.Errorf(
 							"failed to backfill external key for item %q in source: %w",

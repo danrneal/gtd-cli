@@ -21,7 +21,5 @@ const (
 // internal (SQLite) and external (Provider) identifiers.
 type Resource interface {
 	GetID() string
-	SetID(id string)
 	GetExternalID() *string
-	SetExternalID(externalID string)
 }

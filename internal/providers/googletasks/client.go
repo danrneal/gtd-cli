@@ -41,23 +41,20 @@ func (c *Client) GetKey(resource model.Resource) string {
 	return ""
 }
 
-// SetKey sets the external key on the resource (in-memory).
-func (c *Client) SetKey(resource model.Resource, key string) {
-	resource.SetExternalID(key)
-}
-
 // CreateList creates a new task list on the Google Tasks service.
-func (c *Client) CreateList(ctx context.Context, list *model.List) (string, error) {
+func (c *Client) CreateList(ctx context.Context, list *model.List) error {
 	tasklist := &tasks.TaskList{
 		Title: list.Name,
 	}
 
 	taskList, err := c.service.Tasklists.Insert(tasklist).Context(ctx).Do()
 	if err != nil {
-		return "", fmt.Errorf("failed to create tasklist %s: %w", tasklist.Title, err)
+		return fmt.Errorf("failed to create tasklist %s: %w", tasklist.Title, err)
 	}
 
-	return taskList.Id, nil
+	list.ExternalID = &taskList.Id
+
+	return nil
 }
 
 // ListLists retrieves all task lists from Google Tasks.
@@ -126,7 +123,7 @@ func (c *Client) DeleteList(ctx context.Context, list *model.List) error {
 // CreateItem creates a new task in the specified Google Task list.
 // If previousItemID is provided, the task is inserted after that item.
 // It renders the item's title to include metadata (project, tags, due date) compatible with the parser.
-func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemID string) (string, error) {
+func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemID string) error {
 	title := renderTitle(item)
 	status := statusNeedsAction
 	if item.Status == model.StatusDone {
@@ -152,10 +149,12 @@ func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemI
 
 	task, err := tasksInsertCall.Context(ctx).Do()
 	if err != nil {
-		return "", fmt.Errorf("failed to insert task: %w", err)
+		return fmt.Errorf("failed to insert task: %w", err)
 	}
 
-	return task.Id, nil
+	item.ExternalID = &task.Id
+
+	return nil
 }
 
 // listItems retrieves all tasks from the specified list and converts them to internal Items.

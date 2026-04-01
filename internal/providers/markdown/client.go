@@ -29,15 +29,10 @@ func (c *Client) GetKey(resource model.Resource) string {
 	return ""
 }
 
-// SetKey sets the key on the resource (in-memory).
-func (c *Client) SetKey(resource model.Resource, key string) {
-	resource.SetID(key)
-}
-
 // CreateList creates a new list in the markdown file.
-func (c *Client) CreateList(_ context.Context, _ *model.List) (string, error) {
+func (c *Client) CreateList(_ context.Context, _ *model.List) error {
 	// we might need to itroduce a previousListID param
-	return "", nil
+	return nil
 }
 
 // ListLists retrieves all lists from the markdown file.
@@ -56,8 +51,8 @@ func (c *Client) DeleteList(_ context.Context, _ *model.List) error {
 }
 
 // CreateItem adds a new item to a list in the markdown file.
-func (c *Client) CreateItem(_ context.Context, _ *model.Item, _ string) (string, error) {
-	return "", nil
+func (c *Client) CreateItem(_ context.Context, _ *model.Item, _ string) error {
+	return nil
 }
 
 //nolint:unused // TODO: implement later

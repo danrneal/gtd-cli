@@ -27,17 +27,7 @@ func (i *Item) GetID() string {
 	return i.ID
 }
 
-// SetID sets the internal ID of the item.
-func (i *Item) SetID(id string) {
-	i.ID = id
-}
-
 // GetExternalID returns the external ID of the item.
 func (i *Item) GetExternalID() *string {
 	return i.ExternalID
-}
-
-// SetExternalID sets the external ID of the item.
-func (i *Item) SetExternalID(externalID string) {
-	i.ExternalID = &externalID
 }
