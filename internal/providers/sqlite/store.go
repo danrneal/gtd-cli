@@ -133,7 +133,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 		return nil, err
 	}
 
-	itemsByListID := make(map[string][]*model.Item)
+	itemsByListID := make(map[string][]*model.Item, len(items))
 	for _, item := range items {
 		itemsByListID[item.ListID] = append(itemsByListID[item.ListID], item)
 	}
@@ -219,11 +219,7 @@ func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems [
 		return errors.New("failed to update list: no internal or external ID provided")
 	}
 
-	if list.Status == "" {
-		list.Status = model.StatusOpen
-	}
-
-	if !isValidListStatus(list.Status) {
+	if list.Status != "" && !isValidListStatus(list.Status) {
 		return fmt.Errorf("invalid list status: %q", list.Status)
 	}
 
@@ -253,7 +249,7 @@ func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems [
                 UPDATE lists SET
                         name = ?,
                         position = ?,
-                        status = ?,
+                        status = COALESCE(NULLIF(?, ''), status, ?),
                         modified = ?,
                         external_id = COALESCE(?, external_id)
                 WHERE id = ?;
@@ -263,6 +259,7 @@ func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems [
 		list.Name,
 		list.Position,
 		list.Status,
+		model.StatusOpen,
 		list.Modified,
 		list.ExternalID,
 		list.ID,
@@ -271,9 +268,13 @@ func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems [
 		return fmt.Errorf("failed to update list %q (ID: %s): %w", list.Name, list.ID, err)
 	}
 
-	err = checkRowsAffected(res, list)
+	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("list with ID %q not found", list.ID)
 	}
 
 	if list.Status == model.StatusDeleted {
@@ -282,13 +283,9 @@ func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems [
 		}
 	}
 
-	for i, item := range list.Items {
-		if i < len(currentItems) && item.ID == currentItems[i].ID {
-			continue
-		}
-
-		item.ListID = list.ID
-		if err := s.updateItemLocation(ctx, tx, item); err != nil {
+	itemsToMove := calculateItemsToMove(list, currentItems)
+	if len(itemsToMove) > 0 {
+		if err := s.batchMoveItems(ctx, tx, itemsToMove); err != nil {
 			return err
 		}
 	}
@@ -468,7 +465,7 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, er
 	return items, nil
 }
 
-// getItemID resolves the internal list ID using the provided external ID.
+// getItemID resolves the internal item ID using the provided external ID.
 func (s *Store) getItemID(ctx context.Context, tx *sql.Tx, externalID *string) (string, error) {
 	if externalID == nil {
 		return "", errors.New("externalID is nil")
@@ -560,9 +557,13 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 		return fmt.Errorf("failed to update item %q (ID: %s): %w", item.Title, item.ID, err)
 	}
 
-	err = checkRowsAffected(res, item)
+	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("item with ID %q not found", item.ID)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -572,22 +573,9 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 	return nil
 }
 
-// updateItemLocation updates the list_id and position of an item.
-// It identifies the record via ID or ExternalID.
-func (s *Store) updateItemLocation(ctx context.Context, tx *sql.Tx, item *model.Item) error {
-	if item.ID == "" && item.ExternalID == nil {
-		return errors.New("failed to update item location: no internal or external ID provided")
-	}
-
-	if item.ID == "" {
-		itemID, err := s.getItemID(ctx, tx, item.ExternalID)
-		if err != nil {
-			return err
-		}
-
-		item.ID = itemID
-	}
-
+// batchMoveItems updates the list_id and position for a batch of items.
+// It uses a single prepared statement for efficiency.
+func (s *Store) batchMoveItems(ctx context.Context, tx *sql.Tx, items []*model.Item) error {
 	query := `
 		UPDATE items SET
 			list_id = ?,
@@ -595,18 +583,44 @@ func (s *Store) updateItemLocation(ctx context.Context, tx *sql.Tx, item *model.
 		WHERE id = ?;
 	`
 
-	res, err := tx.ExecContext(ctx, query,
-		item.ListID,
-		item.Position,
-		item.ID,
-	)
+	stmt, err := tx.PrepareContext(ctx, query)
 	if err != nil {
-		return fmt.Errorf("failed to move item %q (ID: %s): %w", item.Title, item.ID, err)
+		return fmt.Errorf("failed to prepare batch move item statement: %w", err)
 	}
 
-	err = checkRowsAffected(res, item)
-	if err != nil {
-		return err
+	defer stmt.Close()
+
+	for _, item := range items {
+		if item.ID == "" && item.ExternalID == nil {
+			return errors.New("failed to update item location: no internal or external ID provided")
+		}
+
+		if item.ID == "" {
+			itemID, err := s.getItemID(ctx, tx, item.ExternalID)
+			if err != nil {
+				return err
+			}
+
+			item.ID = itemID
+		}
+
+		res, err := stmt.ExecContext(ctx,
+			item.ListID,
+			item.Position,
+			item.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to move item %q (ID: %s): %w", item.Title, item.ID, err)
+		}
+
+		rowsAffected, err := res.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("failed to get rows affected: %w", err)
+		}
+
+		if rowsAffected == 0 {
+			return fmt.Errorf("item with ID %q not found", item.ID)
+		}
 	}
 
 	return nil
@@ -632,6 +646,7 @@ func (s *Store) deleteListItems(ctx context.Context, tx *sql.Tx, list *model.Lis
 	return nil
 }
 
+// deleteResource handles the boilerplate of resolving an ID and deleting a record within a transaction.
 func (s *Store) deleteResource(ctx context.Context, resource model.Resource) error {
 	if resource.GetID() == "" && resource.GetExternalID() == nil {
 		return errors.New("failed to delete resource: no internal or external ID provided")
@@ -673,9 +688,13 @@ func (s *Store) deleteResource(ctx context.Context, resource model.Resource) err
 		return fmt.Errorf("failed to execute delete query for resource ID %q: %w", resourceID, err)
 	}
 
-	err = checkRowsAffected(res, resource)
+	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("resource with ID %q not found", resourceID)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -705,16 +724,18 @@ func isValidItemStatus(status model.Status) bool {
 	}
 }
 
-// checkRowsAffected verifies that a query modified a row.
-func checkRowsAffected(res sql.Result, resource model.Resource) error {
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+// calculateItemsToMove compares the incoming list's items against the current database state.
+// It returns a slice of items whose Position or ListID have changed and require a database update.
+func calculateItemsToMove(list *model.List, currentItems []*model.Item) []*model.Item {
+	var itemsToMove []*model.Item
+	for i, item := range list.Items {
+		if i < len(currentItems) && item.ID == currentItems[i].ID {
+			continue
+		}
+
+		item.ListID = list.ID
+		itemsToMove = append(itemsToMove, item)
 	}
 
-	if rowsAffected == 0 {
-		return fmt.Errorf("resource with ID %q or ExternalID %v not found", resource.GetID(), resource.GetExternalID())
-	}
-
-	return nil
+	return itemsToMove
 }

@@ -233,7 +233,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 
 // createResourceMaps creates lookup maps for lists and items from a slice of lists, keyed by their sync identifier.
 func (s *Syncer) createResourceMaps(lists []model.List) (map[string]model.List, map[string]model.Item) {
-	listsMap := make(map[string]model.List)
+	listsMap := make(map[string]model.List, len(lists))
 	itemsMap := make(map[string]model.Item)
 	for _, list := range lists {
 		for _, item := range list.Items {

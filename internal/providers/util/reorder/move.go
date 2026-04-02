@@ -52,7 +52,7 @@ func CalculateMoves(list *model.List, currentItems []*model.Item) []Move {
 }
 
 func calculateStableItemIDs(updatedItems, currentItems []*model.Item) map[string]bool {
-	currentItemIDs := make(map[string]int)
+	currentItemIDs := make(map[string]int, len(currentItems))
 	for i, currentItem := range currentItems {
 		currentItemIDs[*currentItem.ExternalID] = i
 	}

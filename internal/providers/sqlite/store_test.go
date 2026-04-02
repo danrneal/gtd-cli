@@ -680,13 +680,13 @@ func TestUpdateList(t *testing.T) {
 			},
 		},
 		{
-			name: "default status (open)",
+			name: "preserves existing status when empty",
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified)
-						VALUES (?, ?, ?)
-					`, "list-1", "Valid", time.Now(),
+						INSERT INTO lists (id, name, status, modified)
+						VALUES (?, ?, ?, ?)
+					`, "list-1", "Valid", "deleted", time.Now(),
 				)
 
 				return "list-1"
@@ -702,7 +702,7 @@ func TestUpdateList(t *testing.T) {
 			},
 			wantList: &model.List{
 				Name:   "Status Test",
-				Status: model.StatusOpen,
+				Status: model.StatusDeleted,
 			},
 		},
 		{
