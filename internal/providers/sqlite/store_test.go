@@ -1080,6 +1080,35 @@ func TestUpdateList(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "nonexistent item external id",
+			setupDB: func(_ *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "List", time.Now(),
+				)
+
+				return "list-1"
+			},
+			setupList: func(id string) model.List {
+				list := model.List{
+					ID:   id,
+					Name: "List",
+					Items: []*model.Item{
+						{
+							ExternalID: stringPtr("missing-ext-item"),
+							ListID:     id,
+							Position:   0,
+						},
+					},
+				}
+
+				return list
+			},
+			wantErr: true,
+		},
+		{
 			name: "context cancellation",
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
@@ -1278,6 +1307,17 @@ func TestDeleteList(t *testing.T) {
 			setupDB: func(_ *testing.T, _ *sql.DB) model.List {
 				list := model.List{
 					Name: "Headless List",
+				}
+
+				return list
+			},
+			wantErr: true,
+		},
+		{
+			name: "delete list with nonexistent external id",
+			setupDB: func(_ *testing.T, _ *sql.DB) model.List {
+				list := model.List{
+					ExternalID: stringPtr("non-existent-ext"),
 				}
 
 				return list
@@ -1809,6 +1849,21 @@ func TestUpdateItem(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "update item with nonexistent external id",
+			setupDB: func(_ *testing.T, _ *sql.DB) string {
+				return ""
+			},
+			setupItem: func(_ string) model.Item {
+				item := model.Item{
+					ExternalID: stringPtr("non-existent-ext"),
+					Title:      "Headless Update",
+				}
+
+				return item
+			},
+			wantErr: true,
+		},
+		{
 			name: "invalid status",
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
@@ -2133,6 +2188,17 @@ func TestDeleteItem(t *testing.T) {
 			setupDB: func(_ *testing.T, _ *sql.DB) model.Item {
 				item := model.Item{
 					Title: "Headless Item",
+				}
+
+				return item
+			},
+			wantErr: true,
+		},
+		{
+			name: "delete item with nonexistent external id",
+			setupDB: func(_ *testing.T, _ *sql.DB) model.Item {
+				item := model.Item{
+					ExternalID: stringPtr("non-existent-ext"),
 				}
 
 				return item

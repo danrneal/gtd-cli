@@ -81,7 +81,6 @@ linters:
     - nilnil
     - noctx
     - nolintlint
-    - nonamedreturns
     - nosprintfhostport
     - paralleltest
     - perfsprint
@@ -192,6 +191,7 @@ linters:
     gocritic:
       enable-all: true
       disabled-checks:
+        # Reconsider after https://github.com/go-critic/go-critic/issues/1526 is resolved.
         - unnamedResult
       settings:
         captLocal:
@@ -273,6 +273,7 @@ linters:
         - name: call-to-gc
         - name: comment-spacings
         - name: confusing-naming
+        - name: confusing-results
         - name: deep-exit
         - name: defer
         - name: early-return
