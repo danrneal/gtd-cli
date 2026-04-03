@@ -853,6 +853,7 @@ func TestCreateItem(t *testing.T) {
 			item: &model.Item{
 				Title:          "  Simple  \n",
 				ExternalListID: stringPtr("L1"),
+				Modified:       time.Now(),
 			},
 			handler: func(req *http.Request) *http.Response {
 				if req.Method != http.MethodPost {
@@ -925,6 +926,7 @@ func TestCreateItem(t *testing.T) {
 				Title:          "Done",
 				Status:         model.StatusDone,
 				ExternalListID: stringPtr("L1"),
+				Modified:       time.Now(),
 			},
 			handler: func(req *http.Request) *http.Response {
 				body, _ := io.ReadAll(req.Body)
@@ -956,6 +958,7 @@ func TestCreateItem(t *testing.T) {
 				Title:          "Snoozed",
 				Snoozed:        iso8601ToDate("2024-01-01"),
 				ExternalListID: stringPtr("L1"),
+				Modified:       time.Now(),
 			},
 			handler: func(req *http.Request) *http.Response {
 				body, _ := io.ReadAll(req.Body)
@@ -986,6 +989,7 @@ func TestCreateItem(t *testing.T) {
 			item: &model.Item{
 				Title:          "Task",
 				ExternalListID: stringPtr("L1"),
+				Modified:       time.Now(),
 			},
 			previousItemID: "P1",
 			handler: func(req *http.Request) *http.Response {
@@ -1524,6 +1528,7 @@ func TestUpdateItem(t *testing.T) {
 				Title:          "  Updated Task  \n",
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
+				Modified:       time.Now(),
 			},
 			handler: func(req *http.Request) *http.Response {
 				if req.Method != http.MethodPatch {
@@ -1580,6 +1585,7 @@ func TestUpdateItem(t *testing.T) {
 				Status:         model.StatusDone,
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
+				Modified:       time.Now(),
 			},
 			handler: func(req *http.Request) *http.Response {
 				body, _ := io.ReadAll(req.Body)
@@ -1616,6 +1622,7 @@ func TestUpdateItem(t *testing.T) {
 				Snoozed:        iso8601ToDate("2024-01-01"),
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
+				Modified:       time.Now(),
 			},
 			handler: func(req *http.Request) *http.Response {
 				body, _ := io.ReadAll(req.Body)

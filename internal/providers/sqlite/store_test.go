@@ -1730,6 +1730,7 @@ func TestUpdateItem(t *testing.T) {
 					ListID:     "list-1",
 					Title:      "Updated Title",
 					Status:     model.StatusNotStarted,
+					Modified:   time.Now(),
 				}
 
 				return item
@@ -1776,6 +1777,7 @@ func TestUpdateItem(t *testing.T) {
 					Title:      "Updated",
 					Status:     model.StatusNotStarted,
 					ExternalID: nil,
+					Modified:   time.Now(),
 				}
 
 				return item

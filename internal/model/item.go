@@ -63,6 +63,10 @@ func (i *Item) Validate() error {
 		return fmt.Errorf("invalid item status: %q", i.Status)
 	}
 
+	if i.Modified.IsZero() {
+		return errors.New("item modified timestamp cannot be zero")
+	}
+
 	return nil
 }
 

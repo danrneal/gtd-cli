@@ -2,6 +2,7 @@ package model_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -89,35 +90,48 @@ func TestItem_Validate(t *testing.T) {
 		{
 			name: "valid item",
 			item: &model.Item{
-				Title:  "Valid Task",
-				ListID: "list-1",
-				Status: model.StatusNotStarted,
+				Title:    "Valid Task",
+				ListID:   "list-1",
+				Status:   model.StatusNotStarted,
+				Modified: time.Now(),
 			},
 			wantErr: false,
 		},
 		{
 			name: "invalid title",
 			item: &model.Item{
-				Title:  "",
-				ListID: "list-1",
-				Status: model.StatusNotStarted,
+				Title:    "",
+				ListID:   "list-1",
+				Status:   model.StatusNotStarted,
+				Modified: time.Now(),
 			},
 			wantErr: true,
 		},
 		{
 			name: "no list IDs",
 			item: &model.Item{
-				Title:  "Floating Task",
-				Status: model.StatusNotStarted,
+				Title:    "Floating Task",
+				Status:   model.StatusNotStarted,
+				Modified: time.Now(),
 			},
 			wantErr: true,
 		},
 		{
 			name: "invalid status",
 			item: &model.Item{
+				Title:    "Valid Task",
+				ListID:   "list-1",
+				Status:   "invalid_status",
+				Modified: time.Now(),
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing modified timestamp",
+			item: &model.Item{
 				Title:  "Valid Task",
 				ListID: "list-1",
-				Status: "invalid_status",
+				Status: model.StatusNotStarted,
 			},
 			wantErr: true,
 		},
