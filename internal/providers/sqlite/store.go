@@ -7,12 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
-	"github.com/danrneal/gtd.nvim/internal/providers/util/text"
 )
 
 // Store manages the SQLite database connection and executes queries.
@@ -82,8 +80,6 @@ func (s *Store) createTables(ctx context.Context) error {
 
 // CreateList inserts a new list into the database.
 func (s *Store) CreateList(ctx context.Context, list *model.List) error {
-	list.ID = uuid.NewString()[:8]
-
 	list.Clean()
 	if err := list.Validate(); err != nil {
 		return fmt.Errorf("invalid list: %w", err)
@@ -92,6 +88,8 @@ func (s *Store) CreateList(ctx context.Context, list *model.List) error {
 	if list.Status != model.StatusOpen {
 		return errors.New("new lists must have status 'open'")
 	}
+
+	list.ID = uuid.NewString()[:8]
 
 	query := `
 		INSERT INTO lists (
@@ -306,17 +304,11 @@ func (s *Store) DeleteList(ctx context.Context, list *model.List) error {
 // If item.ListID is empty, it attempts to resolve it using item.ExternalListID.
 // The previousItemID parameter is ignored by the SQLite store but kept for interface consistency.
 func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) error {
-	item.ID = uuid.NewString()[:8]
-	if !isValidItemStatus(item.Status) {
-		return fmt.Errorf("invalid status: %q", item.Status)
+	item.Clean()
+	if err := item.Validate(); err != nil {
+		return fmt.Errorf("invalid item: %w", err)
 	}
 
-	item.Title = strings.TrimSpace(item.Title)
-	if item.Title == "" {
-		return errors.New("item title cannot be empty")
-	}
-
-	item.Description = text.MultilineTrim(item.Description)
 	tagsJSON, err := json.Marshal(item.Tags)
 	if err != nil {
 		return fmt.Errorf("failed to marshal tags: %w", err)
@@ -338,6 +330,8 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 
 		item.ListID = listID
 	}
+
+	item.ID = uuid.NewString()[:8]
 
 	query := `
                 INSERT INTO items (
@@ -485,20 +479,15 @@ func (s *Store) getItemID(ctx context.Context, tx *sql.Tx, externalID *string) (
 // UpdateItem updates an existing item in the database.
 // It identifies the record via ID or ExternalID.
 func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
+	item.Clean()
+	if err := item.Validate(); err != nil {
+		return fmt.Errorf("invalid item: %w", err)
+	}
+
 	if item.ID == "" && item.ExternalID == nil {
 		return errors.New("failed to update item: no internal or external ID provided")
 	}
 
-	if !isValidItemStatus(item.Status) {
-		return fmt.Errorf("invalid status: %q", item.Status)
-	}
-
-	item.Title = strings.TrimSpace(item.Title)
-	if item.Title == "" {
-		return errors.New("item title cannot be empty")
-	}
-
-	item.Description = text.MultilineTrim(item.Description)
 	tagsJSON, err := json.Marshal(item.Tags)
 	if err != nil {
 		return fmt.Errorf("failed to marshal tags: %w", err)
@@ -698,16 +687,6 @@ func (s *Store) deleteResource(ctx context.Context, resource model.Resource) err
 	}
 
 	return nil
-}
-
-// isValidItemStatus checks if the provided status is a valid enum value for items.
-func isValidItemStatus(status model.Status) bool {
-	switch status {
-	case model.StatusNotStarted, model.StatusInProgress, model.StatusDone, model.StatusDeleted:
-		return true
-	default:
-		return false
-	}
 }
 
 // calculateItemsToMove compares the incoming list's items against the current database state.

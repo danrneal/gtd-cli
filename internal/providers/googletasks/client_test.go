@@ -851,7 +851,7 @@ func TestCreateItem(t *testing.T) {
 			name:   "simple item",
 			listID: "L1",
 			item: &model.Item{
-				Title:          "Simple",
+				Title:          "  Simple  \n",
 				ExternalListID: stringPtr("L1"),
 			},
 			handler: func(req *http.Request) *http.Response {
@@ -906,6 +906,17 @@ func TestCreateItem(t *testing.T) {
 			},
 			wantErr:        false,
 			wantExternalID: "T1",
+		},
+		{
+			name:   "invalid item (validation failed)",
+			listID: "L1",
+			item: &model.Item{
+				Title: "",
+			},
+			handler: func(_ *http.Request) *http.Response {
+				return nil
+			},
+			wantErr: true,
 		},
 		{
 			name:   "completed item",
@@ -1510,7 +1521,7 @@ func TestUpdateItem(t *testing.T) {
 			name:   "simple item",
 			listID: "L1",
 			item: &model.Item{
-				Title:          "Updated Task",
+				Title:          "  Updated Task  \n",
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
 			},
@@ -1631,6 +1642,16 @@ func TestUpdateItem(t *testing.T) {
 				return resp
 			},
 			wantErr: false,
+		},
+		{
+			name: "invalid item (validation failed)",
+			item: &model.Item{
+				Title: "",
+			},
+			handler: func(_ *http.Request) *http.Response {
+				return nil
+			},
+			wantErr: true,
 		},
 		{
 			name: "missing external identifiers",

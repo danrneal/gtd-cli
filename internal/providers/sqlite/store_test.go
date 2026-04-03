@@ -1414,25 +1414,7 @@ func TestCreateItem(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name: "valid item minimal fields (auto-trimmed title)",
-			setupDB: func(t *testing.T, db *sql.DB) {
-				mustExec(t, db,
-					`
-						INSERT INTO lists (id, name, modified)
-						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", time.Now(),
-				)
-			},
-			item: &model.Item{
-				ListID:   "list-1",
-				Title:    "  Buy Milk  ",
-				Status:   model.StatusNotStarted,
-				Modified: time.Now(),
-				Created:  time.Now(),
-			},
-		},
-		{
-			name: "valid item complex fields (multiline desc)",
+			name: "valid item",
 			setupDB: func(t *testing.T, db *sql.DB) {
 				mustExec(t, db,
 					`
@@ -1443,7 +1425,7 @@ func TestCreateItem(t *testing.T) {
 			},
 			item: &model.Item{
 				ListID:      "list-1",
-				Title:       "Complex Task",
+				Title:       "  Complex Task  ",
 				Description: "  Line 1   \n  Line 2   \n    Line 3",
 				Status:      model.StatusDone,
 				ProjectID:   stringPtr("proj-1"),
@@ -1836,46 +1818,7 @@ func TestUpdateItem(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "invalid status",
-			setupDB: func(t *testing.T, db *sql.DB) string {
-				mustExec(t, db,
-					`
-						INSERT INTO lists (id, name, modified)
-						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", time.Now(),
-				)
-
-				mustExec(t, db,
-					`
-						INSERT INTO items (
-							id,
-							title,
-							description,
-							list_id,
-							tags,
-							modified,
-							created
-						) VALUES (?, ?, ?, ?, '[]', ?, ?)
-					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),
-				)
-
-				return "item-1"
-			},
-			setupItem: func(id string) model.Item {
-				item := model.Item{
-					ID:       id,
-					ListID:   "list-1",
-					Title:    "Valid",
-					Status:   "bad_status",
-					Modified: time.Now(),
-				}
-
-				return item
-			},
-			wantErr: true,
-		},
-		{
-			name: "empty title",
+			name: "invalid item (validation failed)",
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
 					`
