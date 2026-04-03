@@ -113,6 +113,17 @@ func TestCreateList(t *testing.T) {
 			wantExternalID: "new-list-id",
 		},
 		{
+			name: "invalid status for new list",
+			list: &model.List{
+				Name:   "New List",
+				Status: model.StatusDeleted,
+			},
+			handler: func(_ *http.Request) *http.Response {
+				return nil
+			},
+			wantErr: true,
+		},
+		{
 			name: "invalid list (validation failed)",
 			list: &model.List{
 				Name: "",
@@ -609,6 +620,16 @@ func TestUpdateList(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "missing external id",
+			list: &model.List{
+				Name: "Update List",
+			},
+			handler: func(_ *http.Request) *http.Response {
+				return nil
+			},
+			wantErr: true,
+		},
+		{
 			name: "update failure",
 			list: &model.List{
 				Name:       "Fail List",
@@ -750,6 +771,16 @@ func TestDeleteList(t *testing.T) {
 				return resp
 			},
 			wantErr: false,
+		},
+		{
+			name: "missing external id",
+			list: &model.List{
+				Name: "Delete List",
+			},
+			handler: func(_ *http.Request) *http.Response {
+				return nil
+			},
+			wantErr: true,
 		},
 		{
 			name: "invalid list (validation failed)",

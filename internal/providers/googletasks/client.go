@@ -3,6 +3,7 @@ package googletasks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -46,6 +47,10 @@ func (c *Client) CreateList(ctx context.Context, list *model.List) error {
 	list.Clean()
 	if err := list.Validate(); err != nil {
 		return fmt.Errorf("invalid list: %w", err)
+	}
+
+	if list.Status != model.StatusOpen {
+		return errors.New("new lists must have status 'open'")
 	}
 
 	tasklist := &tasks.TaskList{
@@ -103,6 +108,10 @@ func (c *Client) UpdateList(ctx context.Context, list *model.List, currentItems 
 		return fmt.Errorf("invalid list: %w", err)
 	}
 
+	if list.ExternalID == nil {
+		return errors.New("failed to update list: missing external ID")
+	}
+
 	tasklist := &tasks.TaskList{
 		Title: list.Name,
 	}
@@ -123,6 +132,10 @@ func (c *Client) UpdateList(ctx context.Context, list *model.List, currentItems 
 
 // DeleteList deletes a task list from Google Tasks.
 func (c *Client) DeleteList(ctx context.Context, list *model.List) error {
+	if list.ExternalID == nil {
+		return errors.New("failed to delete list: missing external ID")
+	}
+
 	if err := c.service.Tasklists.Delete(*list.ExternalID).Context(ctx).Do(); err != nil {
 		return fmt.Errorf("failed to delete tasklist: %w", err)
 	}
