@@ -2,6 +2,7 @@ package model_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
 )
@@ -63,24 +64,35 @@ func TestList_Validate(t *testing.T) {
 		{
 			name: "valid list",
 			list: &model.List{
-				Name:   "Inbox",
-				Status: model.StatusOpen,
+				Name:     "Inbox",
+				Status:   model.StatusOpen,
+				Modified: time.Now(),
 			},
 			wantErr: false,
 		},
 		{
 			name: "invalid name",
 			list: &model.List{
-				Name:   "",
-				Status: model.StatusOpen,
+				Name:     "",
+				Status:   model.StatusOpen,
+				Modified: time.Now(),
 			},
 			wantErr: true,
 		},
 		{
 			name: "invalid status",
 			list: &model.List{
+				Name:     "Inbox",
+				Status:   "unknown_status",
+				Modified: time.Now(),
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing modified timestamp",
+			list: &model.List{
 				Name:   "Inbox",
-				Status: "unknown_status",
+				Status: model.StatusOpen,
 			},
 			wantErr: true,
 		},

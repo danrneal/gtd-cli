@@ -72,7 +72,8 @@ func TestCreateList(t *testing.T) {
 		{
 			name: "success",
 			list: &model.List{
-				Name: "  New List  \n",
+				Name:     "  New List  \n",
+				Modified: time.Now(),
 			},
 			handler: func(req *http.Request) *http.Response {
 				if req.Method != http.MethodPost {
@@ -365,6 +366,7 @@ func TestUpdateList(t *testing.T) {
 			list: &model.List{
 				Name:       "  Updated List  \n",
 				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
 			},
 			currentItems: nil,
 			handler: func(req *http.Request) *http.Response {
@@ -419,6 +421,7 @@ func TestUpdateList(t *testing.T) {
 			list: &model.List{
 				Name:       "My List",
 				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
 				Items: []*model.Item{
 					{
 						ExternalID:     stringPtr("A"),
@@ -491,6 +494,7 @@ func TestUpdateList(t *testing.T) {
 			list: &model.List{
 				Name:       "Target List",
 				ExternalID: stringPtr("L2"),
+				Modified:   time.Now(),
 				Items: []*model.Item{
 					{
 						ExternalID:     stringPtr("A"),
@@ -546,6 +550,7 @@ func TestUpdateList(t *testing.T) {
 			list: &model.List{
 				Name:       "Target List",
 				ExternalID: stringPtr("L2"),
+				Modified:   time.Now(),
 				Items: []*model.Item{
 					{
 						ExternalID:     stringPtr("B"),
@@ -1033,6 +1038,7 @@ func TestListItems(t *testing.T) {
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
 			},
 			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
@@ -1122,6 +1128,7 @@ func TestListItems(t *testing.T) {
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
 			},
 			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
@@ -1159,6 +1166,7 @@ func TestListItems(t *testing.T) {
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
 			},
 			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
@@ -1196,6 +1204,7 @@ func TestListItems(t *testing.T) {
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
 			},
 			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
@@ -1233,6 +1242,7 @@ func TestListItems(t *testing.T) {
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
 			},
 			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
@@ -1270,6 +1280,7 @@ func TestListItems(t *testing.T) {
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
 			},
 			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
@@ -1308,6 +1319,7 @@ func TestListItems(t *testing.T) {
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
 			},
 			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
@@ -1346,6 +1358,7 @@ func TestListItems(t *testing.T) {
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
 			},
 			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
@@ -1384,6 +1397,7 @@ func TestListItems(t *testing.T) {
 				ID:         "1",
 				Name:       "Inbox",
 				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
 			},
 			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{

@@ -48,5 +48,9 @@ func (l *List) Validate() error {
 		return fmt.Errorf("invalid list status: %q", l.Status)
 	}
 
+	if l.Modified.IsZero() {
+		return errors.New("list modified timestamp cannot be zero")
+	}
+
 	return nil
 }

@@ -630,8 +630,9 @@ func TestUpdateList(t *testing.T) {
 			},
 			setupList: func(id string) model.List {
 				list := model.List{
-					ID:   id,
-					Name: "Optimization",
+					ID:       id,
+					Name:     "Optimization",
+					Modified: time.Now(),
 					Items: []*model.Item{
 						{
 							ID:       "item-opt",
@@ -690,8 +691,9 @@ func TestUpdateList(t *testing.T) {
 			},
 			setupList: func(id string) model.List {
 				list := model.List{
-					ID:   id,
-					Name: "Updated",
+					ID:       id,
+					Name:     "Updated",
+					Modified: time.Now(),
 				}
 
 				return list
@@ -724,6 +726,7 @@ func TestUpdateList(t *testing.T) {
 					ExternalID: stringPtr("ext-L1"),
 					Name:       "Updated Name",
 					Status:     model.StatusOpen,
+					Modified:   time.Now(),
 				}
 
 				return list
@@ -772,6 +775,7 @@ func TestUpdateList(t *testing.T) {
 				list := model.List{
 					Name:       "List 1",
 					ExternalID: stringPtr("ext-L1"),
+					Modified:   time.Now(),
 					Items: []*model.Item{
 						{
 							ExternalID: stringPtr("ext-I1"),
@@ -827,9 +831,10 @@ func TestUpdateList(t *testing.T) {
 			},
 			setupList: func(id string) model.List {
 				list := model.List{
-					ID:     id,
-					Name:   "Tombstoned List",
-					Status: model.StatusDeleted,
+					ID:       id,
+					Name:     "Tombstoned List",
+					Status:   model.StatusDeleted,
+					Modified: time.Now(),
 				}
 
 				return list
@@ -873,6 +878,7 @@ func TestUpdateList(t *testing.T) {
 					ExternalID: stringPtr("ext-list-delete"),
 					Name:       "Tombstoned List",
 					Status:     model.StatusDeleted,
+					Modified:   time.Now(),
 				}
 
 				return list
