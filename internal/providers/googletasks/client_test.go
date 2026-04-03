@@ -1000,6 +1000,17 @@ func TestCreateItem(t *testing.T) {
 			wantExternalID: "T1",
 		},
 		{
+			name:   "missing external list id",
+			listID: "L1",
+			item: &model.Item{
+				Title: "Fail",
+			},
+			handler: func(_ *http.Request) *http.Response {
+				return nil
+			},
+			wantErr: true,
+		},
+		{
 			name:   "api error",
 			listID: "L1",
 			item: &model.Item{
@@ -1622,8 +1633,17 @@ func TestUpdateItem(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:   "api error",
-			listID: "L1",
+			name: "missing external identifiers",
+			item: &model.Item{
+				Title: "Update Task",
+			},
+			handler: func(_ *http.Request) *http.Response {
+				return nil
+			},
+			wantErr: true,
+		},
+		{
+			name: "api error",
 			item: &model.Item{
 				Title:          "Fail",
 				ExternalID:     stringPtr("T1"),
@@ -1715,6 +1735,16 @@ func TestDeleteItem(t *testing.T) {
 				return resp
 			},
 			wantErr: false,
+		},
+		{
+			name: "missing external identifiers",
+			item: &model.Item{
+				Title: "Delete Task",
+			},
+			handler: func(_ *http.Request) *http.Response {
+				return nil
+			},
+			wantErr: true,
 		},
 		{
 			name: "api error",

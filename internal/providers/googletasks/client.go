@@ -147,6 +147,10 @@ func (c *Client) DeleteList(ctx context.Context, list *model.List) error {
 // If previousItemID is provided, the task is inserted after that item.
 // It renders the item's title to include metadata (project, tags, due date) compatible with the parser.
 func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemID string) error {
+	if item.ExternalListID == nil {
+		return errors.New("failed to create item: missing external list ID")
+	}
+
 	title := renderTitle(item)
 	status := statusNeedsAction
 	if item.Status == model.StatusDone {
@@ -233,6 +237,10 @@ func (c *Client) listItems(ctx context.Context, list *model.List) ([]*model.Item
 
 // UpdateItem updates an existing task in the specified Google Task list.
 func (c *Client) UpdateItem(ctx context.Context, item *model.Item) error {
+	if item.ExternalID == nil || item.ExternalListID == nil {
+		return errors.New("failed to update item: missing external identifiers")
+	}
+
 	title := renderTitle(item)
 	status := statusNeedsAction
 	if item.Status == model.StatusDone {
@@ -278,6 +286,10 @@ func (c *Client) moveItem(ctx context.Context, move reorder.Move) error {
 
 // DeleteItem deletes a task from the specified Google Task list.
 func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
+	if item.ExternalID == nil || item.ExternalListID == nil {
+		return errors.New("failed to delete item: missing external identifiers")
+	}
+
 	if err := c.service.Tasks.Delete(*item.ExternalListID, *item.ExternalID).Context(ctx).Do(); err != nil {
 		return fmt.Errorf("failed to delete task: %w", err)
 	}
