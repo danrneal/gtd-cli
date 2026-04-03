@@ -43,6 +43,11 @@ func (c *Client) GetKey(resource model.Resource) string {
 
 // CreateList creates a new task list on the Google Tasks service.
 func (c *Client) CreateList(ctx context.Context, list *model.List) error {
+	list.Clean()
+	if err := list.Validate(); err != nil {
+		return fmt.Errorf("invalid list: %w", err)
+	}
+
 	tasklist := &tasks.TaskList{
 		Title: list.Name,
 	}
@@ -93,6 +98,11 @@ func (c *Client) ListLists(ctx context.Context) ([]model.List, error) {
 
 // UpdateList updates an existing task list on Google Tasks.
 func (c *Client) UpdateList(ctx context.Context, list *model.List, currentItems []*model.Item) error {
+	list.Clean()
+	if err := list.Validate(); err != nil {
+		return fmt.Errorf("invalid list: %w", err)
+	}
+
 	tasklist := &tasks.TaskList{
 		Title: list.Name,
 	}

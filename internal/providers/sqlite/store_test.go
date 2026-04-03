@@ -144,33 +144,23 @@ func TestCreateList(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name: "valid list (auto-trimmed)",
-			list: &model.List{
-				Name:     " Inbox ",
-				Position: 0,
-				Modified: time.Now(),
-			},
-			wantList: &model.List{
-				Name:     "Inbox",
-				Position: 0,
-			},
-		},
-		{
 			name: "valid list with external id",
 			list: &model.List{
-				Name:       "Work",
+				Name:       "  Work  \n",
 				Position:   1,
+				Status:     "",
 				Modified:   time.Now(),
 				ExternalID: stringPtr("ext-123"),
 			},
 			wantList: &model.List{
 				Name:       "Work",
 				Position:   1,
+				Status:     model.StatusOpen,
 				ExternalID: stringPtr("ext-123"),
 			},
 		},
 		{
-			name: "invalid status",
+			name: "invalid status for new list",
 			list: &model.List{
 				Name:   "Invalid",
 				Status: model.StatusDeleted,
@@ -178,7 +168,7 @@ func TestCreateList(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "empty list name",
+			name: "invalid list (validation failed)",
 			list: &model.List{
 				Name:     "",
 				Modified: time.Now(),
@@ -251,7 +241,7 @@ func TestCreateList(t *testing.T) {
 			}
 
 			query := `
-				SELECT id, name, position, external_id
+				SELECT id, name, position, status, external_id
 				FROM lists
 				WHERE name = ?
 			`
@@ -262,6 +252,7 @@ func TestCreateList(t *testing.T) {
 				&gotList.ID,
 				&gotList.Name,
 				&gotList.Position,
+				&gotList.Status,
 				&gotList.ExternalID,
 			)
 			if err != nil {
@@ -560,8 +551,9 @@ func TestUpdateList(t *testing.T) {
 			setupList: func(id string) model.List {
 				list := model.List{
 					ID:       id,
-					Name:     "  New Name  ",
+					Name:     "  New Name  \n",
 					Position: 5,
+					Status:   "",
 					Modified: time.Now(),
 					Items: []*model.Item{
 						{
@@ -677,32 +669,6 @@ func TestUpdateList(t *testing.T) {
 					Status:   model.StatusNotStarted,
 					Tags:     []string{},
 				},
-			},
-		},
-		{
-			name: "preserves existing status when empty",
-			setupDB: func(t *testing.T, db *sql.DB) string {
-				mustExec(t, db,
-					`
-						INSERT INTO lists (id, name, status, modified)
-						VALUES (?, ?, ?, ?)
-					`, "list-1", "Valid", "deleted", time.Now(),
-				)
-
-				return "list-1"
-			},
-			setupList: func(id string) model.List {
-				list := model.List{
-					ID:     id,
-					Name:   "Status Test",
-					Status: "",
-				}
-
-				return list
-			},
-			wantList: &model.List{
-				Name:   "Status Test",
-				Status: model.StatusDeleted,
 			},
 		},
 		{
@@ -985,7 +951,7 @@ func TestUpdateList(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "empty name",
+			name: "invalid list (validation failed)",
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
 					`

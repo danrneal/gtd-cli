@@ -83,13 +83,14 @@ func (s *Store) createTables(ctx context.Context) error {
 // CreateList inserts a new list into the database.
 func (s *Store) CreateList(ctx context.Context, list *model.List) error {
 	list.ID = uuid.NewString()[:8]
-	if list.Status != "" && list.Status != model.StatusOpen {
-		return errors.New("new lists must have status 'open'")
+
+	list.Clean()
+	if err := list.Validate(); err != nil {
+		return fmt.Errorf("invalid list: %w", err)
 	}
 
-	list.Name = strings.TrimSpace(list.Name)
-	if list.Name == "" {
-		return errors.New("list name cannot be empty")
+	if list.Status != model.StatusOpen {
+		return errors.New("new lists must have status 'open'")
 	}
 
 	query := `
@@ -107,7 +108,7 @@ func (s *Store) CreateList(ctx context.Context, list *model.List) error {
 		list.ID,
 		list.Name,
 		list.Position,
-		model.StatusOpen,
+		list.Status,
 		list.Modified,
 		list.ExternalID,
 	)
@@ -215,17 +216,13 @@ func (s *Store) getListID(ctx context.Context, tx *sql.Tx, externalID *string) (
 //   - list: The list with the desired state. It identifies the record via ID or ExternalID.
 //   - currentItems: The items currently associated with this list, used to optimize position updates.
 func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems []*model.Item) error {
+	list.Clean()
+	if err := list.Validate(); err != nil {
+		return fmt.Errorf("invalid list: %w", err)
+	}
+
 	if list.ID == "" && list.ExternalID == nil {
 		return errors.New("failed to update list: no internal or external ID provided")
-	}
-
-	if list.Status != "" && !isValidListStatus(list.Status) {
-		return fmt.Errorf("invalid list status: %q", list.Status)
-	}
-
-	list.Name = strings.TrimSpace(list.Name)
-	if list.Name == "" {
-		return errors.New("list name cannot be empty")
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -249,7 +246,7 @@ func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems [
                 UPDATE lists SET
                         name = ?,
                         position = ?,
-                        status = COALESCE(NULLIF(?, ''), status, ?),
+                        status = ?,
                         modified = ?,
                         external_id = COALESCE(?, external_id)
                 WHERE id = ?;
@@ -259,7 +256,6 @@ func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems [
 		list.Name,
 		list.Position,
 		list.Status,
-		model.StatusOpen,
 		list.Modified,
 		list.ExternalID,
 		list.ID,
@@ -702,16 +698,6 @@ func (s *Store) deleteResource(ctx context.Context, resource model.Resource) err
 	}
 
 	return nil
-}
-
-// isValidListStatus checks if the provided status is a valid enum value for lists.
-func isValidListStatus(status model.Status) bool {
-	switch status {
-	case model.StatusOpen, model.StatusDeleted:
-		return true
-	default:
-		return false
-	}
 }
 
 // isValidItemStatus checks if the provided status is a valid enum value for items.

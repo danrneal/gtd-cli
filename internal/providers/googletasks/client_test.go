@@ -72,7 +72,7 @@ func TestCreateList(t *testing.T) {
 		{
 			name: "success",
 			list: &model.List{
-				Name: "New List",
+				Name: "  New List  \n",
 			},
 			handler: func(req *http.Request) *http.Response {
 				if req.Method != http.MethodPost {
@@ -110,6 +110,16 @@ func TestCreateList(t *testing.T) {
 			},
 			wantErr:        false,
 			wantExternalID: "new-list-id",
+		},
+		{
+			name: "invalid list (validation failed)",
+			list: &model.List{
+				Name: "",
+			},
+			handler: func(_ *http.Request) *http.Response {
+				return nil
+			},
+			wantErr: true,
 		},
 		{
 			name: "api error",
@@ -353,7 +363,7 @@ func TestUpdateList(t *testing.T) {
 		{
 			name: "success (rename only)",
 			list: &model.List{
-				Name:       "Updated List",
+				Name:       "  Updated List  \n",
 				ExternalID: stringPtr("L1"),
 			},
 			currentItems: nil,
@@ -735,6 +745,17 @@ func TestDeleteList(t *testing.T) {
 				return resp
 			},
 			wantErr: false,
+		},
+		{
+			name: "invalid list (validation failed)",
+			list: &model.List{
+				ExternalID: stringPtr("L1"),
+				Name:       "",
+			},
+			handler: func(_ *http.Request) *http.Response {
+				return nil
+			},
+			wantErr: true,
 		},
 		{
 			name: "api error",
