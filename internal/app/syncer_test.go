@@ -76,12 +76,13 @@ func (f *FakeProvider) GetKey(resource model.Resource) string {
 }
 
 func (f *FakeProvider) CreateList(_ context.Context, list *model.List) error {
-	if list.Status != "" && list.Status != model.StatusOpen {
-		return errors.New("new lists must have status 'open'")
+	list.Clean()
+	if err := list.Validate(); err != nil {
+		return err
 	}
 
-	if list.Name == "" {
-		return errors.New("list name cannot be empty")
+	if list.Status != model.StatusOpen {
+		return errors.New("new lists must have status 'open'")
 	}
 
 	listKey := f.GetKey(list)
@@ -132,16 +133,9 @@ func (f *FakeProvider) ListLists(_ context.Context) ([]model.List, error) {
 }
 
 func (f *FakeProvider) UpdateList(_ context.Context, updatedList *model.List, _ []*model.Item) error {
-	if updatedList.Status == "" {
-		updatedList.Status = model.StatusOpen
-	}
-
-	if !isValidListStatus(updatedList.Status) {
-		return fmt.Errorf("invalid status: %q", updatedList.Status)
-	}
-
-	if updatedList.Name == "" {
-		return errors.New("list name cannot be empty")
+	updatedList.Clean()
+	if err := updatedList.Validate(); err != nil {
+		return err
 	}
 
 	if f.Name == "generic" {
@@ -224,12 +218,9 @@ func (f *FakeProvider) DeleteList(_ context.Context, deletedList *model.List) er
 }
 
 func (f *FakeProvider) CreateItem(_ context.Context, item *model.Item, _ string) error {
-	if !isValidItemStatus(item.Status) {
-		return fmt.Errorf("invalid status: %q", item.Status)
-	}
-
-	if item.Title == "" {
-		return errors.New("item title cannot be empty")
+	item.Clean()
+	if err := item.Validate(); err != nil {
+		return err
 	}
 
 	itemKey := f.GetKey(item)
@@ -265,12 +256,9 @@ func (f *FakeProvider) CreateItem(_ context.Context, item *model.Item, _ string)
 }
 
 func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem *model.Item) error {
-	if !isValidItemStatus(updatedItem.Status) {
-		return fmt.Errorf("invalid status: %q", updatedItem.Status)
-	}
-
-	if updatedItem.Title == "" {
-		return errors.New("item title cannot be empty")
+	updatedItem.Clean()
+	if err := updatedItem.Validate(); err != nil {
+		return err
 	}
 
 	if f.Name == "generic" {
@@ -351,24 +339,6 @@ func (f *FakeProvider) DeleteItem(_ context.Context, deletedItem *model.Item) er
 	return fmt.Errorf("item not found: %s", deletedItem.ID)
 }
 
-func isValidListStatus(status model.Status) bool {
-	switch status {
-	case model.StatusOpen, model.StatusDeleted:
-		return true
-	default:
-		return false
-	}
-}
-
-func isValidItemStatus(status model.Status) bool {
-	switch status {
-	case model.StatusNotStarted, model.StatusInProgress, model.StatusDone, model.StatusDeleted:
-		return true
-	default:
-		return false
-	}
-}
-
 func isMatch(a, b model.Resource) bool {
 	if a.GetID() != "" && a.GetID() == b.GetID() {
 		return true
@@ -416,7 +386,10 @@ func TestOneWaySync(t *testing.T) {
 		{
 			name: "create list (push)",
 			src: NewFakeProvider("store", []model.List{
-				{Name: "L1"},
+				{
+					Name:     "L1",
+					Modified: baseTime,
+				},
 			}),
 			dst: NewFakeProvider("generic", []model.List{}),
 			wantSrcLists: []model.List{
@@ -438,7 +411,10 @@ func TestOneWaySync(t *testing.T) {
 		{
 			name: "create list (pull)",
 			src: NewFakeProvider("generic", []model.List{
-				{Name: "L1"},
+				{
+					Name:     "L1",
+					Modified: baseTime,
+				},
 			}),
 			dst: NewFakeProvider("store", []model.List{}),
 			wantSrcLists: []model.List{
@@ -460,7 +436,10 @@ func TestOneWaySync(t *testing.T) {
 		{
 			name: "create list external (push)",
 			src: NewFakeProvider("store", []model.List{
-				{Name: "L1"},
+				{
+					Name:     "L1",
+					Modified: baseTime,
+				},
 			}),
 			dst: NewFakeProvider("external", []model.List{}),
 			wantSrcLists: []model.List{
@@ -483,7 +462,10 @@ func TestOneWaySync(t *testing.T) {
 		{
 			name: "create list external (pull)",
 			src: NewFakeProvider("external", []model.List{
-				{Name: "L1"},
+				{
+					Name:     "L1",
+					Modified: baseTime,
+				},
 			}),
 			dst: NewFakeProvider("store", []model.List{}),
 			wantSrcLists: []model.List{
@@ -507,19 +489,22 @@ func TestOneWaySync(t *testing.T) {
 			name: "create item (push)",
 			src: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1",
+					Name:     "L1",
+					Modified: baseTime,
 					Items: []*model.Item{
 						{
-							Title:  "I1",
-							Status: model.StatusNotStarted,
+							Title:    "I1",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime,
 						},
 					},
 				},
 			}),
 			dst: NewFakeProvider("generic", []model.List{
 				{
-					ID:   "store-list-1",
-					Name: "L1",
+					ID:       "store-list-1",
+					Name:     "L1",
+					Modified: baseTime,
 				},
 			}),
 			wantSrcLists: []model.List{
@@ -558,18 +543,23 @@ func TestOneWaySync(t *testing.T) {
 			name: "create item (pull)",
 			src: NewFakeProvider("generic", []model.List{
 				{
-					ID:   "store-list-1",
-					Name: "L1",
+					ID:       "store-list-1",
+					Name:     "L1",
+					Modified: baseTime,
 					Items: []*model.Item{
 						{
-							Title:  "I1",
-							Status: model.StatusNotStarted,
+							Title:    "I1",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime,
 						},
 					},
 				},
 			}),
 			dst: NewFakeProvider("store", []model.List{
-				{Name: "L1"},
+				{
+					Name:     "L1",
+					Modified: baseTime,
+				},
 			}),
 			wantSrcLists: []model.List{
 				{
@@ -608,17 +598,22 @@ func TestOneWaySync(t *testing.T) {
 			src: NewFakeProvider("store", []model.List{
 				{
 					Name:       "L1",
+					Modified:   baseTime,
 					ExternalID: stringPtr("external-list-1"),
 					Items: []*model.Item{
 						{
-							Title:  "I1",
-							Status: model.StatusNotStarted,
+							Title:    "I1",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime,
 						},
 					},
 				},
 			}),
 			dst: NewFakeProvider("external", []model.List{
-				{Name: "L1"},
+				{
+					Name:     "L1",
+					Modified: baseTime,
+				},
 			}),
 			wantSrcLists: []model.List{
 				{
@@ -659,11 +654,13 @@ func TestOneWaySync(t *testing.T) {
 			name: "create item external (pull)",
 			src: NewFakeProvider("external", []model.List{
 				{
-					Name: "L1",
+					Name:     "L1",
+					Modified: baseTime,
 					Items: []*model.Item{
 						{
-							Title:  "I1",
-							Status: model.StatusNotStarted,
+							Title:    "I1",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime,
 						},
 					},
 				},
@@ -671,6 +668,7 @@ func TestOneWaySync(t *testing.T) {
 			dst: NewFakeProvider("store", []model.List{
 				{
 					Name:       "L1",
+					Modified:   baseTime,
 					ExternalID: stringPtr("external-list-1"),
 				},
 			}),
@@ -713,19 +711,22 @@ func TestOneWaySync(t *testing.T) {
 			name: "create deleted item (push)",
 			src: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1",
+					Name:     "L1",
+					Modified: baseTime,
 					Items: []*model.Item{
 						{
-							Title:  "I1",
-							Status: model.StatusDeleted,
+							Title:    "I1",
+							Status:   model.StatusDeleted,
+							Modified: baseTime,
 						},
 					},
 				},
 			}),
 			dst: NewFakeProvider("generic", []model.List{
 				{
-					ID:   "store-list-1",
-					Name: "L1",
+					ID:       "store-list-1",
+					Name:     "L1",
+					Modified: baseTime,
 				},
 			}),
 			wantSrcLists: []model.List{
@@ -757,17 +758,22 @@ func TestOneWaySync(t *testing.T) {
 			src: NewFakeProvider("store", []model.List{
 				{
 					Name:       "L1",
+					Modified:   baseTime,
 					ExternalID: stringPtr("external-list-1"),
 					Items: []*model.Item{
 						{
-							Title:  "I1",
-							Status: model.StatusDeleted,
+							Title:    "I1",
+							Status:   model.StatusDeleted,
+							Modified: baseTime,
 						},
 					},
 				},
 			}),
 			dst: NewFakeProvider("external", []model.List{
-				{Name: "L1"},
+				{
+					Name:     "L1",
+					Modified: baseTime,
+				},
 			}),
 			wantSrcLists: []model.List{
 				{
@@ -799,11 +805,13 @@ func TestOneWaySync(t *testing.T) {
 			name: "create list and create item (push)",
 			src: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1",
+					Name:     "L1",
+					Modified: baseTime,
 					Items: []*model.Item{
 						{
-							Title:  "I1",
-							Status: model.StatusNotStarted,
+							Title:    "I1",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime,
 						},
 					},
 				},
@@ -845,11 +853,13 @@ func TestOneWaySync(t *testing.T) {
 			name: "create list and create item (pull)",
 			src: NewFakeProvider("generic", []model.List{
 				{
-					Name: "L1",
+					Name:     "L1",
+					Modified: baseTime,
 					Items: []*model.Item{
 						{
-							Title:  "I1",
-							Status: model.StatusNotStarted,
+							Title:    "I1",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime,
 						},
 					},
 				},
@@ -891,11 +901,13 @@ func TestOneWaySync(t *testing.T) {
 			name: "create list and create item external (push)",
 			src: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1",
+					Name:     "L1",
+					Modified: baseTime,
 					Items: []*model.Item{
 						{
-							Title:  "I1",
-							Status: model.StatusNotStarted,
+							Title:    "I1",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime,
 						},
 					},
 				},
@@ -940,11 +952,13 @@ func TestOneWaySync(t *testing.T) {
 			name: "create list and create item external (pull)",
 			src: NewFakeProvider("external", []model.List{
 				{
-					Name: "L1",
+					Name:     "L1",
+					Modified: baseTime,
 					Items: []*model.Item{
 						{
-							Title:  "I1",
-							Status: model.StatusNotStarted,
+							Title:    "I1",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime,
 						},
 					},
 				},
@@ -1008,8 +1022,9 @@ func TestOneWaySync(t *testing.T) {
 					Modified: baseTime,
 					Items: []*model.Item{
 						{
-							ID:    "store-item-1",
-							Title: "I1",
+							ID:       "store-item-1",
+							Title:    "I1",
+							Modified: baseTime,
 						},
 					},
 				},
@@ -1087,7 +1102,10 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L1",
 					Modified: baseTime,
 					Items: []*model.Item{
-						{Title: "I1"},
+						{
+							Title:    "I1",
+							Modified: baseTime,
+						},
 					},
 				},
 			}),
@@ -1164,7 +1182,10 @@ func TestOneWaySync(t *testing.T) {
 					Name:     "L1",
 					Modified: baseTime,
 					Items: []*model.Item{
-						{Title: "I1"},
+						{
+							Title:    "I1",
+							Modified: baseTime,
+						},
 					},
 				},
 			}),
@@ -1245,6 +1266,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
+							Modified:   baseTime,
 						},
 					},
 				},
@@ -1314,19 +1336,22 @@ func TestOneWaySync(t *testing.T) {
 					Modified: baseTime.Add(1),
 					Items: []*model.Item{
 						{
-							ID:     "store-item-2",
-							Title:  "I2",
-							Status: model.StatusNotStarted,
+							ID:       "store-item-2",
+							Title:    "I2",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime,
 						},
 						{
-							ID:     "store-item-1",
-							Title:  "I1",
-							Status: model.StatusInProgress,
+							ID:       "store-item-1",
+							Title:    "I1",
+							Status:   model.StatusInProgress,
+							Modified: baseTime,
 						},
 						{
-							ID:     "store-item-3",
-							Title:  "I3",
-							Status: model.StatusInProgress,
+							ID:       "store-item-3",
+							Title:    "I3",
+							Status:   model.StatusInProgress,
+							Modified: baseTime,
 						},
 					},
 				},
@@ -1338,9 +1363,10 @@ func TestOneWaySync(t *testing.T) {
 					Modified: baseTime,
 					Items: []*model.Item{
 						{
-							ID:     "store-item-1",
-							Title:  "I1",
-							Status: model.StatusInProgress,
+							ID:       "store-item-1",
+							Title:    "I1",
+							Status:   model.StatusInProgress,
+							Modified: baseTime,
 						},
 					},
 				},
@@ -1437,17 +1463,20 @@ func TestOneWaySync(t *testing.T) {
 					Modified: baseTime.Add(1),
 					Items: []*model.Item{
 						{
-							Title:  "I2",
-							Status: model.StatusNotStarted,
+							Title:    "I2",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime,
 						},
 						{
-							ID:     "store-item-1",
-							Title:  "I1",
-							Status: model.StatusInProgress,
+							ID:       "store-item-1",
+							Title:    "I1",
+							Status:   model.StatusInProgress,
+							Modified: baseTime,
 						},
 						{
-							Title:  "I3",
-							Status: model.StatusInProgress,
+							Title:    "I3",
+							Status:   model.StatusInProgress,
+							Modified: baseTime,
 						},
 					},
 				},
@@ -1458,8 +1487,9 @@ func TestOneWaySync(t *testing.T) {
 					Modified: baseTime,
 					Items: []*model.Item{
 						{
-							Title:  "I1",
-							Status: model.StatusInProgress,
+							Title:    "I1",
+							Status:   model.StatusInProgress,
+							Modified: baseTime,
 						},
 					},
 				},
@@ -1556,20 +1586,23 @@ func TestOneWaySync(t *testing.T) {
 					Modified: baseTime.Add(1),
 					Items: []*model.Item{
 						{
-							ID:     "store-item-2",
-							Title:  "I2",
-							Status: model.StatusNotStarted,
+							ID:       "store-item-2",
+							Title:    "I2",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime,
 						},
 						{
 							ID:         "store-item-1",
 							Title:      "I1",
 							Status:     model.StatusInProgress,
 							ExternalID: stringPtr("external-item-1"),
+							Modified:   baseTime,
 						},
 						{
-							ID:     "store-item-3",
-							Title:  "I3",
-							Status: model.StatusInProgress,
+							ID:       "store-item-3",
+							Title:    "I3",
+							Status:   model.StatusInProgress,
+							Modified: baseTime,
 						},
 					},
 				},
@@ -1580,8 +1613,9 @@ func TestOneWaySync(t *testing.T) {
 					Modified: baseTime,
 					Items: []*model.Item{
 						{
-							Title:  "I1",
-							Status: model.StatusInProgress,
+							Title:    "I1",
+							Status:   model.StatusInProgress,
+							Modified: baseTime,
 						},
 					},
 				},
@@ -1688,16 +1722,19 @@ func TestOneWaySync(t *testing.T) {
 							Title:      "I2",
 							Status:     model.StatusNotStarted,
 							ExternalID: stringPtr("external-item-2"),
+							Modified:   baseTime,
 						},
 						{
 							Title:      "I1",
 							Status:     model.StatusInProgress,
 							ExternalID: stringPtr("external-item-1"),
+							Modified:   baseTime,
 						},
 						{
 							Title:      "I3",
 							Status:     model.StatusInProgress,
 							ExternalID: stringPtr("external-item-3"),
+							Modified:   baseTime,
 						},
 					},
 				},
@@ -1712,6 +1749,7 @@ func TestOneWaySync(t *testing.T) {
 							Title:      "I1",
 							ExternalID: stringPtr("external-item-1"),
 							Status:     model.StatusInProgress,
+							Modified:   baseTime,
 						},
 					},
 				},
@@ -3151,9 +3189,13 @@ func TestOneWaySync(t *testing.T) {
 			src:  NewFakeProvider("generic", []model.List{}),
 			dst: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1",
+					Name:     "L1",
+					Modified: baseTime,
 					Items: []*model.Item{
-						{Title: "I1"},
+						{
+							Title:    "I1",
+							Modified: baseTime,
+						},
 					},
 				},
 			}),
@@ -3194,10 +3236,12 @@ func TestOneWaySync(t *testing.T) {
 			dst: NewFakeProvider("store", []model.List{
 				{
 					Name:       "L1",
+					Modified:   baseTime,
 					ExternalID: stringPtr("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:      "I1",
+							Modified:   baseTime,
 							ExternalID: stringPtr("external-item-1"),
 						},
 					},
@@ -3299,15 +3343,20 @@ func TestOneWaySync(t *testing.T) {
 			name: "delete item (pull)",
 			src: NewFakeProvider("generic", []model.List{
 				{
-					ID:   "store-list-1",
-					Name: "L1",
+					ID:       "store-list-1",
+					Name:     "L1",
+					Modified: baseTime,
 				},
 			}),
 			dst: NewFakeProvider("store", []model.List{
 				{
-					Name: "L1",
+					Name:     "L1",
+					Modified: baseTime,
 					Items: []*model.Item{
-						{Title: "I1"},
+						{
+							Title:    "I1",
+							Modified: baseTime,
+						},
 					},
 				},
 			}),
@@ -3378,15 +3427,20 @@ func TestOneWaySync(t *testing.T) {
 		{
 			name: "delete item external (pull)",
 			src: NewFakeProvider("external", []model.List{
-				{Name: "L1"},
+				{
+					Name:     "L1",
+					Modified: baseTime,
+				},
 			}),
 			dst: NewFakeProvider("store", []model.List{
 				{
 					Name:       "L1",
+					Modified:   baseTime,
 					ExternalID: stringPtr("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:      "I1",
+							Modified:   baseTime,
 							ExternalID: stringPtr("external-item-1"),
 						},
 					},

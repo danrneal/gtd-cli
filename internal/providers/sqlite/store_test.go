@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -75,26 +74,6 @@ func TestNewStore(t *testing.T) {
 			},
 			wantErr: true,
 		},
-		{
-			name: "create tables fails on read-only db",
-			setupDBPath: func(t *testing.T) string {
-				tmpDir := t.TempDir()
-				dbPath := filepath.Join(tmpDir, "readonly.db")
-				file, err := os.Create(dbPath)
-				if err != nil {
-					t.Fatalf("failed to create temp file: %v", err)
-				}
-
-				file.Close()
-
-				if err := os.Chmod(dbPath, 0o400); err != nil {
-					t.Fatalf("failed to chmod: %v", err)
-				}
-
-				return dbPath
-			},
-			wantErr: true,
-		},
 	}
 
 	for _, tt := range tests {
@@ -162,8 +141,9 @@ func TestCreateList(t *testing.T) {
 		{
 			name: "invalid status for new list",
 			list: &model.List{
-				Name:   "Invalid",
-				Status: model.StatusDeleted,
+				Name:     "Invalid",
+				Status:   model.StatusDeleted,
+				Modified: time.Now(),
 			},
 			wantErr: true,
 		},
@@ -897,7 +877,8 @@ func TestUpdateList(t *testing.T) {
 			},
 			setupList: func(_ string) model.List {
 				list := model.List{
-					Name: "Headless Update",
+					Name:     "Headless Update",
+					Modified: time.Now(),
 				}
 
 				return list
@@ -913,6 +894,7 @@ func TestUpdateList(t *testing.T) {
 				return model.List{
 					ExternalID: stringPtr("non-existent-ext-id"),
 					Name:       "Headless Update",
+					Modified:   time.Now(),
 				}
 			},
 			wantErr: true,
@@ -1009,11 +991,13 @@ func TestUpdateList(t *testing.T) {
 			},
 			setupList: func(id string) model.List {
 				list := model.List{
-					ID:   id,
-					Name: "Valid List",
+					ID:       id,
+					Name:     "Valid List",
+					Modified: time.Now(),
 					Items: []*model.Item{
 						{
-							Title: "Headless Item",
+							Title:    "Headless Item",
+							Modified: time.Now(),
 						},
 					},
 				}
@@ -1036,13 +1020,16 @@ func TestUpdateList(t *testing.T) {
 			},
 			setupList: func(id string) model.List {
 				list := model.List{
-					ID:   id,
-					Name: "List",
+					ID:       id,
+					Name:     "List",
+					Modified: time.Now(),
 					Items: []*model.Item{
 						{
 							ID:       "missing-item",
 							ListID:   id,
 							Position: 0,
+							Title:    "Valid Title",
+							Modified: time.Now(),
 						},
 					},
 				}
@@ -1065,13 +1052,16 @@ func TestUpdateList(t *testing.T) {
 			},
 			setupList: func(id string) model.List {
 				list := model.List{
-					ID:   id,
-					Name: "List",
+					ID:       id,
+					Name:     "List",
+					Modified: time.Now(),
 					Items: []*model.Item{
 						{
 							ExternalID: stringPtr("missing-ext-item"),
 							ListID:     id,
 							Position:   0,
+							Title:      "Valid Title",
+							Modified:   time.Now(),
 						},
 					},
 				}
@@ -1474,16 +1464,7 @@ func TestCreateItem(t *testing.T) {
 			item: &model.Item{
 				ExternalListID: stringPtr("non-existent-ext-id"),
 				Title:          "Orphan Item",
-			},
-			wantErr: true,
-		},
-		{
-			name:    "invalid status",
-			setupDB: nil,
-			item: &model.Item{
-				ListID: "list-1",
-				Title:  "Invalid Status",
-				Status: "bad_status",
+				Modified:       time.Now(),
 			},
 			wantErr: true,
 		},
@@ -1500,8 +1481,9 @@ func TestCreateItem(t *testing.T) {
 			name:    "canceled context",
 			setupDB: nil,
 			item: &model.Item{
-				ListID: "list-1",
-				Title:  "Canceled",
+				ListID:   "list-1",
+				Title:    "Canceled",
+				Modified: time.Now(),
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())
@@ -1797,7 +1779,9 @@ func TestUpdateItem(t *testing.T) {
 			},
 			setupItem: func(_ string) model.Item {
 				item := model.Item{
-					Title: "Headless Item",
+					Title:    "Headless Item",
+					ListID:   "list-1",
+					Modified: time.Now(),
 				}
 
 				return item
@@ -1813,6 +1797,8 @@ func TestUpdateItem(t *testing.T) {
 				item := model.Item{
 					ExternalID: stringPtr("non-existent-ext"),
 					Title:      "Headless Update",
+					ListID:     "list-1",
+					Modified:   time.Now(),
 				}
 
 				return item

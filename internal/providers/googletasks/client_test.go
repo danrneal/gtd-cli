@@ -115,8 +115,9 @@ func TestCreateList(t *testing.T) {
 		{
 			name: "invalid status for new list",
 			list: &model.List{
-				Name:   "New List",
-				Status: model.StatusDeleted,
+				Name:     "New List",
+				Status:   model.StatusDeleted,
+				Modified: time.Now(),
 			},
 			handler: func(_ *http.Request) *http.Response {
 				return nil
@@ -136,7 +137,8 @@ func TestCreateList(t *testing.T) {
 		{
 			name: "api error",
 			list: &model.List{
-				Name: "Fail List",
+				Name:     "Fail List",
+				Modified: time.Now(),
 			},
 			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
@@ -622,7 +624,19 @@ func TestUpdateList(t *testing.T) {
 		{
 			name: "missing external id",
 			list: &model.List{
-				Name: "Update List",
+				Name:     "Update List",
+				Modified: time.Now(),
+			},
+			handler: func(_ *http.Request) *http.Response {
+				return nil
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid list (validation failed)",
+			list: &model.List{
+				ExternalID: stringPtr("L1"),
+				Name:       "",
 			},
 			handler: func(_ *http.Request) *http.Response {
 				return nil
@@ -634,6 +648,7 @@ func TestUpdateList(t *testing.T) {
 			list: &model.List{
 				Name:       "Fail List",
 				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
 			},
 			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
@@ -651,6 +666,7 @@ func TestUpdateList(t *testing.T) {
 			list: &model.List{
 				Name:       "My List",
 				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
 				Items: []*model.Item{
 					{
 						ExternalID:     stringPtr("A"),
@@ -776,17 +792,6 @@ func TestDeleteList(t *testing.T) {
 			name: "missing external id",
 			list: &model.List{
 				Name: "Delete List",
-			},
-			handler: func(_ *http.Request) *http.Response {
-				return nil
-			},
-			wantErr: true,
-		},
-		{
-			name: "invalid list (validation failed)",
-			list: &model.List{
-				ExternalID: stringPtr("L1"),
-				Name:       "",
 			},
 			handler: func(_ *http.Request) *http.Response {
 				return nil
@@ -1018,7 +1023,9 @@ func TestCreateItem(t *testing.T) {
 			name:   "missing external list id",
 			listID: "L1",
 			item: &model.Item{
-				Title: "Fail",
+				ListID:   "list-1",
+				Title:    "Fail",
+				Modified: time.Now(),
 			},
 			handler: func(_ *http.Request) *http.Response {
 				return nil
@@ -1029,8 +1036,10 @@ func TestCreateItem(t *testing.T) {
 			name:   "api error",
 			listID: "L1",
 			item: &model.Item{
+				ListID:         "list-1",
 				Title:          "Fail",
 				ExternalListID: stringPtr("L1"),
+				Modified:       time.Now(),
 			},
 			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
@@ -1663,7 +1672,9 @@ func TestUpdateItem(t *testing.T) {
 		{
 			name: "missing external identifiers",
 			item: &model.Item{
-				Title: "Update Task",
+				ListID:   "list-1",
+				Title:    "Update Task",
+				Modified: time.Now(),
 			},
 			handler: func(_ *http.Request) *http.Response {
 				return nil
@@ -1673,9 +1684,11 @@ func TestUpdateItem(t *testing.T) {
 		{
 			name: "api error",
 			item: &model.Item{
+				ListID:         "L1",
 				Title:          "Fail",
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
+				Modified:       time.Now(),
 			},
 			handler: func(_ *http.Request) *http.Response {
 				resp := &http.Response{
@@ -1767,7 +1780,8 @@ func TestDeleteItem(t *testing.T) {
 		{
 			name: "missing external identifiers",
 			item: &model.Item{
-				Title: "Delete Task",
+				ListID: "list-1",
+				Title:  "Delete Task",
 			},
 			handler: func(_ *http.Request) *http.Response {
 				return nil
