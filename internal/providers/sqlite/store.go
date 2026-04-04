@@ -85,8 +85,8 @@ func (s *Store) CreateList(ctx context.Context, list *model.List) error {
 		return fmt.Errorf("invalid list: %w", err)
 	}
 
-	if list.Status != model.StatusOpen {
-		return errors.New("new lists must have status 'open'")
+	if list.Status == model.StatusDeleted {
+		return errors.New("cannot create a list with status 'deleted'")
 	}
 
 	list.ID = uuid.NewString()[:8]
@@ -307,6 +307,10 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 	item.Clean()
 	if err := item.Validate(); err != nil {
 		return fmt.Errorf("invalid item: %w", err)
+	}
+
+	if item.Status == model.StatusDeleted {
+		return errors.New("cannot create an item with status 'deleted'")
 	}
 
 	tagsJSON, err := json.Marshal(item.Tags)

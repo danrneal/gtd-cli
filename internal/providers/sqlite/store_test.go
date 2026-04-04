@@ -1478,6 +1478,17 @@ func TestCreateItem(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "cannot create deleted item",
+			setupDB: nil,
+			item: &model.Item{
+				ListID:   "list-1",
+				Title:    "Deleted Task",
+				Status:   model.StatusDeleted,
+				Modified: time.Now(),
+			},
+			wantErr: true,
+		},
+		{
 			name:    "canceled context",
 			setupDB: nil,
 			item: &model.Item{

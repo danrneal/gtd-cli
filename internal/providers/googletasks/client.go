@@ -49,8 +49,8 @@ func (c *Client) CreateList(ctx context.Context, list *model.List) error {
 		return fmt.Errorf("invalid list: %w", err)
 	}
 
-	if list.Status != model.StatusOpen {
-		return errors.New("new lists must have status 'open'")
+	if list.Status == model.StatusDeleted {
+		return errors.New("cannot create a list with status 'deleted'")
 	}
 
 	tasklist := &tasks.TaskList{
@@ -150,6 +150,10 @@ func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemI
 	item.Clean()
 	if err := item.Validate(); err != nil {
 		return fmt.Errorf("invalid item: %w", err)
+	}
+
+	if item.Status == model.StatusDeleted {
+		return errors.New("cannot create an item with status 'deleted'")
 	}
 
 	if item.ExternalListID == nil {

@@ -1020,6 +1020,21 @@ func TestCreateItem(t *testing.T) {
 			wantExternalID: "T1",
 		},
 		{
+			name:   "cannot create deleted item",
+			listID: "L1",
+			item: &model.Item{
+				ListID:         "list-1",
+				Title:          "Deleted Task",
+				Status:         model.StatusDeleted,
+				ExternalListID: stringPtr("L1"),
+				Modified:       time.Now(),
+			},
+			handler: func(_ *http.Request) *http.Response {
+				return nil
+			},
+			wantErr: true,
+		},
+		{
 			name:   "missing external list id",
 			listID: "L1",
 			item: &model.Item{
