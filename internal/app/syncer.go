@@ -90,17 +90,25 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 				continue
 			}
 
-			var itemCreated bool
 			itemKey := s.getKey(srcItem)
 			dstItem := dstItemsMap[itemKey]
+			
 			srcItem.ListID = srcList.ID
 			srcItem.ExternalListID = srcList.ExternalID
+
+			var itemCreated bool
 			itemCreated, err = s.createItem(ctx, src, dst, srcItem, dstItem, prevItemID)
 			if err != nil {
 				return false, err
 			}
 
-			updated = updated || itemCreated
+			var itemUpdated bool
+			itemUpdated, err = s.updateItem(ctx, dst, srcItem, dstItem)
+			if err != nil {
+				return false, err
+			}
+
+			updated = updated || itemCreated || itemUpdated
 			prevItemID = itemKey
 		}
 
@@ -110,22 +118,6 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 		}
 
 		updated = updated || listUpdated
-
-		for _, srcItem := range srcList.Items {
-			if srcItem.Status == model.StatusDeleted {
-				continue
-			}
-
-			itemKey := s.getKey(srcItem)
-			dstItem := dstItemsMap[itemKey]
-			srcItem.ListID = srcList.ID
-			itemUpdated, err := s.updateItem(ctx, dst, srcItem, dstItem)
-			if err != nil {
-				return false, err
-			}
-
-			updated = updated || itemUpdated
-		}
 	}
 
 	for _, dstList := range dstLists {
