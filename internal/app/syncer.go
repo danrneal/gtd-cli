@@ -56,28 +56,25 @@ func (s *Syncer) Pull(ctx context.Context) (bool, error) {
 // It handles creation, updates, and deletions of lists and items based on modification timestamps and status.
 // It returns true if any changes were applied to the destination.
 func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error) {
-	srcLists, err := src.ListLists(ctx)
+	srcCache, err := s.buildResourceCache(ctx, src)
 	if err != nil {
-		return false, fmt.Errorf("failed to retrieve lists from source provider: %w", err)
+		return false, err
 	}
 
-	dstLists, err := dst.ListLists(ctx)
+	dstCache, err := s.buildResourceCache(ctx, dst)
 	if err != nil {
-		return false, fmt.Errorf("failed to retrieve lists from destination provider: %w", err)
+		return false, err
 	}
-
-	srcListsMap, srcItemsMap := s.createResourceMaps(srcLists)
-	dstListsMap, dstItemsMap := s.createResourceMaps(dstLists)
 
 	updated := false
-	for _, srcList := range srcLists {
+	for _, srcList := range srcCache.lists {
 		if srcList.Status == model.StatusDeleted {
 			continue
 		}
 
 		isNewList := false
 		listKey := s.getKey(&srcList)
-		dstList, ok := dstListsMap[listKey]
+		dstList, ok := dstCache.listsMap[listKey]
 		if !ok {
 			err := dst.CreateList(ctx, &srcList)
 			if err != nil {
@@ -94,7 +91,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 				}
 			}
 
-			dstList = srcList
+			dstList = &srcList
 			isNewList = true
 			updated = true
 		}
@@ -106,7 +103,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 			}
 
 			itemKey := s.getKey(srcItem)
-			if _, ok := dstItemsMap[itemKey]; !ok {
+			if _, ok := dstCache.itemsMap[itemKey]; !ok {
 				srcItem.ListID = srcList.ID
 				srcItem.ExternalListID = srcList.ExternalID
 				err := dst.CreateItem(ctx, srcItem, prevItemID)
@@ -145,8 +142,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 			}
 
 			itemKey := s.getKey(srcItem)
-			dstItem, ok := dstItemsMap[itemKey]
-			//nolint:revive // Complex logic pending refactor
+			dstItem, ok := dstCache.itemsMap[itemKey]
 			if ok && srcItem.Modified.After(dstItem.Modified) {
 				if srcItem.Status == model.StatusNotStarted && dstItem.Status == model.StatusInProgress {
 					srcItem.Status = model.StatusInProgress
@@ -162,7 +158,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 		}
 	}
 
-	for _, dstList := range dstLists {
+	for _, dstList := range dstCache.lists {
 		if dstList.Status == model.StatusDeleted {
 			continue
 		}
@@ -172,7 +168,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 			continue
 		}
 
-		if srcList, ok := srcListsMap[listKey]; !ok {
+		if srcList, ok := srcCache.listsMap[listKey]; !ok {
 			dstList.Status = model.StatusDeleted
 			if err := dst.UpdateList(ctx, &dstList, dstList.Items); err != nil {
 				return false, fmt.Errorf("failed to mark list %q as deleted in destination: %w", dstList.Name, err)
@@ -185,7 +181,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 				return false, fmt.Errorf("failed to permanently delete list %q from destination: %w", dstList.Name, err)
 			}
 
-			if err := src.DeleteList(ctx, &srcList); err != nil {
+			if err := src.DeleteList(ctx, srcList); err != nil {
 				return false, fmt.Errorf("failed to permanently delete list %q from source: %w", srcList.Name, err)
 			}
 
@@ -203,7 +199,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 				continue
 			}
 
-			if srcItem, ok := srcItemsMap[itemKey]; !ok {
+			if srcItem, ok := srcCache.itemsMap[itemKey]; !ok {
 				dstItem.Status = model.StatusDeleted
 				if err := dst.UpdateItem(ctx, dstItem); err != nil {
 					return false, fmt.Errorf("failed to mark item %q as deleted in destination: %w", dstItem.Title, err)
@@ -219,7 +215,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 					)
 				}
 
-				if err := src.DeleteItem(ctx, &srcItem); err != nil {
+				if err := src.DeleteItem(ctx, srcItem); err != nil {
 					return false, fmt.Errorf("failed to permanently delete item %q from source: %w", srcItem.Title, err)
 				}
 
@@ -231,10 +227,26 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 	return updated, nil
 }
 
-// createResourceMaps creates lookup maps for lists and items from a slice of lists, keyed by their sync identifier.
-func (s *Syncer) createResourceMaps(lists []model.List) (map[string]model.List, map[string]model.Item) {
-	listsMap := make(map[string]model.List, len(lists))
-	itemsMap := make(map[string]model.Item)
+// resourceCache holds a set of Resources from a Provider.
+type resourceCache struct {
+	lists    []model.List
+	listsMap map[string]*model.List
+	itemsMap map[string]*model.Item
+}
+
+// buildResourceCache retrieves all lists and items from a provider and builds lookup maps.
+func (s *Syncer) buildResourceCache(ctx context.Context, p Provider) (*resourceCache, error) {
+	lists, err := p.ListLists(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve lists from provider: %w", err)
+	}
+
+	cache := &resourceCache{
+		lists:    lists,
+		listsMap: make(map[string]*model.List, len(lists)),
+		itemsMap: make(map[string]*model.Item),
+	}
+
 	for _, list := range lists {
 		for _, item := range list.Items {
 			itemKey := s.getKey(item)
@@ -242,7 +254,7 @@ func (s *Syncer) createResourceMaps(lists []model.List) (map[string]model.List, 
 				continue
 			}
 
-			itemsMap[itemKey] = *item
+			cache.itemsMap[itemKey] = item
 		}
 
 		listKey := s.getKey(&list)
@@ -250,8 +262,8 @@ func (s *Syncer) createResourceMaps(lists []model.List) (map[string]model.List, 
 			continue
 		}
 
-		listsMap[listKey] = list
+		cache.listsMap[listKey] = &list
 	}
 
-	return listsMap, itemsMap
+	return cache, nil
 }
