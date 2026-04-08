@@ -171,6 +171,14 @@ func (f *FakeProvider) UpdateList(_ context.Context, updatedList *model.List, _ 
 		}
 	}
 
+	if len(listItems) != len(updatedList.Items) {
+		return fmt.Errorf(
+			"item count mismatch: expected %d items, found %d in provider",
+			len(updatedList.Items),
+			len(listItems),
+		)
+	}
+
 	for i, list := range f.Lists {
 		if !isMatch(&list, updatedList) {
 			continue
