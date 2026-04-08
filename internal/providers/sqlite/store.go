@@ -241,14 +241,14 @@ func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems [
 	}
 
 	query := `
-                UPDATE lists SET
-                        name = ?,
-                        position = ?,
-                        status = ?,
-                        modified = ?,
-                        external_id = COALESCE(?, external_id)
-                WHERE id = ?;
-        `
+    	UPDATE lists SET
+        	name = ?,
+            position = ?,
+            status = ?,
+            modified = ?,
+            external_id = COALESCE(?, external_id)
+        WHERE id = ?;
+    `
 
 	res, err := tx.ExecContext(ctx, query,
 		list.Name,
