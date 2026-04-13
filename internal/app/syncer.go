@@ -72,27 +72,14 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 			continue
 		}
 
-		isNewList := false
 		listKey := s.getKey(&srcList)
-		dstList, ok := dstCache.listsMap[listKey]
-		if !ok {
-			err := dst.CreateList(ctx, &srcList)
-			if err != nil {
-				return false, fmt.Errorf("failed to create list %q in destination: %w", srcList.Name, err)
-			}
-
-			if listKey == "" {
-				if err := src.UpdateList(ctx, &srcList, srcList.Items); err != nil {
-					return false, fmt.Errorf(
-						"failed to backfill external key for list %q in source: %w",
-						srcList.Name,
-						err,
-					)
-				}
+		dstList, dstListOk := dstCache.listsMap[listKey]
+		if !dstListOk {
+			if err := s.createList(ctx, src, dst, &srcList); err != nil {
+				return false, err
 			}
 
 			dstList = &srcList
-			isNewList = true
 			updated = true
 		}
 
@@ -102,23 +89,20 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 				continue
 			}
 
+			srcItem.ListID = srcList.ID
+			srcItem.ExternalListID = srcList.ExternalID
+
 			itemKey := s.getKey(srcItem)
-			if _, ok := dstCache.itemsMap[itemKey]; !ok {
-				srcItem.ListID = srcList.ID
-				srcItem.ExternalListID = srcList.ExternalID
-				err := dst.CreateItem(ctx, srcItem, prevItemID)
-				if err != nil {
-					return false, fmt.Errorf("failed to create item %q in destination: %w", srcItem.Title, err)
+			dstItem, dstItemOk := dstCache.itemsMap[itemKey]
+			if !dstItemOk {
+				if err := s.createItem(ctx, src, dst, srcItem, prevItemID); err != nil {
+					return false, err
 				}
 
-				if itemKey == "" {
-					if err := src.UpdateItem(ctx, srcItem); err != nil {
-						return false, fmt.Errorf(
-							"failed to backfill external key for item %q in source: %w",
-							srcItem.Title,
-							err,
-						)
-					}
+				updated = true
+			} else if srcItem.Modified.After(dstItem.Modified) {
+				if err := s.updateItem(ctx, dst, srcItem, dstItem); err != nil {
+					return false, err
 				}
 
 				updated = true
@@ -127,34 +111,12 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 			prevItemID = itemKey
 		}
 
-		if isNewList || srcList.Modified.After(dstList.Modified) {
-			if err := dst.UpdateList(ctx, &srcList, dstList.Items); err != nil {
-				return false, fmt.Errorf("failed to update list %q in destination: %w", srcList.Name, err)
+		if !dstListOk || srcList.Modified.After(dstList.Modified) {
+			if err := s.updateList(ctx, dst, &srcList, dstList.Items); err != nil {
+				return false, err
 			}
 
 			updated = true
-		}
-
-		for _, srcItem := range srcList.Items {
-			if srcItem.Status == model.StatusDeleted {
-				continue
-			}
-
-			itemKey := s.getKey(srcItem)
-			dstItem, ok := dstCache.itemsMap[itemKey]
-			//nolint:revive // Complex logic pending refactor
-			if ok && srcItem.Modified.After(dstItem.Modified) {
-				if srcItem.Status == model.StatusNotStarted && dstItem.Status == model.StatusInProgress {
-					srcItem.Status = model.StatusInProgress
-				}
-
-				srcItem.ListID = srcList.ID
-				if err := dst.UpdateItem(ctx, srcItem); err != nil {
-					return false, fmt.Errorf("failed to update item %q in destination: %w", srcItem.Title, err)
-				}
-
-				updated = true
-			}
 		}
 	}
 
@@ -168,21 +130,10 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 			continue
 		}
 
-		if srcList, ok := srcCache.listsMap[listKey]; !ok {
-			dstList.Status = model.StatusDeleted
-			if err := dst.UpdateList(ctx, &dstList, dstList.Items); err != nil {
-				return false, fmt.Errorf("failed to mark list %q as deleted in destination: %w", dstList.Name, err)
-			}
-
-			updated = true
-			continue
-		} else if srcList.Status == model.StatusDeleted {
-			if err := dst.DeleteList(ctx, &dstList); err != nil {
-				return false, fmt.Errorf("failed to permanently delete list %q from destination: %w", dstList.Name, err)
-			}
-
-			if err := src.DeleteList(ctx, srcList); err != nil {
-				return false, fmt.Errorf("failed to permanently delete list %q from source: %w", srcList.Name, err)
+		srcList, ok := srcCache.listsMap[listKey]
+		if !ok || srcList.Status == model.StatusDeleted {
+			if err := s.deleteList(ctx, src, dst, srcList, &dstList); err != nil {
+				return false, err
 			}
 
 			updated = true
@@ -199,24 +150,10 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 				continue
 			}
 
-			if srcItem, ok := srcCache.itemsMap[itemKey]; !ok {
-				dstItem.Status = model.StatusDeleted
-				if err := dst.UpdateItem(ctx, dstItem); err != nil {
-					return false, fmt.Errorf("failed to mark item %q as deleted in destination: %w", dstItem.Title, err)
-				}
-
-				updated = true
-			} else if srcItem.Status == model.StatusDeleted {
-				if err := dst.DeleteItem(ctx, dstItem); err != nil {
-					return false, fmt.Errorf(
-						"failed to permanently delete item %q from destination: %w",
-						dstItem.Title,
-						err,
-					)
-				}
-
-				if err := src.DeleteItem(ctx, srcItem); err != nil {
-					return false, fmt.Errorf("failed to permanently delete item %q from source: %w", srcItem.Title, err)
+			srcItem, ok := srcCache.itemsMap[itemKey]
+			if !ok || srcItem.Status == model.StatusDeleted {
+				if err := s.deleteItem(ctx, src, dst, srcItem, dstItem); err != nil {
+					return false, err
 				}
 
 				updated = true
@@ -268,4 +205,96 @@ func (s *Syncer) buildResourceCache(ctx context.Context, p Provider) (*resourceC
 	}
 
 	return cache, nil
+}
+
+func (s *Syncer) createList(ctx context.Context, src, dst Provider, list *model.List) error {
+	listKey := s.getKey(list)
+	if err := dst.CreateList(ctx, list); err != nil {
+		return fmt.Errorf("failed to create list %q in destination: %w", list.Name, err)
+	}
+
+	if listKey == "" {
+		if err := src.UpdateList(ctx, list, list.Items); err != nil {
+			return fmt.Errorf("failed to backfill external key for list %q in source: %w", list.Name, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Syncer) createItem(ctx context.Context, src, dst Provider, item *model.Item, prevItemID string) error {
+	itemKey := s.getKey(item)
+	if err := dst.CreateItem(ctx, item, prevItemID); err != nil {
+		return fmt.Errorf("failed to create item %q in destination: %w", item.Title, err)
+	}
+
+	if itemKey == "" {
+		if err := src.UpdateItem(ctx, item); err != nil {
+			return fmt.Errorf("failed to backfill external key for item %q in source: %w", item.Title, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Syncer) updateItem(ctx context.Context, dst Provider, srcItem, dstItem *model.Item) error {
+	if srcItem.Status == model.StatusNotStarted && dstItem.Status == model.StatusInProgress {
+		srcItem.Status = model.StatusInProgress
+	}
+
+	if err := dst.UpdateItem(ctx, srcItem); err != nil {
+		return fmt.Errorf("failed to update item %q in destination: %w", srcItem.Title, err)
+	}
+
+	return nil
+}
+
+func (s *Syncer) updateList(ctx context.Context, dst Provider, list *model.List, currentItems []*model.Item) error {
+	if err := dst.UpdateList(ctx, list, currentItems); err != nil {
+		return fmt.Errorf("failed to update list %q in destination: %w", list.Name, err)
+	}
+
+	return nil
+}
+
+func (s *Syncer) deleteList(ctx context.Context, src, dst Provider, srcList, dstList *model.List) error {
+	if srcList == nil {
+		dstList.Status = model.StatusDeleted
+		if err := dst.UpdateList(ctx, dstList, dstList.Items); err != nil {
+			return fmt.Errorf("failed to mark list %q as deleted in destination: %w", dstList.Name, err)
+		}
+
+		return nil
+	}
+
+	if err := dst.DeleteList(ctx, dstList); err != nil {
+		return fmt.Errorf("failed to permanently delete list %q from destination: %w", dstList.Name, err)
+	}
+
+	if err := src.DeleteList(ctx, srcList); err != nil {
+		return fmt.Errorf("failed to permanently delete list %q from source: %w", srcList.Name, err)
+	}
+
+	return nil
+}
+
+func (s *Syncer) deleteItem(ctx context.Context, src, dst Provider, srcItem, dstItem *model.Item) error {
+	if srcItem == nil {
+		dstItem.Status = model.StatusDeleted
+		if err := dst.UpdateItem(ctx, dstItem); err != nil {
+			return fmt.Errorf("failed to mark item %q as deleted in destination: %w", dstItem.Title, err)
+		}
+
+		return nil
+	}
+
+	if err := dst.DeleteItem(ctx, dstItem); err != nil {
+		return fmt.Errorf("failed to permanently delete item %q from destination: %w", dstItem.Title, err)
+	}
+
+	if err := src.DeleteItem(ctx, srcItem); err != nil {
+		return fmt.Errorf("failed to permanently delete item %q from source: %w", srcItem.Title, err)
+	}
+
+	return nil
 }
