@@ -32,12 +32,12 @@ func (s *Syncer) Sync(ctx context.Context) (bool, error) {
 		return false, err
 	}
 
-	updated, err := s.Pull(ctx)
+	changed, err := s.Pull(ctx)
 	if err != nil {
 		return false, err
 	}
 
-	return updated, nil
+	return changed, nil
 }
 
 // Push synchronizes changes from the local provider to the remote provider.
@@ -66,102 +66,26 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 		return false, err
 	}
 
-	updated := false
+	changed := false
 	for _, srcList := range srcCache.lists {
-		if srcList.Status == model.StatusDeleted {
-			continue
+		srcListChanged, err := s.syncSrcList(ctx, src, dst, &srcList, dstCache)
+		if err != nil {
+			return false, err
 		}
 
-		listKey := s.getKey(&srcList)
-		dstList, dstListOk := dstCache.listsMap[listKey]
-		if !dstListOk {
-			if err := s.createList(ctx, src, dst, &srcList); err != nil {
-				return false, err
-			}
-
-			dstList = &srcList
-			updated = true
-		}
-
-		prevItemID := ""
-		for _, srcItem := range srcList.Items {
-			if srcItem.Status == model.StatusDeleted {
-				continue
-			}
-
-			srcItem.ListID = srcList.ID
-			srcItem.ExternalListID = srcList.ExternalID
-
-			itemKey := s.getKey(srcItem)
-			dstItem, dstItemOk := dstCache.itemsMap[itemKey]
-			if !dstItemOk {
-				if err := s.createItem(ctx, src, dst, srcItem, prevItemID); err != nil {
-					return false, err
-				}
-
-				updated = true
-			} else if srcItem.Modified.After(dstItem.Modified) {
-				if err := s.updateItem(ctx, dst, srcItem, dstItem); err != nil {
-					return false, err
-				}
-
-				updated = true
-			}
-
-			prevItemID = itemKey
-		}
-
-		if !dstListOk || srcList.Modified.After(dstList.Modified) {
-			if err := s.updateList(ctx, dst, &srcList, dstList.Items); err != nil {
-				return false, err
-			}
-
-			updated = true
-		}
+		changed = changed || srcListChanged
 	}
 
 	for _, dstList := range dstCache.lists {
-		if dstList.Status == model.StatusDeleted {
-			continue
+		pruned, err := s.pruneDstList(ctx, src, dst, &dstList, srcCache)
+		if err != nil {
+			return false, err
 		}
 
-		listKey := s.getKey(&dstList)
-		if listKey == "" {
-			continue
-		}
-
-		srcList, ok := srcCache.listsMap[listKey]
-		if !ok || srcList.Status == model.StatusDeleted {
-			if err := s.deleteList(ctx, src, dst, srcList, &dstList); err != nil {
-				return false, err
-			}
-
-			updated = true
-			continue
-		}
-
-		for _, dstItem := range dstList.Items {
-			if dstItem.Status == model.StatusDeleted {
-				continue
-			}
-
-			itemKey := s.getKey(dstItem)
-			if itemKey == "" {
-				continue
-			}
-
-			srcItem, ok := srcCache.itemsMap[itemKey]
-			if !ok || srcItem.Status == model.StatusDeleted {
-				if err := s.deleteItem(ctx, src, dst, srcItem, dstItem); err != nil {
-					return false, err
-				}
-
-				updated = true
-			}
-		}
+		changed = changed || pruned
 	}
 
-	return updated, nil
+	return changed, nil
 }
 
 // resourceCache holds a set of Resources from a Provider.
@@ -205,6 +129,107 @@ func (s *Syncer) buildResourceCache(ctx context.Context, p Provider) (*resourceC
 	}
 
 	return cache, nil
+}
+
+func (s *Syncer) syncSrcList(ctx context.Context, src, dst Provider, srcList *model.List, dstCache *resourceCache) (bool, error) {
+	changed := false
+	if srcList.Status == model.StatusDeleted {
+		return changed, nil
+	}
+
+	listKey := s.getKey(srcList)
+	dstList, dstListOk := dstCache.listsMap[listKey]
+	if !dstListOk {
+		if err := s.createList(ctx, src, dst, srcList); err != nil {
+			return false, err
+		}
+
+		dstList = srcList
+		changed = true
+	}
+
+	prevItemID := ""
+	for _, srcItem := range srcList.Items {
+		if srcItem.Status == model.StatusDeleted {
+			continue
+		}
+
+		srcItem.ListID = srcList.ID
+		srcItem.ExternalListID = srcList.ExternalID
+
+		itemKey := s.getKey(srcItem)
+		dstItem, dstItemOk := dstCache.itemsMap[itemKey]
+		if !dstItemOk {
+			if err := s.createItem(ctx, src, dst, srcItem, prevItemID); err != nil {
+				return false, err
+			}
+
+			changed = true
+		} else if srcItem.Modified.After(dstItem.Modified) {
+			if err := s.updateItem(ctx, dst, srcItem, dstItem); err != nil {
+				return false, err
+			}
+
+			changed = true
+		}
+
+		prevItemID = itemKey
+	}
+
+	if !dstListOk || srcList.Modified.After(dstList.Modified) {
+		if err := s.updateList(ctx, dst, srcList, dstList.Items); err != nil {
+			return false, err
+		}
+
+		changed = true
+	}
+
+	return changed, nil
+}
+
+func (s *Syncer) pruneDstList(ctx context.Context, src, dst Provider, dstList *model.List, srcCache *resourceCache) (bool, error) {
+	pruned := false
+	if dstList.Status == model.StatusDeleted {
+		return pruned, nil
+	}
+
+	listKey := s.getKey(dstList)
+	if listKey == "" {
+		return pruned, nil
+	}
+
+	srcList, ok := srcCache.listsMap[listKey]
+	if !ok || srcList.Status == model.StatusDeleted {
+		if err := s.deleteList(ctx, src, dst, srcList, dstList); err != nil {
+			return false, err
+		}
+
+		pruned = true
+
+		return pruned, nil
+	}
+
+	for _, dstItem := range dstList.Items {
+		if dstItem.Status == model.StatusDeleted {
+			continue
+		}
+
+		itemKey := s.getKey(dstItem)
+		if itemKey == "" {
+			continue
+		}
+
+		srcItem, ok := srcCache.itemsMap[itemKey]
+		if !ok || srcItem.Status == model.StatusDeleted {
+			if err := s.deleteItem(ctx, src, dst, srcItem, dstItem); err != nil {
+				return false, err
+			}
+
+			pruned = true
+		}
+	}
+
+	return pruned, nil
 }
 
 func (s *Syncer) createList(ctx context.Context, src, dst Provider, list *model.List) error {
