@@ -126,7 +126,14 @@ func (s *Syncer) buildResourceCache(ctx context.Context, p Provider) (*resourceC
 	return cache, nil
 }
 
-func (s *Syncer) syncSrcList(ctx context.Context, src, dst Provider, srcList *model.List, dstCache *resourceCache) (bool, error) {
+// syncSrcList processes a single list from the source provider, creating or updating it and its items
+// in the destination provider as needed. It returns true if any changes were applied.
+func (s *Syncer) syncSrcList(
+	ctx context.Context,
+	src, dst Provider,
+	srcList *model.List,
+	dstCache *resourceCache,
+) (bool, error) {
 	changed := false
 	if srcList.Status == model.StatusDeleted {
 		return changed, nil
@@ -151,10 +158,8 @@ func (s *Syncer) syncSrcList(ctx context.Context, src, dst Provider, srcList *mo
 
 		srcItem.ListID = srcList.ID
 		srcItem.ExternalListID = srcList.ExternalID
-
 		itemKey := s.getKey(srcItem)
-		dstItem, dstItemOk := dstCache.itemsMap[itemKey]
-		if !dstItemOk {
+		if dstItem, dstItemOk := dstCache.itemsMap[itemKey]; !dstItemOk {
 			if err := s.createItem(ctx, src, dst, srcItem, prevItemID); err != nil {
 				return changed, err
 			}
@@ -182,7 +187,15 @@ func (s *Syncer) syncSrcList(ctx context.Context, src, dst Provider, srcList *mo
 	return changed, nil
 }
 
-func (s *Syncer) pruneDstList(ctx context.Context, src, dst Provider, dstList *model.List, srcCache *resourceCache) (bool, error) {
+// pruneDstList processes a single list from the destination provider, deleting it or its items
+// if they no longer exist in the source provider or have been marked as deleted.
+// It returns true if any changes were applied.
+func (s *Syncer) pruneDstList(
+	ctx context.Context,
+	src, dst Provider,
+	dstList *model.List,
+	srcCache *resourceCache,
+) (bool, error) {
 	pruned := false
 	if dstList.Status == model.StatusDeleted {
 		return pruned, nil
@@ -227,6 +240,8 @@ func (s *Syncer) pruneDstList(ctx context.Context, src, dst Provider, dstList *m
 	return pruned, nil
 }
 
+// createList creates a new list in the destination provider and backfills the external ID
+// into the source provider if necessary.
 func (s *Syncer) createList(ctx context.Context, src, dst Provider, list *model.List) error {
 	listKey := s.getKey(list)
 	if err := dst.CreateList(ctx, list); err != nil {
@@ -242,6 +257,8 @@ func (s *Syncer) createList(ctx context.Context, src, dst Provider, list *model.
 	return nil
 }
 
+// createItem creates a new item in the destination provider and backfills the external ID
+// into the source provider if necessary.
 func (s *Syncer) createItem(ctx context.Context, src, dst Provider, item *model.Item, prevItemID string) error {
 	itemKey := s.getKey(item)
 	if err := dst.CreateItem(ctx, item, prevItemID); err != nil {
@@ -257,6 +274,7 @@ func (s *Syncer) createItem(ctx context.Context, src, dst Provider, item *model.
 	return nil
 }
 
+// updateItem updates an existing item in the destination provider, taking care to preserve specific status transitions.
 func (s *Syncer) updateItem(ctx context.Context, dst Provider, srcItem, dstItem *model.Item) error {
 	if srcItem.Status == model.StatusNotStarted && dstItem.Status == model.StatusInProgress {
 		srcItem.Status = model.StatusInProgress
@@ -269,6 +287,7 @@ func (s *Syncer) updateItem(ctx context.Context, dst Provider, srcItem, dstItem 
 	return nil
 }
 
+// updateList updates an existing list in the destination provider, maintaining its position and metadata.
 func (s *Syncer) updateList(ctx context.Context, dst Provider, list *model.List, currentItems []*model.Item) error {
 	if err := dst.UpdateList(ctx, list, currentItems); err != nil {
 		return fmt.Errorf("failed to update list %q in destination: %w", list.Name, err)
@@ -277,6 +296,8 @@ func (s *Syncer) updateList(ctx context.Context, dst Provider, list *model.List,
 	return nil
 }
 
+// deleteList handles the deletion of a list. It permanently deletes the list if it exists in the source as deleted,
+// or marks it deleted in the destination if it is missing from the source.
 func (s *Syncer) deleteList(ctx context.Context, src, dst Provider, srcList, dstList *model.List) error {
 	if srcList == nil {
 		dstList.Status = model.StatusDeleted
@@ -298,6 +319,8 @@ func (s *Syncer) deleteList(ctx context.Context, src, dst Provider, srcList, dst
 	return nil
 }
 
+// deleteItem handles the deletion of an item. It permanently deletes the item if it exists in the source as deleted,
+// or marks it deleted in the destination if it is missing from the source.
 func (s *Syncer) deleteItem(ctx context.Context, src, dst Provider, srcItem, dstItem *model.Item) error {
 	if srcItem == nil {
 		dstItem.Status = model.StatusDeleted
