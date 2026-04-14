@@ -126,7 +126,12 @@ func (s *Syncer) buildResourceCache(ctx context.Context, p Provider) (*resourceC
 	return cache, nil
 }
 
-func (s *Syncer) syncSrcList(ctx context.Context, src, dst Provider, srcList *model.List, dstCache *resourceCache) (bool, error) {
+func (s *Syncer) syncSrcList(
+	ctx context.Context,
+	src, dst Provider,
+	srcList *model.List,
+	dstCache *resourceCache,
+) (bool, error) {
 	changed := false
 	if srcList.Status == model.StatusDeleted {
 		return changed, nil
@@ -151,10 +156,8 @@ func (s *Syncer) syncSrcList(ctx context.Context, src, dst Provider, srcList *mo
 
 		srcItem.ListID = srcList.ID
 		srcItem.ExternalListID = srcList.ExternalID
-
 		itemKey := s.getKey(srcItem)
-		dstItem, dstItemOk := dstCache.itemsMap[itemKey]
-		if !dstItemOk {
+		if dstItem, dstItemOk := dstCache.itemsMap[itemKey]; !dstItemOk {
 			if err := s.createItem(ctx, src, dst, srcItem, prevItemID); err != nil {
 				return changed, err
 			}
@@ -182,7 +185,12 @@ func (s *Syncer) syncSrcList(ctx context.Context, src, dst Provider, srcList *mo
 	return changed, nil
 }
 
-func (s *Syncer) pruneDstList(ctx context.Context, src, dst Provider, dstList *model.List, srcCache *resourceCache) (bool, error) {
+func (s *Syncer) pruneDstList(
+	ctx context.Context,
+	src, dst Provider,
+	dstList *model.List,
+	srcCache *resourceCache,
+) (bool, error) {
 	pruned := false
 	if dstList.Status == model.StatusDeleted {
 		return pruned, nil
