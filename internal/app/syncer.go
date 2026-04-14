@@ -33,11 +33,8 @@ func (s *Syncer) Sync(ctx context.Context) (bool, error) {
 	}
 
 	changed, err := s.Pull(ctx)
-	if err != nil {
-		return false, err
-	}
 
-	return changed, nil
+	return changed, err
 }
 
 // Push synchronizes changes from the local provider to the remote provider.
@@ -56,33 +53,31 @@ func (s *Syncer) Pull(ctx context.Context) (bool, error) {
 // It handles creation, updates, and deletions of lists and items based on modification timestamps and status.
 // It returns true if any changes were applied to the destination.
 func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error) {
+	changed := false
 	srcCache, err := s.buildResourceCache(ctx, src)
 	if err != nil {
-		return false, err
+		return changed, err
 	}
 
 	dstCache, err := s.buildResourceCache(ctx, dst)
 	if err != nil {
-		return false, err
+		return changed, err
 	}
 
-	changed := false
 	for _, srcList := range srcCache.lists {
 		srcListChanged, err := s.syncSrcList(ctx, src, dst, &srcList, dstCache)
-		if err != nil {
-			return false, err
-		}
-
 		changed = changed || srcListChanged
+		if err != nil {
+			return changed, err
+		}
 	}
 
 	for _, dstList := range dstCache.lists {
 		pruned, err := s.pruneDstList(ctx, src, dst, &dstList, srcCache)
-		if err != nil {
-			return false, err
-		}
-
 		changed = changed || pruned
+		if err != nil {
+			return changed, err
+		}
 	}
 
 	return changed, nil
@@ -141,7 +136,7 @@ func (s *Syncer) syncSrcList(ctx context.Context, src, dst Provider, srcList *mo
 	dstList, dstListOk := dstCache.listsMap[listKey]
 	if !dstListOk {
 		if err := s.createList(ctx, src, dst, srcList); err != nil {
-			return false, err
+			return changed, err
 		}
 
 		dstList = srcList
@@ -161,13 +156,13 @@ func (s *Syncer) syncSrcList(ctx context.Context, src, dst Provider, srcList *mo
 		dstItem, dstItemOk := dstCache.itemsMap[itemKey]
 		if !dstItemOk {
 			if err := s.createItem(ctx, src, dst, srcItem, prevItemID); err != nil {
-				return false, err
+				return changed, err
 			}
 
 			changed = true
 		} else if srcItem.Modified.After(dstItem.Modified) {
 			if err := s.updateItem(ctx, dst, srcItem, dstItem); err != nil {
-				return false, err
+				return changed, err
 			}
 
 			changed = true
@@ -178,7 +173,7 @@ func (s *Syncer) syncSrcList(ctx context.Context, src, dst Provider, srcList *mo
 
 	if !dstListOk || srcList.Modified.After(dstList.Modified) {
 		if err := s.updateList(ctx, dst, srcList, dstList.Items); err != nil {
-			return false, err
+			return changed, err
 		}
 
 		changed = true
@@ -201,7 +196,7 @@ func (s *Syncer) pruneDstList(ctx context.Context, src, dst Provider, dstList *m
 	srcList, ok := srcCache.listsMap[listKey]
 	if !ok || srcList.Status == model.StatusDeleted {
 		if err := s.deleteList(ctx, src, dst, srcList, dstList); err != nil {
-			return false, err
+			return pruned, err
 		}
 
 		pruned = true
@@ -222,7 +217,7 @@ func (s *Syncer) pruneDstList(ctx context.Context, src, dst Provider, dstList *m
 		srcItem, ok := srcCache.itemsMap[itemKey]
 		if !ok || srcItem.Status == model.StatusDeleted {
 			if err := s.deleteItem(ctx, src, dst, srcItem, dstItem); err != nil {
-				return false, err
+				return pruned, err
 			}
 
 			pruned = true
