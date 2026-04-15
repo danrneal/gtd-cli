@@ -165,7 +165,7 @@ func (s *Syncer) syncSrcList(
 			}
 
 			changed = true
-		} else if srcItem.Modified.After(dstItem.Modified) {
+		} else if srcItem.Modified.After(dstItem.Modified) && !srcItem.Equal(dstItem) {
 			if err := s.updateItem(ctx, dst, srcItem, dstItem); err != nil {
 				return changed, err
 			}
@@ -176,7 +176,7 @@ func (s *Syncer) syncSrcList(
 		prevItemID = itemKey
 	}
 
-	if !dstListOk || srcList.Modified.After(dstList.Modified) {
+	if !dstListOk || (srcList.Modified.After(dstList.Modified) && !srcList.Equal(dstList)) {
 		if err := s.updateList(ctx, dst, srcList, dstList.Items); err != nil {
 			return changed, err
 		}

@@ -1911,6 +1911,68 @@ func TestOneWaySync(t *testing.T) {
 			wantUpdated: true,
 		},
 		{
+			name: "update list identical content (push)",
+			src: NewFakeProvider("store", []model.List{
+				{
+					Name:     "L1",
+					Modified: baseTime.Add(1),
+				},
+			}),
+			dst: NewFakeProvider("generic", []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Modified: baseTime,
+				},
+			}),
+			wantSrcLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+				},
+			},
+			wantUpdated: false,
+		},
+		{
+			name: "update list identical content (pull)",
+			src: NewFakeProvider("generic", []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Modified: baseTime.Add(1),
+				},
+			}),
+			dst: NewFakeProvider("store", []model.List{
+				{
+					Name:     "L1",
+					Modified: baseTime,
+				},
+			}),
+			wantSrcLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+				},
+			},
+			wantUpdated: false,
+		},
+		{
 			name: "update list external (push)",
 			src: NewFakeProvider("store", []model.List{
 				{
@@ -2095,6 +2157,128 @@ func TestOneWaySync(t *testing.T) {
 				},
 			},
 			wantUpdated: true,
+		},
+		{
+			name: "update item identical content (push)",
+			src: NewFakeProvider("store", []model.List{
+				{
+					Name: "L1",
+					Items: []*model.Item{
+						{
+							Title:    "I1 Original",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime.Add(1),
+						},
+					},
+				},
+			}),
+			dst: NewFakeProvider("generic", []model.List{
+				{
+					ID:   "store-list-1",
+					Name: "L1",
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1 Original",
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-1",
+							Modified: baseTime,
+						},
+					},
+				},
+			}),
+			wantSrcLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1 Original",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
+					},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1 Original",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
+					},
+				},
+			},
+			wantUpdated: false,
+		},
+		{
+			name: "update item identical content (pull)",
+			src: NewFakeProvider("generic", []model.List{
+				{
+					ID:   "store-list-1",
+					Name: "L1",
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1 Original",
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-1",
+							Modified: baseTime.Add(1),
+						},
+					},
+				},
+			}),
+			dst: NewFakeProvider("store", []model.List{
+				{
+					Name: "L1",
+					Items: []*model.Item{
+						{
+							Title:    "I1 Original",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime,
+						},
+					},
+				},
+			}),
+			wantSrcLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1 Original",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
+					},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1 Original",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
+					},
+				},
+			},
+			wantUpdated: false,
 		},
 		{
 			name: "update item external (push)",
