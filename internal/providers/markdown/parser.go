@@ -17,11 +17,13 @@ var (
 )
 
 // Parse reads Markdown content and converts it into a slice of model.List.
-func Parse(reader io.Reader) ([]model.List, error) {
+func Parse(reader io.Reader, modified time.Time) ([]model.List, error) {
 	var (
-		lists []model.List
-		list  model.List
-		item  model.Item
+		lists   []model.List
+		list    *model.List
+		item    *model.Item
+		listPos int
+		itemPos int
 	)
 
 	scanner := bufio.NewScanner(reader)
@@ -29,34 +31,41 @@ func Parse(reader io.Reader) ([]model.List, error) {
 		line := scanner.Text()
 		trimmedLine := strings.TrimSpace(line)
 		if matches := listRegex.FindStringSubmatch(trimmedLine); matches != nil {
-			if item.Title != "" {
+			if item != nil {
 				item.Clean()
-				list.Items = append(list.Items, &item)
+				list.Items = append(list.Items, item)
 			}
 
-			if list.Name != "" {
-				lists = append(lists, list)
+			if list != nil {
+				list.Clean()
+				lists = append(lists, *list)
 			}
 
 			listName := strings.TrimSpace(matches[1])
 			listID := strings.TrimSpace(matches[2])
-			list = model.List{
-				ID:    listID,
-				Name:  listName,
-				Items: []*model.Item{},
+			list = &model.List{
+				ID:       listID,
+				Name:     listName,
+				Position: listPos,
+				Modified: modified,
+				Items:    []*model.Item{},
 			}
+
+			listPos++
+			itemPos = 0
+			item = nil
 
 			continue
 		}
 
 		if matches := itemRegex.FindStringSubmatch(trimmedLine); matches != nil {
-			if list.Name == "" {
+			if list == nil {
 				continue
 			}
 
-			if item.Title != "" {
+			if item != nil {
 				item.Clean()
-				list.Items = append(list.Items, &item)
+				list.Items = append(list.Items, item)
 			}
 
 			itemStatus := model.StatusNotStarted
@@ -68,11 +77,15 @@ func Parse(reader io.Reader) ([]model.List, error) {
 			}
 
 			itemID := strings.TrimSpace(matches[3])
-			item = model.Item{
-				ID:     itemID,
-				ListID: list.ID,
-				Status: itemStatus,
+			item = &model.Item{
+				ID:       itemID,
+				ListID:   list.ID,
+				Position: itemPos,
+				Status:   itemStatus,
+				Modified: modified,
 			}
+
+			itemPos++
 
 			var titleParts []string
 			itemContent := strings.TrimSpace(matches[2])
@@ -116,18 +129,19 @@ func Parse(reader io.Reader) ([]model.List, error) {
 			continue
 		}
 
-		if item.Title != "" {
+		if item != nil {
 			item.Description += fmt.Sprintln(line)
 		}
 	}
 
-	if item.Title != "" {
+	if item != nil {
 		item.Clean()
-		list.Items = append(list.Items, &item)
+		list.Items = append(list.Items, item)
 	}
 
-	if list.Name != "" {
-		lists = append(lists, list)
+	if list != nil {
+		list.Clean()
+		lists = append(lists, *list)
 	}
 
 	if err := scanner.Err(); err != nil {
