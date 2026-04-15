@@ -17,7 +17,7 @@ func TestTokenFromFile(t *testing.T) {
 	validToken := &oauth2.Token{
 		AccessToken: "access-abc",
 		TokenType:   "Bearer",
-		Expiry:      time.Now().Add(1 * time.Hour).Round(time.Second),
+		Expiry:      time.Now().Add(time.Hour).Round(time.Second),
 	}
 
 	tests := []struct {
@@ -105,7 +105,7 @@ func TestSaveToken(t *testing.T) {
 		AccessToken:  "access-123",
 		TokenType:    "Bearer",
 		RefreshToken: "refresh-456",
-		Expiry:       time.Now().Add(1 * time.Hour).Round(time.Second),
+		Expiry:       time.Now().Add(time.Hour).Round(time.Second),
 	}
 
 	tests := []struct {

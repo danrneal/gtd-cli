@@ -54,3 +54,53 @@ func (l *List) Validate() error {
 
 	return nil
 }
+
+// Equal compares the content of two lists, ignoring metadata like Modified timestamps
+// and dynamically applying nuanced checks for primary/external IDs.
+func (l *List) Equal(other *List) bool {
+	if other == nil {
+		return false
+	}
+
+	if l.ID != "" && other.ID != "" && l.ID != other.ID {
+		return false
+	}
+
+	if l.ExternalID != nil && other.ExternalID != nil && *l.ExternalID != *other.ExternalID {
+		return false
+	}
+
+	if l.Name != other.Name {
+		return false
+	}
+
+	if l.Status != other.Status {
+		return false
+	}
+
+	if l.Position != other.Position {
+		return false
+	}
+
+	if len(l.Items) != len(other.Items) {
+		return false
+	}
+
+	for i, item := range l.Items {
+		otherItem := other.Items[i]
+
+		if item.Position != otherItem.Position {
+			return false
+		}
+
+		if item.ID != "" && otherItem.ID != "" && item.ID != otherItem.ID {
+			return false
+		}
+
+		if item.ExternalID != nil && otherItem.ExternalID != nil && *item.ExternalID != *otherItem.ExternalID {
+			return false
+		}
+	}
+
+	return true
+}

@@ -70,6 +70,109 @@ func (i *Item) Validate() error {
 	return nil
 }
 
+// Equal compares the content of two items, ignoring metadata like Modified timestamps
+// and dynamically applying nuanced checks for primary/external IDs.
+func (i *Item) Equal(other *Item) bool {
+	if other == nil {
+		return false
+	}
+
+	if i.ID != "" && other.ID != "" && i.ID != other.ID {
+		return false
+	}
+
+	if i.ExternalID != nil && other.ExternalID != nil && *i.ExternalID != *other.ExternalID {
+		return false
+	}
+
+	if i.ListID != "" && other.ListID != "" && i.ListID != other.ListID {
+		return false
+	}
+
+	if i.ExternalListID != nil && other.ExternalListID != nil && *i.ExternalListID != *other.ExternalListID {
+		return false
+	}
+
+	if i.Title != other.Title {
+		return false
+	}
+
+	if i.Description != other.Description {
+		return false
+	}
+
+	if i.Status != other.Status {
+		return false
+	}
+
+	if i.Position != other.Position {
+		return false
+	}
+
+	if !equalStringPtr(i.ProjectID, other.ProjectID) {
+		return false
+	}
+
+	if !equalStringPtr(i.WaitingOn, other.WaitingOn) {
+		return false
+	}
+
+	if !equalTimePtr(i.Snoozed, other.Snoozed) {
+		return false
+	}
+
+	if !equalTimePtr(i.Due, other.Due) {
+		return false
+	}
+
+	if !equalTags(i.Tags, other.Tags) {
+		return false
+	}
+
+	return true
+}
+
+// equalStringPtr safely compares two string pointers.
+func equalStringPtr(a, b *string) bool {
+	if a == nil && b == nil {
+		return true
+	}
+
+	if a == nil || b == nil {
+		return false
+	}
+
+	return *a == *b
+}
+
+// equalTimePtr safely compares two time pointers.
+func equalTimePtr(a, b *time.Time) bool {
+	if a == nil && b == nil {
+		return true
+	}
+
+	if a == nil || b == nil {
+		return false
+	}
+
+	return a.Equal(*b)
+}
+
+// equalTags safely compares two slices of tags.
+func equalTags(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for idx, tag := range a {
+		if tag != b[idx] {
+			return false
+		}
+	}
+
+	return true
+}
+
 // trimDescription strips common leading indentation and trailing whitespace from multiline text.
 func trimDescription(description string) string {
 	lines := strings.Split(description, "\n")
