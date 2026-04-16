@@ -91,25 +91,25 @@ func Parse(reader io.Reader, modified time.Time) ([]model.List, error) {
 			itemContent := strings.TrimSpace(matches[2])
 			for field := range strings.FieldsSeq(itemContent) {
 				switch {
-				case strings.HasPrefix(field, "+"):
-					if len(field) > 1 {
-						projectID := field[1:]
-						item.ProjectID = &projectID
-					}
+				case strings.HasPrefix(field, "+") && len(field) > 1:
+					projectID := field[1:]
+					item.ProjectID = &projectID
 				case strings.HasPrefix(field, "snoozed:"):
 					snoozedStr := strings.TrimPrefix(field, "snoozed:")
 					if snoozed, err := time.Parse("2006-01-02", snoozedStr); err == nil {
 						item.Snoozed = &snoozed
+					} else {
+						titleParts = append(titleParts, field)
 					}
 				case strings.HasPrefix(field, "due:"):
 					dueStr := strings.TrimPrefix(field, "due:")
 					if due, err := time.Parse("2006-01-02", dueStr); err == nil {
 						item.Due = &due
+					} else {
+						titleParts = append(titleParts, field)
 					}
-				case strings.HasPrefix(field, "#"):
-					if len(field) > 1 {
-						item.Tags = append(item.Tags, field[1:])
-					}
+				case strings.HasPrefix(field, "#") && len(field) > 1:
+					item.Tags = append(item.Tags, field[1:])
 				default:
 					titleParts = append(titleParts, field)
 				}
