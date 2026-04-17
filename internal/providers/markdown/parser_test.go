@@ -1,4 +1,4 @@
-package markdown_test
+package markdown
 
 import (
 	"errors"
@@ -10,7 +10,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
-	"github.com/danrneal/gtd.nvim/internal/providers/markdown"
 )
 
 func TestParse(t *testing.T) {
@@ -490,14 +489,14 @@ Second line.
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := markdown.Parse(tt.reader, modified)
+			got, err := parse(tt.reader, modified)
 
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("parse() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if diff := cmp.Diff(tt.want, got); diff != "" {
-				t.Errorf("Parse() mismatch (-want +got):\n%s", diff)
+				t.Errorf("parse() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

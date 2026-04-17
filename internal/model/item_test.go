@@ -1,12 +1,10 @@
-package model_test
+package model
 
 import (
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-
-	"github.com/danrneal/gtd.nvim/internal/model"
 )
 
 func TestItem_Clean(t *testing.T) {
@@ -14,35 +12,35 @@ func TestItem_Clean(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		item      *model.Item
+		item      *Item
 		wantTitle string
 		wantDesc  string
-		wantStat  model.Status
+		wantStat  Status
 	}{
 		{
 			name: "title is trimmed and empty status defaults to not started",
-			item: &model.Item{
+			item: &Item{
 				Title:  "  Buy Milk  \n",
 				Status: "",
 			},
 			wantTitle: "Buy Milk",
 			wantDesc:  "",
-			wantStat:  model.StatusNotStarted,
+			wantStat:  StatusNotStarted,
 		},
 		{
 			name: "standard markdown indentation with trailing whitespace",
-			item: &model.Item{
+			item: &Item{
 				Title:       "Task",
 				Description: "    First line  \n    Second line\t\n      Nested third line \n    Fourth line",
-				Status:      model.StatusNotStarted,
+				Status:      StatusNotStarted,
 			},
 			wantTitle: "Task",
 			wantDesc:  "First line\nSecond line\n  Nested third line\nFourth line",
-			wantStat:  model.StatusNotStarted,
+			wantStat:  StatusNotStarted,
 		},
 		{
 			name: "leading and trailing blank lines",
-			item: &model.Item{
+			item: &Item{
 				Title: "Task",
 				Description: `
 
@@ -50,11 +48,11 @@ func TestItem_Clean(t *testing.T) {
   And ends here
     
 `,
-				Status: model.StatusNotStarted,
+				Status: StatusNotStarted,
 			},
 			wantTitle: "Task",
 			wantDesc:  "Description starts here\nAnd ends here",
-			wantStat:  model.StatusNotStarted,
+			wantStat:  StatusNotStarted,
 		},
 	}
 
@@ -84,41 +82,41 @@ func TestItem_Validate(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		item    *model.Item
+		item    *Item
 		wantErr bool
 	}{
 		{
 			name: "valid item",
-			item: &model.Item{
+			item: &Item{
 				Title:    "Valid Task",
 				ListID:   "list-1",
-				Status:   model.StatusNotStarted,
+				Status:   StatusNotStarted,
 				Modified: time.Now(),
 			},
 			wantErr: false,
 		},
 		{
 			name: "invalid title",
-			item: &model.Item{
+			item: &Item{
 				Title:    "",
 				ListID:   "list-1",
-				Status:   model.StatusNotStarted,
+				Status:   StatusNotStarted,
 				Modified: time.Now(),
 			},
 			wantErr: true,
 		},
 		{
 			name: "no list IDs",
-			item: &model.Item{
+			item: &Item{
 				Title:    "Floating Task",
-				Status:   model.StatusNotStarted,
+				Status:   StatusNotStarted,
 				Modified: time.Now(),
 			},
 			wantErr: true,
 		},
 		{
 			name: "invalid status",
-			item: &model.Item{
+			item: &Item{
 				Title:    "Valid Task",
 				ListID:   "list-1",
 				Status:   "invalid_status",
@@ -128,10 +126,10 @@ func TestItem_Validate(t *testing.T) {
 		},
 		{
 			name: "missing modified timestamp",
-			item: &model.Item{
+			item: &Item{
 				Title:  "Valid Task",
 				ListID: "list-1",
-				Status: model.StatusNotStarted,
+				Status: StatusNotStarted,
 			},
 			wantErr: true,
 		},
@@ -153,14 +151,14 @@ func TestItem_Validate(t *testing.T) {
 func TestItem_Equal(t *testing.T) {
 	t.Parallel()
 
-	baseItem := &model.Item{
+	baseItem := &Item{
 		ID:             "1",
 		ExternalID:     stringPtr("ext-1"),
 		ListID:         "list-1",
 		ExternalListID: stringPtr("ext-1"),
 		Title:          "Task",
 		Description:    "Desc",
-		Status:         model.StatusOpen,
+		Status:         StatusOpen,
 		Position:       0,
 		ProjectID:      stringPtr("proj-1"),
 		WaitingOn:      stringPtr("person-1"),
@@ -173,8 +171,8 @@ func TestItem_Equal(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		item  *model.Item
-		other *model.Item
+		item  *Item
+		other *Item
 		want  bool
 	}{
 		{
@@ -186,14 +184,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different IDs when both set",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "2",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      stringPtr("person-1"),
@@ -206,14 +204,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different ExternalIDs when both set",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-2"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      stringPtr("person-1"),
@@ -226,14 +224,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different ListIDs when both set",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-2",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      stringPtr("person-1"),
@@ -246,14 +244,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different ExternalListIDs when both set",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-2"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      stringPtr("person-1"),
@@ -266,14 +264,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different Titles",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Different Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      stringPtr("person-1"),
@@ -286,14 +284,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different Descriptions",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Different Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      stringPtr("person-1"),
@@ -306,14 +304,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different Statuses",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusDone,
+				Status:         StatusDone,
 				Position:       0,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      stringPtr("person-1"),
@@ -326,14 +324,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different Positions",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       1,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      stringPtr("person-1"),
@@ -346,14 +344,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different ProjectID pointers (one nil)",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      nil,
 				WaitingOn:      stringPtr("person-1"),
@@ -366,14 +364,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different ProjectIDs when both set",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      stringPtr("proj-2"),
 				WaitingOn:      stringPtr("person-1"),
@@ -386,14 +384,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different WaitingOn pointers (one nil)",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      nil,
@@ -406,14 +404,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different WaitingOn when both set",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      stringPtr("person-2"),
@@ -426,14 +424,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different Snoozed times (one nil)",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      stringPtr("person-1"),
@@ -446,14 +444,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different Snoozed times when both set",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      stringPtr("person-1"),
@@ -466,14 +464,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different Due time pointers (one nil)",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      stringPtr("person-1"),
@@ -486,14 +484,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different Due times when both set",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      stringPtr("person-1"),
@@ -506,14 +504,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different Tags (different length)",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      stringPtr("person-1"),
@@ -526,14 +524,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "different Tags (same length, different items)",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      stringPtr("person-1"),
@@ -545,14 +543,14 @@ func TestItem_Equal(t *testing.T) {
 		},
 		{
 			name: "equal items with nil pointers",
-			item: &model.Item{
+			item: &Item{
 				ID:             "1",
 				ExternalID:     nil,
 				ListID:         "list-1",
 				ExternalListID: nil,
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      nil,
 				WaitingOn:      nil,
@@ -560,14 +558,14 @@ func TestItem_Equal(t *testing.T) {
 				Due:            nil,
 				Tags:           []string{"tag1"},
 			},
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     nil,
 				ListID:         "list-1",
 				ExternalListID: nil,
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      nil,
 				WaitingOn:      nil,
@@ -580,14 +578,14 @@ func TestItem_Equal(t *testing.T) {
 		{
 			name: "equal items ignoring metadata",
 			item: baseItem,
-			other: &model.Item{
+			other: &Item{
 				ID:             "1",
 				ExternalID:     stringPtr("ext-1"),
 				ListID:         "list-1",
 				ExternalListID: stringPtr("ext-1"),
 				Title:          "Task",
 				Description:    "Desc",
-				Status:         model.StatusOpen,
+				Status:         StatusOpen,
 				Position:       0,
 				ProjectID:      stringPtr("proj-1"),
 				WaitingOn:      stringPtr("person-1"),

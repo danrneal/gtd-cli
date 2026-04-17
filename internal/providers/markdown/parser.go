@@ -16,8 +16,8 @@ var (
 	itemRegex = regexp.MustCompile(`^[*-]\s+\[([ xX-])\]\s+~*(.+?)(?:\s+{{([^}]+)}})?~*$`)
 )
 
-// Parse reads Markdown content and converts it into a slice of model.List.
-func Parse(reader io.Reader, modified time.Time) ([]model.List, error) {
+// parse reads Markdown content and converts it into a slice of model.List.
+func parse(reader io.Reader, modified time.Time) ([]model.List, error) {
 	p := parser{}
 
 	scanner := bufio.NewScanner(reader)

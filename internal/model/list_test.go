@@ -1,10 +1,8 @@
-package model_test
+package model
 
 import (
 	"testing"
 	"time"
-
-	"github.com/danrneal/gtd.nvim/internal/model"
 )
 
 func TestList_Clean(t *testing.T) {
@@ -12,27 +10,27 @@ func TestList_Clean(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		list     *model.List
+		list     *List
 		wantName string
-		wantStat model.Status
+		wantStat Status
 	}{
 		{
 			name: "name is trimmed",
-			list: &model.List{
+			list: &List{
 				Name:   "  Inbox  \n",
-				Status: model.StatusOpen,
+				Status: StatusOpen,
 			},
 			wantName: "Inbox",
-			wantStat: model.StatusOpen,
+			wantStat: StatusOpen,
 		},
 		{
 			name: "empty status defaults to open",
-			list: &model.List{
+			list: &List{
 				Name:   "Projects",
 				Status: "",
 			},
 			wantName: "Projects",
-			wantStat: model.StatusOpen,
+			wantStat: StatusOpen,
 		},
 	}
 
@@ -58,30 +56,30 @@ func TestList_Validate(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		list    *model.List
+		list    *List
 		wantErr bool
 	}{
 		{
 			name: "valid list",
-			list: &model.List{
+			list: &List{
 				Name:     "Inbox",
-				Status:   model.StatusOpen,
+				Status:   StatusOpen,
 				Modified: time.Now(),
 			},
 			wantErr: false,
 		},
 		{
 			name: "invalid name",
-			list: &model.List{
+			list: &List{
 				Name:     "",
-				Status:   model.StatusOpen,
+				Status:   StatusOpen,
 				Modified: time.Now(),
 			},
 			wantErr: true,
 		},
 		{
 			name: "invalid status",
-			list: &model.List{
+			list: &List{
 				Name:     "Inbox",
 				Status:   "unknown_status",
 				Modified: time.Now(),
@@ -90,9 +88,9 @@ func TestList_Validate(t *testing.T) {
 		},
 		{
 			name: "missing modified timestamp",
-			list: &model.List{
+			list: &List{
 				Name:   "Inbox",
-				Status: model.StatusOpen,
+				Status: StatusOpen,
 			},
 			wantErr: true,
 		},
@@ -114,20 +112,20 @@ func TestList_Validate(t *testing.T) {
 func TestList_Equal(t *testing.T) {
 	t.Parallel()
 
-	baseList := &model.List{
+	baseList := &List{
 		ID:         "1",
 		ExternalID: stringPtr("ext-1"),
 		Name:       "Inbox",
-		Status:     model.StatusOpen,
+		Status:     StatusOpen,
 		Position:   0,
 		Modified:   time.Now(),
-		Items:      []*model.Item{},
+		Items:      []*Item{},
 	}
 
 	tests := []struct {
 		name  string
-		list  *model.List
-		other *model.List
+		list  *List
+		other *List
 		want  bool
 	}{
 		{
@@ -139,11 +137,11 @@ func TestList_Equal(t *testing.T) {
 		{
 			name: "different IDs when both set",
 			list: baseList,
-			other: &model.List{
+			other: &List{
 				ID:         "2",
 				ExternalID: stringPtr("ext-1"),
 				Name:       "Inbox",
-				Status:     model.StatusOpen,
+				Status:     StatusOpen,
 				Position:   0,
 			},
 			want: false,
@@ -151,11 +149,11 @@ func TestList_Equal(t *testing.T) {
 		{
 			name: "different ExternalIDs when both set",
 			list: baseList,
-			other: &model.List{
+			other: &List{
 				ID:         "1",
 				ExternalID: stringPtr("ext-2"),
 				Name:       "Inbox",
-				Status:     model.StatusOpen,
+				Status:     StatusOpen,
 				Position:   0,
 			},
 			want: false,
@@ -163,11 +161,11 @@ func TestList_Equal(t *testing.T) {
 		{
 			name: "different names",
 			list: baseList,
-			other: &model.List{
+			other: &List{
 				ID:         "1",
 				ExternalID: stringPtr("ext-1"),
 				Name:       "Projects",
-				Status:     model.StatusOpen,
+				Status:     StatusOpen,
 				Position:   0,
 			},
 			want: false,
@@ -175,11 +173,11 @@ func TestList_Equal(t *testing.T) {
 		{
 			name: "different statuses",
 			list: baseList,
-			other: &model.List{
+			other: &List{
 				ID:         "1",
 				ExternalID: stringPtr("ext-1"),
 				Name:       "Inbox",
-				Status:     model.StatusDeleted,
+				Status:     StatusDeleted,
 				Position:   0,
 			},
 			want: false,
@@ -187,34 +185,34 @@ func TestList_Equal(t *testing.T) {
 		{
 			name: "different positions",
 			list: baseList,
-			other: &model.List{
+			other: &List{
 				ID:         "1",
 				ExternalID: stringPtr("ext-1"),
 				Name:       "Inbox",
-				Status:     model.StatusOpen,
+				Status:     StatusOpen,
 				Position:   1,
 			},
 			want: false,
 		},
 		{
 			name: "equal lists with nil pointers",
-			list: &model.List{
+			list: &List{
 				ID:         "1",
 				ExternalID: nil,
 				Name:       "Inbox",
-				Status:     model.StatusOpen,
+				Status:     StatusOpen,
 				Position:   0,
-				Items: []*model.Item{
+				Items: []*Item{
 					{ID: "item-1"},
 				},
 			},
-			other: &model.List{
+			other: &List{
 				ID:         "1",
 				ExternalID: nil,
 				Name:       "Inbox",
-				Status:     model.StatusOpen,
+				Status:     StatusOpen,
 				Position:   0,
-				Items: []*model.Item{
+				Items: []*Item{
 					{ID: "item-1"},
 				},
 			},
@@ -223,35 +221,35 @@ func TestList_Equal(t *testing.T) {
 		{
 			name: "different item lengths",
 			list: baseList,
-			other: &model.List{
+			other: &List{
 				ID:         "1",
 				ExternalID: stringPtr("ext-1"),
 				Name:       "Inbox",
-				Status:     model.StatusOpen,
+				Status:     StatusOpen,
 				Position:   0,
-				Items:      []*model.Item{{Title: "New Item"}},
+				Items:      []*Item{{Title: "New Item"}},
 			},
 			want: false,
 		},
 		{
 			name: "different item positions",
-			list: &model.List{
+			list: &List{
 				ID:         "1",
 				ExternalID: stringPtr("ext-1"),
 				Name:       "Inbox",
-				Status:     model.StatusOpen,
+				Status:     StatusOpen,
 				Position:   0,
-				Items: []*model.Item{
+				Items: []*Item{
 					{ID: "item-1", Position: 0},
 				},
 			},
-			other: &model.List{
+			other: &List{
 				ID:         "1",
 				ExternalID: stringPtr("ext-1"),
 				Name:       "Inbox",
-				Status:     model.StatusOpen,
+				Status:     StatusOpen,
 				Position:   0,
-				Items: []*model.Item{
+				Items: []*Item{
 					{ID: "item-1", Position: 1},
 				},
 			},
@@ -259,23 +257,23 @@ func TestList_Equal(t *testing.T) {
 		},
 		{
 			name: "different item IDs when both set",
-			list: &model.List{
+			list: &List{
 				ID:         "1",
 				ExternalID: stringPtr("ext-1"),
 				Name:       "Inbox",
-				Status:     model.StatusOpen,
+				Status:     StatusOpen,
 				Position:   0,
-				Items: []*model.Item{
+				Items: []*Item{
 					{ID: "item-1", Position: 0},
 				},
 			},
-			other: &model.List{
+			other: &List{
 				ID:         "1",
 				ExternalID: stringPtr("ext-1"),
 				Name:       "Inbox",
-				Status:     model.StatusOpen,
+				Status:     StatusOpen,
 				Position:   0,
-				Items: []*model.Item{
+				Items: []*Item{
 					{ID: "item-2", Position: 0},
 				},
 			},
@@ -283,23 +281,23 @@ func TestList_Equal(t *testing.T) {
 		},
 		{
 			name: "different item ExternalIDs when both set",
-			list: &model.List{
+			list: &List{
 				ID:         "1",
 				ExternalID: stringPtr("ext-1"),
 				Name:       "Inbox",
-				Status:     model.StatusOpen,
+				Status:     StatusOpen,
 				Position:   0,
-				Items: []*model.Item{
+				Items: []*Item{
 					{ID: "item-1", ExternalID: stringPtr("ext-item-1"), Position: 0},
 				},
 			},
-			other: &model.List{
+			other: &List{
 				ID:         "1",
 				ExternalID: stringPtr("ext-1"),
 				Name:       "Inbox",
-				Status:     model.StatusOpen,
+				Status:     StatusOpen,
 				Position:   0,
-				Items: []*model.Item{
+				Items: []*Item{
 					{ID: "item-1", ExternalID: stringPtr("ext-item-2"), Position: 0},
 				},
 			},
@@ -308,14 +306,14 @@ func TestList_Equal(t *testing.T) {
 		{
 			name: "equal lists ignoring metadata",
 			list: baseList,
-			other: &model.List{
+			other: &List{
 				ID:         "1",
 				ExternalID: stringPtr("ext-1"),
 				Name:       "Inbox",
-				Status:     model.StatusOpen,
+				Status:     StatusOpen,
 				Position:   0,
 				Modified:   time.Now().Add(time.Hour),
-				Items:      []*model.Item{},
+				Items:      []*Item{},
 			},
 			want: true,
 		},
