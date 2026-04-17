@@ -417,11 +417,8 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, er
 
 	var items []*model.Item
 	for rows.Next() {
-		var (
-			item     model.Item
-			tagsJSON string
-		)
-
+		var tagsJSON string
+		item := &model.Item{}
 		err := rows.Scan(
 			&item.ID,
 			&item.ListID,
@@ -449,7 +446,7 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, er
 			}
 		}
 
-		items = append(items, &item)
+		items = append(items, item)
 	}
 
 	if err := rows.Err(); err != nil {

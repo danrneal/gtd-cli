@@ -207,7 +207,7 @@ func (c *Client) listItems(ctx context.Context, list *model.List) ([]*model.Item
 
 	var items []*model.Item
 	for i, task := range resp.Items {
-		var item model.Item
+		var item *model.Item
 		if list.Name == "Waiting For" {
 			item = parseWaitingForTitle(task.Title)
 		} else {
@@ -238,7 +238,7 @@ func (c *Client) listItems(ctx context.Context, list *model.List) ([]*model.Item
 		externalID := task.Id
 		item.ExternalID = &externalID
 		item.ExternalListID = list.ExternalID
-		items = append(items, &item)
+		items = append(items, item)
 	}
 
 	return items, nil
@@ -341,11 +341,11 @@ func renderTitle(item *model.Item) string {
 
 // parseWaitingForTitle extracts the waiting-on person from the title and then
 // delegates to parseTitle for the rest of the metadata.
-func parseWaitingForTitle(title string) model.Item {
+func parseWaitingForTitle(title string) *model.Item {
 	var waitingOn string
-	titleParts := strings.SplitN(title, " - ", 3)
+	titleParts := strings.Split(title, " - ")
 	if len(titleParts) > 1 {
-		waitingOn = titleParts[0]
+		waitingOn = strings.TrimSpace(titleParts[0])
 		title = titleParts[1]
 	}
 
@@ -358,8 +358,8 @@ func parseWaitingForTitle(title string) model.Item {
 }
 
 // parseTitle extracts metadata (project, tags, due date) from the task title string.
-func parseTitle(title string) model.Item {
-	var item model.Item
+func parseTitle(title string) *model.Item {
+	item := &model.Item{}
 
 	var titleParts []string
 	titleFields := strings.FieldsSeq(title)
@@ -380,7 +380,7 @@ func parseTitle(title string) model.Item {
 				item.Tags = append(item.Tags, titleField[1:])
 			}
 		default:
-			titleParts = append(titleParts, strings.TrimSpace(titleField))
+			titleParts = append(titleParts, titleField)
 		}
 	}
 

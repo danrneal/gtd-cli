@@ -18,135 +18,151 @@ var (
 
 // Parse reads Markdown content and converts it into a slice of model.List.
 func Parse(reader io.Reader, modified time.Time) ([]model.List, error) {
-	var (
-		lists   []model.List
-		list    *model.List
-		item    *model.Item
-		listPos int
-		itemPos int
-	)
+	p := parser{}
 
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		line := scanner.Text()
 		trimmedLine := strings.TrimSpace(line)
 		if matches := listRegex.FindStringSubmatch(trimmedLine); matches != nil {
-			if item != nil {
-				item.Clean()
-				list.Items = append(list.Items, item)
+			p.flushList(modified)
+
+			list := &model.List{
+				ID:    strings.TrimSpace(matches[2]),
+				Name:  matches[1],
+				Items: []*model.Item{},
 			}
 
-			if list != nil {
-				list.Clean()
-				lists = append(lists, *list)
-			}
-
-			listName := strings.TrimSpace(matches[1])
-			listID := strings.TrimSpace(matches[2])
-			list = &model.List{
-				ID:       listID,
-				Name:     listName,
-				Position: listPos,
-				Modified: modified,
-				Items:    []*model.Item{},
-			}
-
-			listPos++
-			itemPos = 0
-			item = nil
-
+			p.list = list
 			continue
 		}
 
 		if matches := itemRegex.FindStringSubmatch(trimmedLine); matches != nil {
-			if list == nil {
+			if p.list == nil {
 				continue
 			}
 
-			if item != nil {
-				item.Clean()
-				list.Items = append(list.Items, item)
+			p.flushItem(modified)
+
+			var item *model.Item
+			itemContent := matches[2]
+			if p.list.Name == "Waiting For" {
+				item = parseWaitingForItemContent(itemContent)
+			} else {
+				item = parseItemContent(itemContent)
 			}
 
-			itemStatus := model.StatusNotStarted
+			item.ID = strings.TrimSpace(matches[3])
+			item.ListID = p.list.ID
+			item.Status = model.StatusNotStarted
 			switch matches[1] {
 			case "-":
-				itemStatus = model.StatusInProgress
+				item.Status = model.StatusInProgress
 			case "x", "X":
-				itemStatus = model.StatusDone
+				item.Status = model.StatusDone
 			}
 
-			itemID := strings.TrimSpace(matches[3])
-			item = &model.Item{
-				ID:       itemID,
-				ListID:   list.ID,
-				Position: itemPos,
-				Status:   itemStatus,
-				Modified: modified,
-			}
-
-			itemPos++
-
-			var titleParts []string
-			itemContent := strings.TrimSpace(matches[2])
-			for field := range strings.FieldsSeq(itemContent) {
-				switch {
-				case strings.HasPrefix(field, "+") && len(field) > 1:
-					projectID := field[1:]
-					item.ProjectID = &projectID
-				case strings.HasPrefix(field, "snoozed:"):
-					snoozedStr := strings.TrimPrefix(field, "snoozed:")
-					if snoozed, err := time.Parse("2006-01-02", snoozedStr); err == nil {
-						item.Snoozed = &snoozed
-					} else {
-						titleParts = append(titleParts, field)
-					}
-				case strings.HasPrefix(field, "due:"):
-					dueStr := strings.TrimPrefix(field, "due:")
-					if due, err := time.Parse("2006-01-02", dueStr); err == nil {
-						item.Due = &due
-					} else {
-						titleParts = append(titleParts, field)
-					}
-				case strings.HasPrefix(field, "#") && len(field) > 1:
-					item.Tags = append(item.Tags, field[1:])
-				default:
-					titleParts = append(titleParts, field)
-				}
-			}
-
-			item.Title = strings.Join(titleParts, " ")
-
-			if list.Name == "Waiting For" {
-				parts := strings.Split(item.Title, " - ")
-				if len(parts) > 1 {
-					waitingOn := strings.TrimSpace(parts[0])
-					item.WaitingOn = &waitingOn
-					item.Title = strings.TrimSpace(parts[1])
-				}
-			}
-
+			p.item = item
 			continue
 		}
 
-		if item != nil {
-			item.Description += fmt.Sprintln(line)
+		if p.item != nil {
+			p.item.Description += fmt.Sprintln(line)
 		}
 	}
 
-	if item != nil {
-		item.Clean()
-		list.Items = append(list.Items, item)
-	}
-
-	if list != nil {
-		list.Clean()
-		lists = append(lists, *list)
-	}
+	p.flushList(modified)
 
 	if err := scanner.Err(); err != nil {
-		return lists, fmt.Errorf("failed to scan markdown file: %w", err)
+		return p.lists, fmt.Errorf("failed to scan markdown file: %w", err)
 	}
 
-	return lists, nil
+	return p.lists, nil
+}
+
+// parser maintains the running state during the Markdown parsing process.
+type parser struct {
+	lists []model.List
+	list  *model.List
+	item  *model.Item
+}
+
+// flushItem finalizes the current item and appends it to the active list.
+func (p *parser) flushItem(modified time.Time) {
+	if p.list == nil || p.item == nil {
+		return
+	}
+
+	p.item.Position = len(p.list.Items)
+	p.item.Modified = modified
+	p.item.Clean()
+	p.list.Items = append(p.list.Items, p.item)
+	p.item = nil
+}
+
+// flushList finalizes the current list, including its active item, and appends it to the master slice.
+func (p *parser) flushList(modified time.Time) {
+	if p.list == nil {
+		return
+	}
+
+	p.flushItem(modified)
+	p.list.Position = len(p.lists)
+	p.list.Modified = modified
+	p.list.Clean()
+	p.lists = append(p.lists, *p.list)
+	p.list = nil
+}
+
+// parseWaitingForItemContent extracts the delegated person from a "Waiting For" item and parses the remaining content.
+func parseWaitingForItemContent(content string) *model.Item {
+	var waitingOn string
+	parts := strings.Split(content, " - ")
+	if len(parts) > 1 {
+		waitingOn = strings.TrimSpace(parts[0])
+		content = parts[1]
+	}
+
+	item := parseItemContent(content)
+	if waitingOn != "" {
+		item.WaitingOn = &waitingOn
+	}
+
+	return item
+}
+
+// parseItemContent extracts metadata such as projects, tags, and dates from the raw item string.
+func parseItemContent(content string) *model.Item {
+	item := &model.Item{}
+
+	var titleParts []string
+	for field := range strings.FieldsSeq(content) {
+		switch {
+		case strings.HasPrefix(field, "+") && len(field) > 1:
+			projectID := field[1:]
+			item.ProjectID = &projectID
+		case strings.HasPrefix(field, "snoozed:"):
+			snoozedStr := strings.TrimPrefix(field, "snoozed:")
+			if snoozed, err := time.Parse("2006-01-02", snoozedStr); err == nil {
+				item.Snoozed = &snoozed
+			} else {
+				titleParts = append(titleParts, field)
+			}
+		case strings.HasPrefix(field, "due:"):
+			dueStr := strings.TrimPrefix(field, "due:")
+			if due, err := time.Parse("2006-01-02", dueStr); err == nil {
+				item.Due = &due
+			} else {
+				titleParts = append(titleParts, field)
+			}
+		case strings.HasPrefix(field, "#") && len(field) > 1:
+			item.Tags = append(item.Tags, field[1:])
+		default:
+			titleParts = append(titleParts, field)
+		}
+	}
+
+	item.Title = strings.Join(titleParts, " ")
+
+	return item
 }
