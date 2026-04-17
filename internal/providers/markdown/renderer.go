@@ -1,0 +1,117 @@
+package markdown
+
+import (
+	"fmt"
+	"io"
+	"strings"
+
+	"github.com/danrneal/gtd.nvim/internal/model"
+)
+
+func render(writer io.Writer, lists []model.List) error {
+	buf := strings.Builder{}
+	for _, list := range lists {
+		if err := renderList(&buf, &list); err != nil {
+			return err
+		}
+	}
+
+	if _, err := fmt.Fprint(writer, buf.String()); err != nil {
+		return fmt.Errorf("failed to write to writer: %w", err)
+	}
+
+	return nil
+}
+
+func renderList(buf *strings.Builder, list *model.List) error {
+	listParts := []string{"#", list.Name}
+
+	countStr := fmt.Sprintf("(%d)", len(list.Items))
+	listParts = append(listParts, countStr)
+
+	if list.ID != "" {
+		idStr := fmt.Sprintf("{{%s}}", list.ID)
+		listParts = append(listParts, idStr)
+	}
+
+	listStr := strings.Join(listParts, " ")
+	buf.WriteString(listStr)
+	buf.WriteString("\n")
+
+	for _, item := range list.Items {
+		if err := renderItem(buf, item); err != nil {
+			return err
+		}
+	}
+
+	buf.WriteString("\n")
+
+	return nil
+}
+
+func renderItem(buf *strings.Builder, item *model.Item) error {
+	title := renderTitle(item)
+
+	var itemStatus string
+	switch item.Status {
+	case model.StatusNotStarted:
+		itemStatus = " "
+	case model.StatusInProgress:
+		itemStatus = "-"
+	case model.StatusDone:
+		itemStatus = "x"
+	default:
+		return fmt.Errorf("render received invalid status %q on item %s", item.Status, item.ID)
+	}
+
+	statusStr := fmt.Sprintf("* [%s] ", itemStatus)
+	buf.WriteString(statusStr)
+	buf.WriteString(title)
+
+	if item.ID != "" {
+		idStr := fmt.Sprintf(" {{%s}}", item.ID)
+		buf.WriteString(idStr)
+	}
+
+	buf.WriteString("\n")
+
+	if item.Description != "" {
+		buf.WriteString(item.Description)
+		buf.WriteString("\n")
+	}
+
+	return nil
+}
+
+func renderTitle(item *model.Item) string {
+	titleParts := []string{item.Title}
+
+	if item.ProjectID != nil {
+		projectIDStr := fmt.Sprintf("+%s", *item.ProjectID)
+		titleParts = append(titleParts, projectIDStr)
+	}
+
+	if item.Due != nil {
+		dueStr := fmt.Sprintf("due:%s", item.Due.Format("2006-01-02"))
+		titleParts = append(titleParts, dueStr)
+	}
+
+	if item.Snoozed != nil {
+		snoozedStr := fmt.Sprintf("snoozed:%s", item.Snoozed.Format("2006-01-02"))
+		titleParts = append(titleParts, snoozedStr)
+	}
+
+	for _, tag := range item.Tags {
+		tagStr := fmt.Sprintf("#%s", tag)
+		titleParts = append(titleParts, tagStr)
+	}
+
+	title := strings.Join(titleParts, " ")
+
+	if item.WaitingOn != nil {
+		createdStr := item.Created.Format("Jan 2")
+		title = fmt.Sprintf("%s - %s - %s", *item.WaitingOn, title, createdStr)
+	}
+
+	return title
+}
