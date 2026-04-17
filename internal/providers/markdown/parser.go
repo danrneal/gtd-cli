@@ -13,7 +13,7 @@ import (
 
 var (
 	listRegex = regexp.MustCompile(`^#+\s+(.+?)(?:\s+\(\d+\))?(?:\s+{{([^}]+)}})?$`)
-	itemRegex = regexp.MustCompile(`^[*-]\s+\[([ xX-])\]\s+~*(.+?)(?:\s+{{([^}]+)}})?~*$`)
+	itemRegex = regexp.MustCompile(`^[*-]\s+\[(.)\]\s+~*(.+?)(?:\s+{{([^}]+)}})?~*$`)
 )
 
 // parse reads Markdown content and converts it into a slice of model.List.
@@ -54,12 +54,13 @@ func parse(reader io.Reader, modified time.Time) ([]model.List, error) {
 
 			item.ID = strings.TrimSpace(matches[3])
 			item.ListID = p.list.ID
-			item.Status = model.StatusNotStarted
 			switch matches[1] {
-			case "-":
-				item.Status = model.StatusInProgress
+			case " ":
+				item.Status = model.StatusNotStarted
 			case "x", "X":
 				item.Status = model.StatusDone
+			default:
+				item.Status = model.StatusInProgress
 			}
 
 			p.item = item

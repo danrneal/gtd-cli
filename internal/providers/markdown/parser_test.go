@@ -248,6 +248,7 @@ Second line.
 # Statuses
 * [ ] Not started
 - [-] In progress
+- [~] In progress custom
 * [x] ~Done lowercase~
 * [X] ~~Done uppercase~~
 `),
@@ -271,14 +272,20 @@ Second line.
 							Modified: modified,
 						},
 						{
-							Title:    "Done lowercase",
+							Title:    "In progress custom",
 							Position: 2,
+							Status:   model.StatusInProgress,
+							Modified: modified,
+						},
+						{
+							Title:    "Done lowercase",
+							Position: 3,
 							Status:   model.StatusDone,
 							Modified: modified,
 						},
 						{
 							Title:    "Done uppercase",
-							Position: 3,
+							Position: 4,
 							Status:   model.StatusDone,
 							Modified: modified,
 						},
