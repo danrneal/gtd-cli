@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"testing"
 	"time"
@@ -139,35 +140,38 @@ func (f *FakeProvider) UpdateList(_ context.Context, updatedList *model.List, _ 
 	}
 
 	if f.Name == "generic" {
-		for i, list := range f.Lists {
-			if f.GetKey(&list) != "" || list.Name != updatedList.Name {
-				continue
-			}
+		idx := slices.IndexFunc(f.Lists, func(list model.List) bool {
+			return f.GetKey(&list) == "" && list.Name == updatedList.Name
+		})
 
+		if idx != -1 {
+			list := f.Lists[idx]
 			list.ID = f.GetKey(updatedList)
-			f.Lists[i] = list
-			break
+			f.Lists[idx] = list
 		}
 	}
 
 	listItems := []*model.Item{}
 	for i, updatedItem := range updatedList.Items {
 		for j, list := range f.Lists {
-			for k, item := range list.Items {
+			idx := slices.IndexFunc(list.Items, func(item *model.Item) bool {
 				genericMatch := f.Name == "generic" &&
 					f.GetKey(item) == "" &&
 					item.Title == updatedItem.Title
 
-				if !isMatch(item, updatedItem) && !genericMatch {
-					continue
-				}
+				return isMatch(item, updatedItem) || genericMatch
+			})
 
-				item.Position = i
-				listItems = append(listItems, item)
-				list.Items = append(list.Items[:k], list.Items[k+1:]...)
-				f.Lists[j] = list
-				break
+			if idx == -1 {
+				continue
 			}
+
+			item := list.Items[idx]
+			item.Position = i
+			listItems = append(listItems, item)
+			list.Items = slices.Delete(list.Items, idx, idx+1)
+			f.Lists[j] = list
+			break
 		}
 	}
 
@@ -179,50 +183,54 @@ func (f *FakeProvider) UpdateList(_ context.Context, updatedList *model.List, _ 
 		)
 	}
 
-	for i, list := range f.Lists {
-		if !isMatch(&list, updatedList) {
-			continue
-		}
+	idx := slices.IndexFunc(f.Lists, func(list model.List) bool {
+		return isMatch(&list, updatedList)
+	})
 
-		list.Position = updatedList.Position
-		list.Status = updatedList.Status
-		list.Name = updatedList.Name
-		list.Modified = updatedList.Modified
-		if updatedList.ExternalID != nil {
-			list.ExternalID = updatedList.ExternalID
-		}
-
-		list.Items = append(list.Items, listItems...)
-		if updatedList.Status == model.StatusDeleted {
-			list.Items = []*model.Item{}
-		}
-
-		for j, item := range list.Items {
-			if f.Name != "external" {
-				item.ListID = list.ID
-			}
-
-			item.ExternalListID = list.ExternalID
-			list.Items[j] = item
-		}
-
-		f.Lists[i] = list
-
-		return nil
+	if idx == -1 {
+		return fmt.Errorf("list not found: %s", updatedList.ID)
 	}
 
-	return fmt.Errorf("list not found: %s", updatedList.ID)
+	list := f.Lists[idx]
+	list.Position = updatedList.Position
+	list.Status = updatedList.Status
+	list.Name = updatedList.Name
+	list.Modified = updatedList.Modified
+	if updatedList.ExternalID != nil {
+		list.ExternalID = updatedList.ExternalID
+	}
+
+	list.Items = append(list.Items, listItems...)
+	if updatedList.Status == model.StatusDeleted {
+		list.Items = []*model.Item{}
+	}
+
+	for j, item := range list.Items {
+		if f.Name != "external" {
+			item.ListID = list.ID
+		}
+
+		item.ExternalListID = list.ExternalID
+		list.Items[j] = item
+	}
+
+	f.Lists[idx] = list
+
+	return nil
 }
 
 func (f *FakeProvider) DeleteList(_ context.Context, deletedList *model.List) error {
-	for i, list := range f.Lists {
-		if isMatch(&list, deletedList) {
-			f.Lists = append(f.Lists[:i], f.Lists[i+1:]...)
-			return nil
-		}
+	idx := slices.IndexFunc(f.Lists, func(list model.List) bool {
+		return isMatch(&list, deletedList)
+	})
+
+	if idx == -1 {
+		return fmt.Errorf("list not found: %s", deletedList.Name)
 	}
 
-	return fmt.Errorf("list not found: %s", deletedList.Name)
+	f.Lists = slices.Delete(f.Lists, idx, idx+1)
+
+	return nil
 }
 
 func (f *FakeProvider) CreateItem(_ context.Context, item *model.Item, _ string) error {
@@ -242,25 +250,26 @@ func (f *FakeProvider) CreateItem(_ context.Context, item *model.Item, _ string)
 		}
 	}
 
-	for i, list := range f.Lists {
-		if !isParent(&list, item) {
-			continue
-		}
+	idx := slices.IndexFunc(f.Lists, func(list model.List) bool {
+		return isParent(&list, item)
+	})
 
-		createdItem := *item
-		if f.Name == "external" {
-			createdItem.ID = ""
-		}
-
-		createdItem.ListID = list.ID
-		createdItem.ExternalListID = list.ExternalID
-		list.Items = append(list.Items, &createdItem)
-		f.Lists[i] = list
-
-		return nil
+	if idx == -1 {
+		return fmt.Errorf("list ID and external list ID not found: %s, %v", item.ListID, item.ExternalListID)
 	}
 
-	return fmt.Errorf("list ID and external list ID not found: %s, %v", item.ListID, item.ExternalListID)
+	list := f.Lists[idx]
+	createdItem := *item
+	if f.Name == "external" {
+		createdItem.ID = ""
+	}
+
+	createdItem.ListID = list.ID
+	createdItem.ExternalListID = list.ExternalID
+	list.Items = append(list.Items, &createdItem)
+	f.Lists[idx] = list
+
+	return nil
 }
 
 func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem *model.Item) error {
@@ -271,60 +280,67 @@ func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem *model.Item) er
 
 	if f.Name == "generic" {
 		for i, list := range f.Lists {
-			for j, item := range list.Items {
-				if f.GetKey(item) != "" || item.Title != updatedItem.Title {
-					continue
-				}
+			idx := slices.IndexFunc(list.Items, func(item *model.Item) bool {
+				return f.GetKey(item) == "" && item.Title == updatedItem.Title
+			})
 
-				item.ID = f.GetKey(updatedItem)
-				list.Items[j] = item
-				f.Lists[i] = list
-				break
+			if idx == -1 {
+				continue
 			}
+
+			item := list.Items[idx]
+			item.ID = f.GetKey(updatedItem)
+			list.Items[idx] = item
+			f.Lists[i] = list
+			break
 		}
 	}
 
 	for i, list := range f.Lists {
-		for j, item := range list.Items {
-			if !isMatch(item, updatedItem) {
-				continue
-			}
+		idx := slices.IndexFunc(list.Items, func(item *model.Item) bool {
+			return isMatch(item, updatedItem)
+		})
 
-			if !isParent(&list, updatedItem) {
-				return fmt.Errorf(
-					"item parent mismatch: item %s belongs to list %s (ID=%s, ExtID=%v), "+
-						"but update request specifies parent ID=%s, ExtID=%v",
-					updatedItem.Title,
-					list.Name,
-					list.ID,
-					list.ExternalID,
-					updatedItem.ListID,
-					updatedItem.ExternalListID,
-				)
-			}
-
-			item.Status = updatedItem.Status
-			item.Title = updatedItem.Title
-			item.Description = updatedItem.Description
-			item.ProjectID = updatedItem.ProjectID
-			item.WaitingOn = updatedItem.WaitingOn
-			item.Snoozed = updatedItem.Snoozed
-			item.Due = updatedItem.Due
-			item.Tags = updatedItem.Tags
-			item.Modified = updatedItem.Modified
-			if updatedItem.ExternalID != nil {
-				item.ExternalID = updatedItem.ExternalID
-			}
-
-			if updatedItem.ExternalListID != nil {
-				item.ExternalListID = updatedItem.ExternalListID
-			}
-
-			list.Items[j] = item
-			f.Lists[i] = list
-
-			return nil
+		if idx == -1 {
+			continue
 		}
+
+		item := list.Items[idx]
+
+		if !isParent(&list, updatedItem) {
+			return fmt.Errorf(
+				"item parent mismatch: item %s belongs to list %s (ID=%s, ExtID=%v), "+
+					"but update request specifies parent ID=%s, ExtID=%v",
+				updatedItem.Title,
+				list.Name,
+				list.ID,
+				list.ExternalID,
+				updatedItem.ListID,
+				updatedItem.ExternalListID,
+			)
+		}
+
+		item.Status = updatedItem.Status
+		item.Title = updatedItem.Title
+		item.Description = updatedItem.Description
+		item.ProjectID = updatedItem.ProjectID
+		item.WaitingOn = updatedItem.WaitingOn
+		item.Snoozed = updatedItem.Snoozed
+		item.Due = updatedItem.Due
+		item.Tags = updatedItem.Tags
+		item.Modified = updatedItem.Modified
+		if updatedItem.ExternalID != nil {
+			item.ExternalID = updatedItem.ExternalID
+		}
+
+		if updatedItem.ExternalListID != nil {
+			item.ExternalListID = updatedItem.ExternalListID
+		}
+
+		list.Items[idx] = item
+		f.Lists[i] = list
+
+		return nil
 	}
 
 	return fmt.Errorf("item not found: %s", updatedItem.ID)
@@ -332,16 +348,18 @@ func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem *model.Item) er
 
 func (f *FakeProvider) DeleteItem(_ context.Context, deletedItem *model.Item) error {
 	for i, list := range f.Lists {
-		for j, item := range list.Items {
-			if !isMatch(item, deletedItem) {
-				continue
-			}
+		idx := slices.IndexFunc(list.Items, func(item *model.Item) bool {
+			return isMatch(item, deletedItem)
+		})
 
-			list.Items = append(list.Items[:j], list.Items[j+1:]...)
-			f.Lists[i] = list
-
-			return nil
+		if idx == -1 {
+			continue
 		}
+
+		list.Items = slices.Delete(list.Items, idx, idx+1)
+		f.Lists[i] = list
+
+		return nil
 	}
 
 	return fmt.Errorf("item not found: %s", deletedItem.ID)
