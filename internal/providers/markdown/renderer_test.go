@@ -129,7 +129,7 @@ func TestRender(t *testing.T) {
 							Position:  0,
 							Status:    model.StatusNotStarted,
 							Modified:  modified,
-							ProjectID: func() *string { s := "proj-123"; return &s }(),
+							ProjectID: stringPtr("proj-123"),
 						},
 					},
 				},
@@ -230,7 +230,7 @@ func TestRender(t *testing.T) {
 					Items: []*model.Item{
 						{
 							Title:     "Send report",
-							WaitingOn: func() *string { s := "Alice"; return &s }(),
+							WaitingOn: stringPtr("Alice"),
 							Position:  0,
 							Status:    model.StatusNotStarted,
 							Modified:  modified,

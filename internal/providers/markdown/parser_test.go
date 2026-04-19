@@ -310,13 +310,13 @@ Second line.
 					Items: []*model.Item{
 						{
 							ID:             "item-456",
-							ExternalListID: func() *string { s := "list-1"; return &s }(),
+							ExternalListID: stringPtr("list-1"),
 							ListID:         "list-1",
 							Title:          "Complex task",
 							Position:       0,
 							Status:         model.StatusNotStarted,
 							Modified:       modified,
-							ProjectID:      func() *string { s := "proj-123"; return &s }(),
+							ProjectID:      stringPtr("proj-123"),
 							Due:            iso8601ToDate("2024-01-02"),
 							Snoozed:        iso8601ToDate("2024-01-01"),
 							Tags:           []string{"tag1", "tag2"},
@@ -442,14 +442,14 @@ Second line.
 					Items: []*model.Item{
 						{
 							Title:     "Send report",
-							WaitingOn: func() *string { s := "Alice"; return &s }(),
+							WaitingOn: stringPtr("Alice"),
 							Position:  0,
 							Status:    model.StatusNotStarted,
 							Modified:  modified,
 						},
 						{
 							Title:     "Review PR",
-							WaitingOn: func() *string { s := "Bob"; return &s }(),
+							WaitingOn: stringPtr("Bob"),
 							Position:  1,
 							Status:    model.StatusNotStarted,
 							Modified:  modified,

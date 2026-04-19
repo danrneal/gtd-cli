@@ -8,6 +8,7 @@ import (
 	"github.com/danrneal/gtd.nvim/internal/model"
 )
 
+// render writes a slice of model.List to the provided [io.Writer] in Markdown format.
 func render(writer io.Writer, lists []model.List) error {
 	buf := strings.Builder{}
 	for _, list := range lists {
@@ -23,6 +24,7 @@ func render(writer io.Writer, lists []model.List) error {
 	return nil
 }
 
+// renderList formats a single list and its items into the provided string builder.
 func renderList(buf *strings.Builder, list *model.List) error {
 	listParts := []string{"#", list.Name}
 
@@ -49,6 +51,7 @@ func renderList(buf *strings.Builder, list *model.List) error {
 	return nil
 }
 
+// renderItem formats a single item, including its status and metadata, into the provided string builder.
 func renderItem(buf *strings.Builder, item *model.Item) error {
 	title := renderTitle(item)
 
@@ -83,6 +86,7 @@ func renderItem(buf *strings.Builder, item *model.Item) error {
 	return nil
 }
 
+// renderTitle constructs the task title string by appending all relevant metadata fields.
 func renderTitle(item *model.Item) string {
 	titleParts := []string{item.Title}
 
