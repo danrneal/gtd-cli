@@ -17,7 +17,8 @@ import (
 
 // Client is a wrapper around the Google Tasks service.
 type Client struct {
-	service *tasks.Service
+	service      *tasks.Service
+	pollInterval time.Duration
 }
 
 const (
@@ -27,8 +28,11 @@ const (
 )
 
 // NewClient returns a new Google Tasks client.
-func NewClient(service *tasks.Service) *Client {
-	client := &Client{service: service}
+func NewClient(service *tasks.Service, pollInterval time.Duration) *Client {
+	client := &Client{
+		service:      service,
+		pollInterval: pollInterval,
+	}
 
 	return client
 }
