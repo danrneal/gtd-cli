@@ -3,9 +3,11 @@ module github.com/danrneal/gtd.nvim
 go 1.24.8
 
 require (
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.33
+	go.uber.org/goleak v1.3.0
 	golang.org/x/oauth2 v0.34.0
 	google.golang.org/api v0.264.0
 )
