@@ -2,6 +2,7 @@ package markdown
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -1521,6 +1522,10 @@ func TestClient_writeFile(t *testing.T) {
 				return
 			}
 
+			if client.lastModTime.IsZero() {
+				t.Fatal("expected lastModTime to be updated after successful mutation")
+			}
+
 			b, err := os.ReadFile(testPath)
 			if err != nil {
 				t.Fatalf("failed to read test file: %v", err)
@@ -1531,6 +1536,43 @@ func TestClient_writeFile(t *testing.T) {
 				t.Errorf("writeFile() mismatch (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestClient_Concurrency(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "concurrency.md")
+	if err := os.WriteFile(path, []byte("# Inbox\n"), 0o600); err != nil {
+		t.Fatalf("failed to setup file: %v", err)
+	}
+
+	client := NewClient(path)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	events, err := client.Watch(ctx)
+	if err != nil {
+		t.Fatalf("failed to start watcher: %v", err)
+	}
+
+	go func() {
+		for range events {
+			// Drain the channel to prevent the watcher from blocking
+		}
+	}()
+
+	for i := range 50 {
+		list := &model.List{
+			Name:     fmt.Sprintf("List %d", i),
+			Status:   model.StatusOpen,
+			Modified: time.Now(),
+		}
+
+		if err := client.CreateList(ctx, list); err != nil {
+			t.Fatalf("mutation failed during concurrency test: %v", err)
+		}
 	}
 }
 

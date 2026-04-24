@@ -7,13 +7,17 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"sync"
+	"time"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
 )
 
 // Client is a markdown file provider client.
 type Client struct {
-	filepath string
+	filepath    string
+	mu          sync.RWMutex
+	lastModTime time.Time
 }
 
 // NewClient creates a new markdown client with the given file path.
@@ -273,13 +277,22 @@ func (c *Client) writeFile(lists []model.List) error {
 
 	defer file.Close()
 
-	if err := render(file, lists); err != nil {
+	if err = render(file, lists); err != nil {
 		return fmt.Errorf("failed to render markdown file: %w", err)
 	}
 
-	if err := file.Close(); err != nil {
+	if err = file.Close(); err != nil {
 		return fmt.Errorf("failed to close markdown file: %w", err)
 	}
+
+	stat, err := os.Stat(c.filepath)
+	if err != nil {
+		return fmt.Errorf("failed to stat markdown file after writing: %w", err)
+	}
+
+	c.mu.Lock()
+	c.lastModTime = stat.ModTime()
+	c.mu.Unlock()
 
 	return nil
 }
