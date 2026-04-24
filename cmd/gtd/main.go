@@ -4,49 +4,111 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
+	"fmt"
+	"log/slog"
+	"os"
+	"os/signal"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
+	"google.golang.org/api/tasks/v1"
 
 	"github.com/danrneal/gtd.nvim/internal/app"
 	"github.com/danrneal/gtd.nvim/internal/providers/googletasks"
+	"github.com/danrneal/gtd.nvim/internal/providers/markdown"
 	"github.com/danrneal/gtd.nvim/internal/providers/sqlite"
 )
 
+type Config struct {
+	db                      string
+	mdFile                  string
+	providers               string
+	googleTasksPollInterval int
+	credsFile               string
+	tokenFile               string
+}
+
 func main() {
-	db := flag.String("db", "gtd.db", "Name of the SQLite database.")
-	adapters := flag.String("adapters", "", "Comma-separated list of adapters to enable. Supported: google_tasks")
-	credsFile := flag.String("credentials", "credentials.json", "Path to Google credentials file")
-	tokenFile := flag.String("token", "token.json", "Path to Google token file")
+	var cfg Config
+	flag.StringVar(&cfg.db, "db", "gtd.db", "Name of the SQLite database.")
+	flag.StringVar(&cfg.mdFile, "filename", "gtd.md", "Path to the GTD Markdown file")
+	flag.StringVar(
+		&cfg.providers,
+		"providers",
+		"",
+		"Comma-separated list of providers to enable. Supported: google_tasks",
+	)
+	flag.IntVar(
+		&cfg.googleTasksPollInterval,
+		"google_tasks_poll_interval",
+		30,
+		"Google Tasks polling interval in seconds",
+	)
+	flag.StringVar(&cfg.credsFile, "credentials", "credentials.json", "Path to Google credentials file")
+	flag.StringVar(&cfg.tokenFile, "token", "token.json", "Path to Google token file")
 	flag.Parse()
 
-	ctx := context.Background()
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	sqliteStore, err := sqlite.NewStore(ctx, *db)
+	if err := run(&cfg, logger); err != nil {
+		logger.Error("Application terminated unexpectedly", "err", err)
+		os.Exit(1)
+	}
+}
+
+func run(cfg *Config, logger *slog.Logger) error {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+
+	sqliteStore, err := sqlite.NewStore(ctx, cfg.db)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to initialize sqlite store: %w", err)
 	}
 
-	for adapter := range strings.SplitSeq(*adapters, ",") {
-		if adapter == "" {
+	var syncNodes []*app.SyncNode
+
+	mdClient := markdown.NewClient(cfg.mdFile)
+	mdSyncer := app.NewSyncer(sqliteStore, mdClient)
+	mdSyncNode := &app.SyncNode{
+		Name:    "markdown",
+		Syncer:  mdSyncer,
+		Watcher: mdClient,
+	}
+
+	syncNodes = append(syncNodes, mdSyncNode)
+
+	for providerName := range strings.SplitSeq(cfg.providers, ",") {
+		if providerName == "" {
 			continue
 		}
 
-		switch adapter {
+		switch providerName {
 		case "google_tasks":
-			tasksService, err := googletasks.NewService(ctx, *credsFile, *tokenFile)
+			var tasksService *tasks.Service
+			tasksService, err = googletasks.NewService(ctx, cfg.credsFile, cfg.tokenFile)
 			if err != nil {
-				log.Fatal(err)
+				return fmt.Errorf("failed to initialize google tasks service: %w", err)
 			}
 
-			tasksClient := googletasks.NewClient(tasksService)
+			pollInterval := time.Duration(cfg.googleTasksPollInterval) * time.Second
+			tasksClient := googletasks.NewClient(tasksService, pollInterval)
 			tasksSyncer := app.NewSyncer(sqliteStore, tasksClient)
-			_ = tasksSyncer
+			tasksSyncNode := &app.SyncNode{
+				Name:    "google_tasks",
+				Syncer:  tasksSyncer,
+				Watcher: tasksClient,
+			}
+
+			syncNodes = append(syncNodes, tasksSyncNode)
 		default:
-			log.Fatalf("unsupported adapter: %q. Supported adapters are: google_tasks", adapter)
+			return fmt.Errorf("unsupported providers: %q. Supported providers are: google_tasks", providerName)
 		}
 	}
 
-	_ = sqliteStore
+	if err = app.Run(ctx, logger, syncNodes); err != nil {
+		return fmt.Errorf("sync loop failed: %w", err)
+	}
+
+	return nil
 }
