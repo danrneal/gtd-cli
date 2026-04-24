@@ -15,12 +15,12 @@ import (
 	"github.com/danrneal/gtd.nvim/internal/model"
 )
 
-// FakeProvider implements RemoteProvider for testing.
 type FakeProvider struct {
 	Name        string
 	Lists       []model.List
 	ListCounter int
 	ItemCounter int
+	errNextRead error
 }
 
 func NewFakeProvider(name string, lists []model.List) *FakeProvider {
@@ -110,6 +110,13 @@ func (f *FakeProvider) CreateList(_ context.Context, list *model.List) error {
 }
 
 func (f *FakeProvider) ListLists(_ context.Context) ([]model.List, error) {
+	if f.errNextRead != nil {
+		err := f.errNextRead
+		f.errNextRead = nil
+
+		return nil, err
+	}
+
 	lists := make([]model.List, 0, len(f.Lists))
 	for _, list := range f.Lists {
 		sort.Slice(list.Items, func(i, j int) bool {
@@ -423,6 +430,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantDstLists: []model.List{
@@ -430,6 +438,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantUpdated: true,
@@ -448,6 +457,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantDstLists: []model.List{
@@ -455,6 +465,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantUpdated: true,
@@ -474,6 +485,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
 				},
 			},
 			wantDstLists: []model.List{
@@ -481,6 +493,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
 				},
 			},
 			wantUpdated: true,
@@ -499,6 +512,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
 				},
 			},
 			wantDstLists: []model.List{
@@ -507,6 +521,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
 				},
 			},
 			wantUpdated: true,
@@ -775,6 +790,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantUpdated: false,
@@ -823,6 +839,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
 				},
 			},
 			wantUpdated: false,
@@ -1886,6 +1903,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1 Updated",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantDstLists: []model.List{
@@ -1893,6 +1911,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1 Updated",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantUpdated: true,
@@ -1917,6 +1936,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1 Updated",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantDstLists: []model.List{
@@ -1924,6 +1944,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1 Updated",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantUpdated: true,
@@ -1948,6 +1969,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantDstLists: []model.List{
@@ -1955,6 +1977,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantUpdated: false,
@@ -1979,6 +2002,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantDstLists: []model.List{
@@ -1986,6 +2010,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantUpdated: false,
@@ -2011,6 +2036,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
 				},
 			},
 			wantDstLists: []model.List{
@@ -2018,6 +2044,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
 				},
 			},
 			wantUpdated: true,
@@ -2042,6 +2069,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
 				},
 			},
 			wantDstLists: []model.List{
@@ -2050,6 +2078,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
 				},
 			},
 			wantUpdated: true,
@@ -3415,6 +3444,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusDeleted,
+					Items:  []*model.Item{},
 				},
 			},
 			wantUpdated: true,
@@ -3464,6 +3494,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
 					Status:     model.StatusDeleted,
+					Items:      []*model.Item{},
 				},
 			},
 			wantUpdated: true,
@@ -3483,6 +3514,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusDeleted,
+					Items:  []*model.Item{},
 				},
 			},
 			wantUpdated: false,
@@ -3504,6 +3536,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusDeleted,
 					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
 				},
 			},
 			wantUpdated: false,
@@ -3538,6 +3571,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantDstLists: []model.List{
@@ -3545,6 +3579,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantUpdated: true,
@@ -3575,6 +3610,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantDstLists: []model.List{
@@ -3623,6 +3659,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
 					Status:     model.StatusOpen,
+					Items:      []*model.Item{},
 				},
 			},
 			wantDstLists: []model.List{
@@ -3630,6 +3667,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
 					Status:     model.StatusOpen,
+					Items:      []*model.Item{},
 				},
 			},
 			wantUpdated: true,
@@ -3661,6 +3699,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					ExternalID: stringPtr("external-list-1"),
 					Status:     model.StatusOpen,
+					Items:      []*model.Item{},
 				},
 			},
 			wantDstLists: []model.List{
@@ -3707,6 +3746,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 			wantDstLists: []model.List{
@@ -3749,6 +3789,7 @@ func TestOneWaySync(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
 				},
 			},
 			wantDstLists: []model.List{
@@ -4073,7 +4114,6 @@ func TestOneWaySync(t *testing.T) {
 			opts := []cmp.Option{
 				cmpopts.IgnoreFields(model.List{}, "Modified"),
 				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
-				cmpopts.EquateEmpty(),
 			}
 
 			gotSrcLists, _ := tt.src.ListLists(context.Background())

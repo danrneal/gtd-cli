@@ -25,22 +25,11 @@ func NewSyncer(local Provider, remote RemoteProvider) *Syncer {
 	return syncer
 }
 
-// Sync performs a two-way synchronization, first pushing local changes to remote, then pulling remote changes to local.
-// It returns true if any changes were pulled from the remote provider.
-func (s *Syncer) Sync(ctx context.Context) (bool, error) {
-	if _, err := s.Push(ctx); err != nil {
-		return false, err
-	}
-
-	changed, err := s.Pull(ctx)
-
-	return changed, err
-}
-
 // Push synchronizes changes from the local provider to the remote provider.
 // It returns true if any changes were pushed.
-func (s *Syncer) Push(ctx context.Context) (bool, error) {
-	return s.oneWaySync(ctx, s.local, s.remote)
+func (s *Syncer) Push(ctx context.Context) error {
+	_, err := s.oneWaySync(ctx, s.local, s.remote)
+	return err
 }
 
 // Pull synchronizes changes from the remote provider to the local provider.
