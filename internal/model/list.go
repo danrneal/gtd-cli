@@ -44,6 +44,7 @@ func (l *List) Validate() error {
 
 	switch l.Status {
 	case StatusOpen, StatusDeleted:
+		// Valid status
 	default:
 		return fmt.Errorf("invalid list status: %q", l.Status)
 	}

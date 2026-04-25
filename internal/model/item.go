@@ -59,6 +59,7 @@ func (i *Item) Validate() error {
 
 	switch i.Status {
 	case StatusNotStarted, StatusInProgress, StatusDone, StatusDeleted:
+		// Valid status
 	default:
 		return fmt.Errorf("invalid item status: %q", i.Status)
 	}
