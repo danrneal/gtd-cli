@@ -22,6 +22,7 @@ import (
 
 // Config holds all the command-line flag values required to initialize the application.
 type Config struct {
+	system                  string
 	db                      string
 	mdFile                  string
 	providers               string
@@ -32,8 +33,9 @@ type Config struct {
 
 func main() {
 	var cfg Config
-	flag.StringVar(&cfg.db, "db", "gtd.db", "Name of the SQLite database.")
-	flag.StringVar(&cfg.mdFile, "filename", "gtd.md", "Path to the GTD Markdown file")
+	flag.StringVar(&cfg.system, "system", "gtd", "Base name for system files (e.g., 'personal' yields 'personal.db')")
+	flag.StringVar(&cfg.db, "db", "", "Name of the SQLite database (overrides -system)")
+	flag.StringVar(&cfg.mdFile, "filename", "", "Path to the GTD Markdown file (overrides -system)")
 	flag.StringVar(
 		&cfg.providers,
 		"providers",
@@ -46,12 +48,27 @@ func main() {
 		30,
 		"Google Tasks polling interval in seconds",
 	)
-	flag.StringVar(&cfg.credsFile, "credentials", "credentials.json", "Path to Google credentials file")
-	flag.StringVar(&cfg.tokenFile, "token", "token.json", "Path to Google token file")
+	flag.StringVar(&cfg.credsFile, "credentials", "", "Path to Google credentials file (overrides -system)")
+	flag.StringVar(&cfg.tokenFile, "token", "", "Path to Google token file (overrides -system)")
 	flag.Parse()
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	if cfg.db == "" {
+		cfg.db = cfg.system + ".db"
+	}
 
+	if cfg.mdFile == "" {
+		cfg.mdFile = cfg.system + ".md"
+	}
+
+	if cfg.credsFile == "" {
+		cfg.credsFile = cfg.system + "_credentials.json"
+	}
+
+	if cfg.tokenFile == "" {
+		cfg.tokenFile = cfg.system + "_token.json"
+	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	if err := run(&cfg, logger); err != nil {
 		logger.Error("Application terminated unexpectedly", "err", err)
 		os.Exit(1)
