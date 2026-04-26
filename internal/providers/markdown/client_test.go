@@ -291,6 +291,59 @@ func TestClient_UpdateList(t *testing.T) {
 		wantErr bool
 	}{
 		{
+			name: "success (backfill fallback)",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "update_success_backfill.md")
+				content := "# Inbox\n* [ ] Task 1 {{item-1}}\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
+				if err := os.Chtimes(path, modified, modified); err != nil {
+					t.Fatalf("failed to change file times: %v", err)
+				}
+
+				return path
+			},
+			list: &model.List{
+				ID:       "list-1",
+				Name:     "Inbox",
+				Position: 0,
+				Status:   model.StatusOpen,
+				Modified: modified,
+				Items: []*model.Item{
+					{
+						ID:       "item-1",
+						ListID:   "list-1",
+						Title:    "Task 1",
+						Position: 0,
+						Status:   model.StatusNotStarted,
+						Modified: modified,
+					},
+				},
+			},
+			want: []model.List{
+				{
+					ID:       "list-1",
+					Name:     "Inbox",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items: []*model.Item{
+						{
+							ID:       "item-1",
+							ListID:   "list-1",
+							Title:    "Task 1",
+							Position: 0,
+							Status:   model.StatusNotStarted,
+							Modified: modified,
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "success (rename only)",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "update_success_rename.md")
@@ -963,6 +1016,50 @@ func TestClient_UpdateItem(t *testing.T) {
 		want    []model.List
 		wantErr bool
 	}{
+		{
+			name: "success (backfill fallback)",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "update_success_backfill.md")
+				content := "# Inbox {{list-1}}\n* [ ] Task 1\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
+				if err := os.Chtimes(path, modified, modified); err != nil {
+					t.Fatalf("failed to change file times: %v", err)
+				}
+
+				return path
+			},
+			item: &model.Item{
+				ID:       "item-1",
+				ListID:   "list-1",
+				Title:    "Task 1",
+				Position: 0,
+				Status:   model.StatusNotStarted,
+				Modified: modified,
+			},
+			want: []model.List{
+				{
+					ID:       "list-1",
+					Name:     "Inbox",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items: []*model.Item{
+						{
+							ID:       "item-1",
+							ListID:   "list-1",
+							Title:    "Task 1",
+							Position: 0,
+							Status:   model.StatusNotStarted,
+							Modified: modified,
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
 		{
 			name: "success",
 			setup: func(t *testing.T) string {
