@@ -16,6 +16,7 @@ import (
 	"github.com/danrneal/gtd.nvim/internal/model"
 )
 
+// FakeWatcher is a mock implementation of the Watcher interface for testing purposes.
 type FakeWatcher struct {
 	events   chan error
 	watchErr error

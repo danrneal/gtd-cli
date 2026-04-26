@@ -344,6 +344,7 @@ Second line.
 	}
 }
 
+// errWriter implements [io.Writer] and always returns an error for testing write failures.
 type errWriter struct{}
 
 func (errWriter) Write(p []byte) (n int, err error) {

@@ -15,6 +15,7 @@ import (
 	"github.com/danrneal/gtd.nvim/internal/model"
 )
 
+// FakeProvider is a mock implementation of the Provider and RemoteProvider interfaces for testing purposes.
 type FakeProvider struct {
 	Name        string
 	Lists       []model.List

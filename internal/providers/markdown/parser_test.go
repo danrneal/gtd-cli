@@ -509,6 +509,7 @@ Second line.
 	}
 }
 
+// errReader implements [io.Reader] and always returns an error for testing read failures.
 type errReader struct{}
 
 func (errReader) Read(p []byte) (n int, err error) {

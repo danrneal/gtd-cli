@@ -170,6 +170,7 @@ func TestSaveToken(t *testing.T) {
 	}
 }
 
+// mockTokenSource implements oauth2.TokenSource to provide a static token for testing.
 type mockTokenSource struct {
 	token *oauth2.Token
 	err   error
