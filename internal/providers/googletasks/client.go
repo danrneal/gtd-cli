@@ -265,16 +265,20 @@ func (c *Client) UpdateItem(ctx context.Context, item *model.Item) error {
 		status = statusCompleted
 	}
 
-	var due string
-	if item.Snoozed != nil {
-		due = item.Snoozed.Format(time.RFC3339)
-	}
-
 	task := &tasks.Task{
 		Title:  title,
 		Notes:  item.Description,
 		Status: status,
-		Due:    due,
+	}
+
+	if item.Description == "" {
+		task.NullFields = append(task.NullFields, "Notes")
+	}
+
+	if item.Snoozed != nil {
+		task.Due = item.Snoozed.Format(time.RFC3339)
+	} else {
+		task.NullFields = append(task.NullFields, "Due")
 	}
 
 	if _, err := c.service.Tasks.Patch(*item.ExternalListID, *item.ExternalID, task).Context(ctx).Do(); err != nil {

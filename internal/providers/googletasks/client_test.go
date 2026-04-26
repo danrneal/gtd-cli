@@ -1556,6 +1556,8 @@ func TestUpdateItem(t *testing.T) {
 			listID: "L1",
 			item: &model.Item{
 				Title:          "  Updated Task  \n",
+				Description:    "Has desc",
+				Snoozed:        iso8601ToDate("2024-01-01"),
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
@@ -1612,6 +1614,8 @@ func TestUpdateItem(t *testing.T) {
 			listID: "L1",
 			item: &model.Item{
 				Title:          "Task",
+				Description:    "Has desc",
+				Snoozed:        iso8601ToDate("2024-01-01"),
 				Status:         model.StatusDone,
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
@@ -1649,6 +1653,7 @@ func TestUpdateItem(t *testing.T) {
 			listID: "L1",
 			item: &model.Item{
 				Title:          "Task",
+				Description:    "Has desc",
 				Snoozed:        iso8601ToDate("2024-01-01"),
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
@@ -1660,6 +1665,64 @@ func TestUpdateItem(t *testing.T) {
 					resp := &http.Response{
 						StatusCode: http.StatusBadRequest,
 						Body:       io.NopCloser(bytes.NewBufferString("Bad Due Date")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				if bytes.Contains(body, []byte(`"due":null`)) {
+					resp := &http.Response{
+						StatusCode: http.StatusBadRequest,
+						Body:       io.NopCloser(bytes.NewBufferString("Unexpected null Due")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				resp := &http.Response{
+					StatusCode: http.StatusOK,
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"id": "T1"
+						}
+					`)),
+					Header: make(http.Header),
+				}
+
+				return resp
+			},
+			wantErr: false,
+		},
+		{
+			name:   "clear description and snoozed date",
+			listID: "L1",
+			item: &model.Item{
+				Title:          "Task",
+				Description:    "",
+				Snoozed:        nil,
+				ExternalID:     stringPtr("T1"),
+				ExternalListID: stringPtr("L1"),
+				Modified:       time.Now(),
+			},
+			handler: func(req *http.Request) *http.Response {
+				body, _ := io.ReadAll(req.Body)
+
+				if !bytes.Contains(body, []byte(`"notes":null`)) {
+					resp := &http.Response{
+						StatusCode: http.StatusBadRequest,
+						Body:       io.NopCloser(bytes.NewBufferString("Missing null Notes")),
+						Header:     make(http.Header),
+					}
+
+					return resp
+				}
+
+				if !bytes.Contains(body, []byte(`"due":null`)) {
+					resp := &http.Response{
+						StatusCode: http.StatusBadRequest,
+						Body:       io.NopCloser(bytes.NewBufferString("Missing null Due")),
 						Header:     make(http.Header),
 					}
 
@@ -1707,6 +1770,8 @@ func TestUpdateItem(t *testing.T) {
 			item: &model.Item{
 				ListID:         "L1",
 				Title:          "Fail",
+				Description:    "Has desc",
+				Snoozed:        iso8601ToDate("2024-01-01"),
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
