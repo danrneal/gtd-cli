@@ -41,6 +41,17 @@ func NewStore(ctx context.Context, dbPath string) (*Store, error) {
 	return store, nil
 }
 
+// Close closes the underlying SQLite database connection, ensuring WAL and SHM files are cleaned up.
+func (s *Store) Close() error {
+	if s.db != nil {
+		if err := s.db.Close(); err != nil {
+			return fmt.Errorf("failed to close database: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // createTables ensures that the required database tables exist and have the correct constraints.
 func (s *Store) createTables(ctx context.Context) error {
 	query := `

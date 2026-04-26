@@ -68,6 +68,7 @@ func run(cfg *Config, logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize sqlite store: %w", err)
 	}
+	defer sqliteStore.Close()
 
 	var syncTargets []*app.SyncTarget
 

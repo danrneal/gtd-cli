@@ -23,7 +23,7 @@ luac.out
 bin/
 credentials.json
 token.json
-*.db
+*.db*
 .gemini/
 
 # Documentation (Allow README only)
