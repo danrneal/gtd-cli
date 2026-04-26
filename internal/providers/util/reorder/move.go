@@ -51,6 +51,16 @@ func CalculateMoves(list *model.List, currentItems []*model.Item) []Move {
 	return moves
 }
 
+// dpNode represents a cell in the dynamic programming table used to calculate
+// the Longest Increasing Subsequence of item positions.
+type dpNode struct {
+	currentItemIdx int
+	length         int
+	prevIdx        int
+}
+
+// calculateStableItemIDs identifies the largest subset of items that do not need
+// to be moved by calculating the Longest Increasing Subsequence of their current indices.
 func calculateStableItemIDs(updatedItems, currentItems []*model.Item) map[string]bool {
 	currentItemIDs := make(map[string]int, len(currentItems))
 	for i, currentItem := range currentItems {
@@ -64,16 +74,10 @@ func calculateStableItemIDs(updatedItems, currentItems []*model.Item) map[string
 		}
 	}
 
-	type node struct {
-		currentItemIdx int
-		length         int
-		prevIdx        int
-	}
-
-	dp := make([]node, len(currentItemIdxs))
+	dp := make([]dpNode, len(currentItemIdxs))
 	maxLenIdx := -1
 	for i, currentItemIdx := range currentItemIdxs {
-		dp[i] = node{
+		dp[i] = dpNode{
 			currentItemIdx: currentItemIdx,
 			length:         1,
 			prevIdx:        -1,
@@ -81,7 +85,7 @@ func calculateStableItemIDs(updatedItems, currentItems []*model.Item) map[string
 
 		for j := range i {
 			if currentItemIdxs[i] > currentItemIdxs[j] && dp[j].length >= dp[i].length {
-				dp[i] = node{
+				dp[i] = dpNode{
 					currentItemIdx: currentItemIdx,
 					length:         dp[j].length + 1,
 					prevIdx:        j,

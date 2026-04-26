@@ -9,6 +9,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+// Watch initializes an fsnotify file watcher on the directory containing the markdown file.
+// It returns a channel that emits events when genuine user modifications are detected.
 func (c *Client) Watch(ctx context.Context) (<-chan error, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -34,6 +36,8 @@ func (c *Client) Watch(ctx context.Context) (<-chan error, error) {
 	return events, nil
 }
 
+// watchLoop runs continuously in the background, routing OS events from fsnotify,
+// filtering out noise, and pushing valid events down the outbound channel.
 func (c *Client) watchLoop(ctx context.Context, watcher *fsnotify.Watcher, events chan<- error) {
 	for {
 		select {
@@ -69,6 +73,9 @@ func (c *Client) watchLoop(ctx context.Context, watcher *fsnotify.Watcher, event
 	}
 }
 
+// hasFileChanged determines if an fsnotify event represents a genuine user modification
+// by verifying the file path, the operation type, and asserting that the file's
+// physical modification timestamp has advanced past the Client's last known state.
 func (c *Client) hasFileChanged(event fsnotify.Event) bool {
 	if filepath.Clean(event.Name) != filepath.Clean(c.filepath) {
 		return false

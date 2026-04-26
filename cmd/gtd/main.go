@@ -20,6 +20,7 @@ import (
 	"github.com/danrneal/gtd.nvim/internal/providers/sqlite"
 )
 
+// Config holds all the command-line flag values required to initialize the application.
 type Config struct {
 	db                      string
 	mdFile                  string
@@ -57,6 +58,8 @@ func main() {
 	}
 }
 
+// run encapsulates the application startup and execution lifecycle. It initializes dependencies,
+// wires up the synchronization nodes, and blocks until the runner finishes or a fatal error occurs.
 func run(cfg *Config, logger *slog.Logger) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
@@ -106,7 +109,8 @@ func run(cfg *Config, logger *slog.Logger) error {
 		}
 	}
 
-	if err = app.Run(ctx, logger, syncNodes); err != nil {
+	runner := app.NewRunner(logger, syncNodes)
+	if err = runner.Run(ctx); err != nil {
 		return fmt.Errorf("sync loop failed: %w", err)
 	}
 

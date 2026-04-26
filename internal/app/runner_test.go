@@ -308,7 +308,8 @@ func TestRun(t *testing.T) {
 
 			errChan := make(chan error, 1)
 			go func() {
-				errChan <- Run(ctx, logger, syncNodes)
+				runner := NewRunner(logger, syncNodes)
+				errChan <- runner.Run(ctx)
 			}()
 
 			tt.triggerEvent(mdWatcher, tasksWatcher)
