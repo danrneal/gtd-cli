@@ -7,26 +7,26 @@ import (
 	"log/slog"
 )
 
-// Runner orchestrates state synchronization across multiple SyncNodes.
+// Runner orchestrates state synchronization across multiple SyncTargets.
 type Runner struct {
-	logger     *slog.Logger
-	syncNodes  []*SyncNode
-	nodeEvents chan nodeEvent
+	logger  *slog.Logger
+	targets []*SyncTarget
+	events  chan syncEvent
 }
 
-// NewRunner creates a new Runner instance with the provided logger and configuration nodes.
-func NewRunner(logger *slog.Logger, syncNodes []*SyncNode) *Runner {
+// NewRunner creates a new Runner instance with the provided logger and configuration targets.
+func NewRunner(logger *slog.Logger, targets []*SyncTarget) *Runner {
 	runner := &Runner{
-		logger:     logger,
-		syncNodes:  syncNodes,
-		nodeEvents: make(chan nodeEvent),
+		logger:  logger,
+		targets: targets,
+		events:  make(chan syncEvent, len(targets)),
 	}
 
 	return runner
 }
 
-// SyncNode groups a Syncer and Watcher together with internal state tracking for retries.
-type SyncNode struct {
+// SyncTarget groups a Syncer and Watcher together with internal state tracking for retries.
+type SyncTarget struct {
 	Name           string
 	Syncer         *Syncer
 	Watcher        Watcher
@@ -39,15 +39,17 @@ type Watcher interface {
 	Watch(ctx context.Context) (<-chan error, error)
 }
 
-// nodeEvent is used internally to pass watcher events or fatal errors to the main loop.
-type nodeEvent struct {
-	node *SyncNode
-	err  error
+// syncEvent is used internally to pass watcher events or fatal errors to the main loop.
+type syncEvent struct {
+	target *SyncTarget
+	err    error
 }
 
+// Run starts the main event loop for the Runner. It initializes watchers for all targets
+// and blocks until the context is canceled or a fatal error occurs in a watcher.
 func (r *Runner) Run(ctx context.Context) error {
-	for _, syncNode := range r.syncNodes {
-		if err := r.startWatcher(ctx, syncNode); err != nil {
+	for _, target := range r.targets {
+		if err := r.startWatcher(ctx, target); err != nil {
 			return err
 		}
 	}
@@ -56,36 +58,22 @@ func (r *Runner) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("sync loop canceled: %w", ctx.Err())
-		case event := <-r.nodeEvents:
+		case event := <-r.events:
 			if event.err != nil {
-				return fmt.Errorf("fatal error in %s watcher: %w", event.node.Name, event.err)
+				return fmt.Errorf("fatal error in %s watcher: %w", event.target.Name, event.err)
 			}
 
-			changed := false
-			for _, syncNode := range r.syncNodes {
-				if syncNode != event.node && !syncNode.needsPullRetry {
-					continue
-				}
-
-				pulled := r.pull(ctx, syncNode)
-				changed = changed || pulled
-			}
-
-			for _, syncNode := range r.syncNodes {
-				if !changed && !syncNode.needsPushRetry {
-					continue
-				}
-
-				r.push(ctx, syncNode)
-			}
+			r.syncTargets(ctx, event)
 		}
 	}
 }
 
-func (r *Runner) startWatcher(ctx context.Context, syncNode *SyncNode) error {
-	eventsChan, err := syncNode.Watcher.Watch(ctx)
+// startWatcher initializes and runs a background goroutine that listens for events
+// from the given target's Watcher, forwarding them to the runner's event channel.
+func (r *Runner) startWatcher(ctx context.Context, target *SyncTarget) error {
+	events, err := target.Watcher.Watch(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to start watcher for %s: %w", syncNode.Name, err)
+		return fmt.Errorf("failed to start watcher for %s: %w", target.Name, err)
 	}
 
 	go func() {
@@ -93,20 +81,20 @@ func (r *Runner) startWatcher(ctx context.Context, syncNode *SyncNode) error {
 			select {
 			case <-ctx.Done():
 				return
-			case err, ok := <-eventsChan:
+			case err, ok := <-events:
 				if !ok {
 					err = errors.New("watcher channel closed unexpectedly")
 				}
 
-				event := nodeEvent{
-					node: syncNode,
-					err:  err,
+				event := syncEvent{
+					target: target,
+					err:    err,
 				}
 
 				select {
 				case <-ctx.Done():
 					return
-				case r.nodeEvents <- event:
+				case r.events <- event:
 					if !ok {
 						return
 					}
@@ -118,31 +106,57 @@ func (r *Runner) startWatcher(ctx context.Context, syncNode *SyncNode) error {
 	return nil
 }
 
-func (r *Runner) pull(ctx context.Context, syncNode *SyncNode) bool {
-	pulled, err := syncNode.Syncer.Pull(ctx)
+// syncTargets orchestrates the pulling and pushing of state across all targets
+// in response to an event. It cross-pollinates changes while respecting retry states.
+func (r *Runner) syncTargets(ctx context.Context, event syncEvent) {
+	changed := false
+	for _, target := range r.targets {
+		if target != event.target && !target.needsPullRetry {
+			continue
+		}
+
+		pulled := r.pull(ctx, target)
+		changed = changed || pulled
+	}
+
+	for _, target := range r.targets {
+		if !changed && !target.needsPushRetry {
+			continue
+		}
+
+		r.push(ctx, target)
+	}
+}
+
+// pull attempts to synchronize state from the given target to the local store.
+// It returns true if changes were successfully pulled, and sets retry flags on failure.
+func (r *Runner) pull(ctx context.Context, target *SyncTarget) bool {
+	pulled, err := target.Syncer.Pull(ctx)
 	if err != nil {
-		r.logger.ErrorContext(ctx, "Failed to pull", "syncNode", syncNode.Name, "err", err)
-		syncNode.needsPullRetry = true
+		r.logger.ErrorContext(ctx, "Failed to pull", "syncTarget", target.Name, "err", err)
+		target.needsPullRetry = true
 
 		return false
 	}
 
-	syncNode.needsPullRetry = false
+	target.needsPullRetry = false
 
 	return pulled
 }
 
-func (r *Runner) push(ctx context.Context, syncNode *SyncNode) {
-	if syncNode.needsPullRetry {
+// push attempts to synchronize state from the local store to the given target.
+// It avoids pushing if the target needs a pull retry, and updates retry flags appropriately.
+func (r *Runner) push(ctx context.Context, target *SyncTarget) {
+	if target.needsPullRetry {
 		return
 	}
 
-	if err := syncNode.Syncer.Push(ctx); err != nil {
-		r.logger.ErrorContext(ctx, "Failed to push", "syncNode", syncNode.Name, "err", err)
-		syncNode.needsPushRetry = true
+	if err := target.Syncer.Push(ctx); err != nil {
+		r.logger.ErrorContext(ctx, "Failed to push", "syncTarget", target.Name, "err", err)
+		target.needsPushRetry = true
 
 		return
 	}
 
-	syncNode.needsPushRetry = false
+	target.needsPushRetry = false
 }

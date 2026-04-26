@@ -283,19 +283,19 @@ func TestRun(t *testing.T) {
 			mdSyncer := NewSyncer(store, md)
 			tasksSyncer := NewSyncer(store, tasks)
 
-			mdNode := &SyncNode{
+			mdTarget := &SyncTarget{
 				Name:    "markdown",
 				Syncer:  mdSyncer,
 				Watcher: mdWatcher,
 			}
 
-			tasksNode := &SyncNode{
+			tasksTarget := &SyncTarget{
 				Name:    "google_tasks",
 				Syncer:  tasksSyncer,
 				Watcher: tasksWatcher,
 			}
 
-			syncNodes := []*SyncNode{mdNode, tasksNode}
+			targets := []*SyncTarget{mdTarget, tasksTarget}
 
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
@@ -308,7 +308,7 @@ func TestRun(t *testing.T) {
 
 			errChan := make(chan error, 1)
 			go func() {
-				runner := NewRunner(logger, syncNodes)
+				runner := NewRunner(logger, targets)
 				errChan <- runner.Run(ctx)
 			}()
 

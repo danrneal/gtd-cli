@@ -59,7 +59,7 @@ func main() {
 }
 
 // run encapsulates the application startup and execution lifecycle. It initializes dependencies,
-// wires up the synchronization nodes, and blocks until the runner finishes or a fatal error occurs.
+// wires up the synchronization targets, and blocks until the runner finishes or a fatal error occurs.
 func run(cfg *Config, logger *slog.Logger) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
@@ -69,17 +69,17 @@ func run(cfg *Config, logger *slog.Logger) error {
 		return fmt.Errorf("failed to initialize sqlite store: %w", err)
 	}
 
-	var syncNodes []*app.SyncNode
+	var syncTargets []*app.SyncTarget
 
 	mdClient := markdown.NewClient(cfg.mdFile)
 	mdSyncer := app.NewSyncer(sqliteStore, mdClient)
-	mdSyncNode := &app.SyncNode{
+	mdSyncTarget := &app.SyncTarget{
 		Name:    "markdown",
 		Syncer:  mdSyncer,
 		Watcher: mdClient,
 	}
 
-	syncNodes = append(syncNodes, mdSyncNode)
+	syncTargets = append(syncTargets, mdSyncTarget)
 
 	for providerName := range strings.SplitSeq(cfg.providers, ",") {
 		if providerName == "" {
@@ -97,19 +97,19 @@ func run(cfg *Config, logger *slog.Logger) error {
 			pollInterval := time.Duration(cfg.googleTasksPollInterval) * time.Second
 			tasksClient := googletasks.NewClient(tasksService, pollInterval)
 			tasksSyncer := app.NewSyncer(sqliteStore, tasksClient)
-			tasksSyncNode := &app.SyncNode{
+			tasksSyncTarget := &app.SyncTarget{
 				Name:    "google_tasks",
 				Syncer:  tasksSyncer,
 				Watcher: tasksClient,
 			}
 
-			syncNodes = append(syncNodes, tasksSyncNode)
+			syncTargets = append(syncTargets, tasksSyncTarget)
 		default:
 			return fmt.Errorf("unsupported providers: %q. Supported providers are: google_tasks", providerName)
 		}
 	}
 
-	runner := app.NewRunner(logger, syncNodes)
+	runner := app.NewRunner(logger, syncTargets)
 	if err = runner.Run(ctx); err != nil {
 		return fmt.Errorf("sync loop failed: %w", err)
 	}
