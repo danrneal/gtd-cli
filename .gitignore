@@ -21,8 +21,8 @@ luac.out
 
 # Project Specific
 bin/
-credentials.json
-token.json
+*credentials.json
+*token.json
 *.db*
 .gemini/
 
