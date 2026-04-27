@@ -123,6 +123,19 @@ func TestCreateList(t *testing.T) {
 		wantErr  bool
 	}{
 		{
+			name: "honor provided list id",
+			list: &model.List{
+				ID:       "provided",
+				Name:     "Honored",
+				Modified: time.Now(),
+			},
+			wantList: &model.List{
+				ID:     "provided",
+				Name:   "Honored",
+				Status: model.StatusOpen,
+			},
+		},
+		{
 			name: "valid list with external id",
 			list: &model.List{
 				Name:       "  Work  \n",
@@ -241,6 +254,10 @@ func TestCreateList(t *testing.T) {
 
 			opts := []cmp.Option{
 				cmpopts.IgnoreFields(model.List{}, "ID", "Modified", "Items"),
+			}
+
+			if tt.list.ID != "" && gotList.ID != tt.list.ID {
+				t.Errorf("CreateList() ID mismatch: want %q, got %q", tt.list.ID, gotList.ID)
 			}
 
 			if diff := cmp.Diff(tt.wantList, &gotList, opts...); diff != "" {
@@ -1404,6 +1421,31 @@ func TestCreateItem(t *testing.T) {
 		wantErr  bool
 	}{
 		{
+			name: "honor provided item id",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
+				)
+			},
+			item: &model.Item{
+				ID:       "provided-item",
+				ListID:   "list-1",
+				Title:    "Honored Item",
+				Modified: time.Now(),
+				Created:  time.Now(),
+			},
+			wantItem: &model.Item{
+				ID:     "provided-item",
+				ListID: "list-1",
+				Title:  "Honored Item",
+				Status: model.StatusNotStarted,
+				Tags:   []string{},
+			},
+		},
+		{
 			name: "valid item",
 			setupDB: func(t *testing.T, db *sql.DB) {
 				mustExec(t, db,
@@ -1578,6 +1620,7 @@ func TestCreateItem(t *testing.T) {
 
 			itemQuery := `
 				SELECT
+					id,
 					list_id,
 					title,
 					COALESCE(description, ''),
@@ -1590,6 +1633,7 @@ func TestCreateItem(t *testing.T) {
 			`
 
 			err = db.QueryRow(itemQuery, wantTitle).Scan(
+				&gotItem.ID,
 				&gotItem.ListID,
 				&gotItem.Title,
 				&gotItem.Description,
@@ -1620,6 +1664,10 @@ func TestCreateItem(t *testing.T) {
 					"Due",
 					"ExternalID",
 				),
+			}
+
+			if tt.item.ID != "" && gotItem.ID != tt.item.ID {
+				t.Errorf("CreateItem() ID mismatch: want %q, got %q", tt.item.ID, gotItem.ID)
 			}
 
 			if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {

@@ -100,7 +100,9 @@ func (s *Store) CreateList(ctx context.Context, list *model.List) error {
 		return errors.New("cannot create a list with status 'deleted'")
 	}
 
-	list.ID = uuid.NewString()[:8]
+	if list.ID == "" {
+		list.ID = uuid.NewString()[:8]
+	}
 
 	query := `
 		INSERT INTO lists (
@@ -346,7 +348,9 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 		item.ListID = listID
 	}
 
-	item.ID = uuid.NewString()[:8]
+	if item.ID == "" {
+		item.ID = uuid.NewString()[:8]
+	}
 
 	query := `
                 INSERT INTO items (
