@@ -45,6 +45,10 @@ func (i *Item) Clean() {
 	if i.Status == "" {
 		i.Status = StatusNotStarted
 	}
+
+	if i.Created.IsZero() {
+		i.Created = i.Modified
+	}
 }
 
 // Validate checks if the current state of the item satisfies domain invariants.
