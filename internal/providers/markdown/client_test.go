@@ -1441,16 +1441,17 @@ func TestClient_readFile(t *testing.T) {
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name    string
-		setup   func(t *testing.T) string
-		want    []model.List
-		wantErr bool
+		name        string
+		setup       func(t *testing.T) string
+		wantLists   []model.List
+		wantContent string
+		wantErr     bool
 	}{
 		{
 			name: "valid file",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "valid.md")
-				content := "# Inbox\n* [ ] Task 1\n"
+				content := "# Inbox (1)\n* [ ] Task 1\n\n"
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
 				}
@@ -1461,7 +1462,7 @@ func TestClient_readFile(t *testing.T) {
 
 				return path
 			},
-			want: []model.List{
+			wantLists: []model.List{
 				{
 					Name:     "Inbox",
 					Position: 0,
@@ -1478,7 +1479,42 @@ func TestClient_readFile(t *testing.T) {
 					},
 				},
 			},
-			wantErr: false,
+			wantContent: "# Inbox (1)\n* [ ] Task 1\n\n",
+		},
+		{
+			name: "self heals bad formatting",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "bad_format.md")
+				content := "# Inbox (99) {{list-1}}\n* [ ] Task 1\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
+				if err := os.Chtimes(path, modified, modified); err != nil {
+					t.Fatalf("failed to change file times: %v", err)
+				}
+
+				return path
+			},
+			wantLists: []model.List{
+				{
+					ID:       "list-1",
+					Name:     "Inbox",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items: []*model.Item{
+						{
+							Title:    "Task 1",
+							ListID:   "list-1",
+							Position: 0,
+							Status:   model.StatusNotStarted,
+							Modified: modified,
+						},
+					},
+				},
+			},
+			wantContent: "# Inbox (1) {{list-1}}\n* [ ] Task 1\n\n",
 		},
 		{
 			name: "file not found",
@@ -1486,8 +1522,7 @@ func TestClient_readFile(t *testing.T) {
 				path := filepath.Join(t.TempDir(), "does_not_exist.md")
 				return path
 			},
-			want:    nil,
-			wantErr: false,
+			wantLists: nil,
 		},
 		{
 			name: "failed to open markdown file",
@@ -1499,8 +1534,22 @@ func TestClient_readFile(t *testing.T) {
 
 				return path
 			},
-			want:    nil,
-			wantErr: true,
+			wantLists: nil,
+			wantErr:   true,
+		},
+		{
+			name: "failed to self-heal markdown file",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "unwritable.md")
+				content := "# Inbox (99) {{list-1}}\n* [ ] Task 1\n"
+				if err := os.WriteFile(path, []byte(content), 0o400); err != nil {
+					t.Fatalf("failed to create unreadable file: %v", err)
+				}
+
+				return path
+			},
+			wantLists: nil,
+			wantErr:   true,
 		},
 	}
 
@@ -1517,8 +1566,21 @@ func TestClient_readFile(t *testing.T) {
 				t.Fatalf("readFile() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if diff := cmp.Diff(tt.want, got); diff != "" {
+			if diff := cmp.Diff(tt.wantLists, got); diff != "" {
 				t.Errorf("readFile() mismatch (-want +got):\n%s", diff)
+			}
+
+			if tt.wantErr || tt.wantLists == nil {
+				return
+			}
+
+			b, err := os.ReadFile(testPath)
+			if err != nil {
+				t.Fatalf("failed to read test file for content assertion: %v", err)
+			}
+
+			if gotContent := string(b); gotContent != tt.wantContent {
+				t.Errorf("readFile() self-heal content mismatch:\nwant: %q\ngot:  %q", tt.wantContent, gotContent)
 			}
 		})
 	}

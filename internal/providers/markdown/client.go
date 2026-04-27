@@ -2,6 +2,7 @@
 package markdown
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -244,25 +245,35 @@ func (c *Client) DeleteItem(_ context.Context, item *model.Item) error {
 // readFile opens the markdown file, reads its modification time, and parses its contents.
 // If the file does not exist, it safely returns an empty slice to allow for bootstrapping.
 func (c *Client) readFile() ([]model.List, error) {
-	file, err := os.Open(c.filepath)
+	stat, err := os.Stat(c.filepath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
 
-		return nil, fmt.Errorf("failed to open markdown file: %w", err)
-	}
-
-	defer file.Close()
-
-	stat, err := file.Stat()
-	if err != nil {
 		return nil, fmt.Errorf("failed to stat markdown file: %w", err)
 	}
 
-	lists, err := parse(file, stat.ModTime())
+	fileBytes, err := os.ReadFile(c.filepath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read markdown file: %w", err)
+	}
+
+	reader := bytes.NewReader(fileBytes)
+	lists, err := parse(reader, stat.ModTime())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse markdown file: %w", err)
+	}
+
+	var renderedBuf bytes.Buffer
+	if err := render(&renderedBuf, lists); err != nil {
+		return nil, fmt.Errorf("failed to render markdown for comparison: %w", err)
+	}
+
+	if !bytes.Equal(fileBytes, renderedBuf.Bytes()) {
+		if err := c.writeFile(lists); err != nil {
+			return nil, err
+		}
 	}
 
 	return lists, nil
