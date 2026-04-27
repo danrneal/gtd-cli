@@ -24,10 +24,9 @@ func TestParse(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "empty input",
-			reader:  strings.NewReader(""),
-			want:    nil,
-			wantErr: false,
+			name:   "empty input",
+			reader: strings.NewReader(""),
+			want:   nil,
 		},
 		{
 			name: "file with no lists",
@@ -35,8 +34,7 @@ func TestParse(t *testing.T) {
 This is just a file with some random text.
 But no headers at all.
 `),
-			want:    nil,
-			wantErr: false,
+			want: nil,
 		},
 		{
 			name: "basic list with no items",
@@ -52,7 +50,6 @@ But no headers at all.
 					Items:    []*model.Item{},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "multiple lists",
@@ -77,7 +74,6 @@ But no headers at all.
 					Items:    []*model.Item{},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "basic list with item",
@@ -102,7 +98,6 @@ But no headers at all.
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "multiline descriptions",
@@ -129,7 +124,6 @@ Second line.
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "multiple lists with items",
@@ -172,7 +166,6 @@ Second line.
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "items ignored if no preceding list",
@@ -198,7 +191,6 @@ Second line.
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "list with external ID, count suffix, and multiple items",
@@ -240,7 +232,6 @@ Second line.
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "item statuses and strikethrough",
@@ -292,7 +283,6 @@ Second line.
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "item metadata parsing",
@@ -324,7 +314,6 @@ Second line.
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "metadata syntax ignoring standalone plus symbol",
@@ -349,7 +338,6 @@ Second line.
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "metadata syntax ignoring standalone hash symbol",
@@ -374,7 +362,6 @@ Second line.
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "invalid snoozed date ignores prefix and appends to title",
@@ -399,7 +386,6 @@ Second line.
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "invalid due date ignores prefix and appends to title",
@@ -424,7 +410,6 @@ Second line.
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "waiting for list special behavior",
@@ -457,7 +442,6 @@ Second line.
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "waiting for list ignores item without hyphen separator",
@@ -482,7 +466,55 @@ Second line.
 					},
 				},
 			},
-			wantErr: false,
+		},
+		{
+			name: "waiting for item with incorrectly formatted date",
+			reader: strings.NewReader(`
+# Waiting For
+* [ ] Bob - Review PR - Urgent
+`),
+			want: []model.List{
+				{
+					Name:     "Waiting For",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items: []*model.Item{
+						{
+							Title:     "Review PR",
+							Position:  0,
+							Status:    model.StatusNotStarted,
+							WaitingOn: stringPtr("Bob"),
+							Modified:  modified,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "waiting for item with creation date",
+			reader: strings.NewReader(`
+# Waiting For
+* [ ] Alice - Send budget report - May 15
+`),
+			want: []model.List{
+				{
+					Name:     "Waiting For",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items: []*model.Item{
+						{
+							Title:     "Send budget report",
+							Position:  0,
+							Status:    model.StatusNotStarted,
+							WaitingOn: stringPtr("Alice"),
+							Created:   time.Date(0, time.May, 15, 0, 0, 0, 0, time.UTC),
+							Modified:  modified,
+						},
+					},
+				},
+			},
 		},
 		{
 			name:    "scanner error",

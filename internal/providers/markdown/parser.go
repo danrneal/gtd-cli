@@ -129,6 +129,13 @@ func parseWaitingForItemContent(content string) *model.Item {
 		item.WaitingOn = &waitingOn
 	}
 
+	if parts[len(parts)-1] != content {
+		createdStr := strings.TrimSpace(parts[len(parts)-1])
+		if created, err := time.Parse("Jan 2", createdStr); err == nil {
+			item.Created = created
+		}
+	}
+
 	return item
 }
 
