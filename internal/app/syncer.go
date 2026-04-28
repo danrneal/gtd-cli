@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
 )
@@ -309,8 +310,15 @@ func (ss *syncSession) updateItem(ctx context.Context, srcItem, dstItem *model.I
 
 // updateList updates an existing list in the destination provider, maintaining its position and metadata.
 func (ss *syncSession) updateList(ctx context.Context, list *model.List, currentItems []*model.Item) error {
-	if err := ss.dstState.provider.UpdateList(ctx, list, currentItems); err != nil {
-		return fmt.Errorf("failed to update list %q in destination: %w", list.Name, err)
+	syncList := *list
+	listItems := slices.Clone(syncList.Items)
+	listItems = slices.DeleteFunc(listItems, func(i *model.Item) bool {
+		return i.Status == model.StatusDeleted
+	})
+
+	syncList.Items = listItems
+	if err := ss.dstState.provider.UpdateList(ctx, &syncList, currentItems); err != nil {
+		return fmt.Errorf("failed to update list %q in destination: %w", syncList.Name, err)
 	}
 
 	return nil

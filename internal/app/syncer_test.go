@@ -161,6 +161,10 @@ func (f *FakeProvider) UpdateList(_ context.Context, updatedList *model.List, _ 
 
 	listItems := []*model.Item{}
 	for i, updatedItem := range updatedList.Items {
+		if updatedItem.Status == model.StatusDeleted {
+			return errors.New("FakeProvider received invalid status 'deleted' in UpdateList payload")
+		}
+
 		for j, list := range f.Lists {
 			idx := slices.IndexFunc(list.Items, func(item *model.Item) bool {
 				genericMatch := f.Name == "generic" &&
@@ -1946,6 +1950,144 @@ func TestOneWaySync(t *testing.T) {
 					Name:   "L1 Updated",
 					Status: model.StatusOpen,
 					Items:  []*model.Item{},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "update list drops deleted items (push)",
+			src: NewFakeProvider("store", []model.List{
+				{
+					Name:     "L1 Updated",
+					Modified: baseTime.Add(1),
+					Items: []*model.Item{
+						{
+							Title:  "Active Item",
+							Status: model.StatusNotStarted,
+						},
+						{
+							Title:  "Deleted Item",
+							Status: model.StatusDeleted,
+						},
+					},
+				},
+			}),
+			dst: NewFakeProvider("generic", []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1 Original",
+					Modified: baseTime,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "Active Item",
+							Status: model.StatusNotStarted,
+						},
+						{
+							ID:     "store-item-2",
+							Title:  "Deleted Item",
+							Status: model.StatusNotStarted,
+						},
+					},
+				},
+			}),
+			wantSrcLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1 Updated",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							ListID: "store-list-1",
+							Title:  "Active Item",
+							Status: model.StatusNotStarted,
+						},
+					},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1 Updated",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							ListID: "store-list-1",
+							Title:  "Active Item",
+							Status: model.StatusNotStarted,
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "update list drops deleted items (pull)",
+			src: NewFakeProvider("generic", []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1 Updated",
+					Modified: baseTime.Add(1),
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "Active Item",
+							Status: model.StatusNotStarted,
+						},
+						{
+							ID:     "store-item-2",
+							Title:  "Deleted Item",
+							Status: model.StatusDeleted,
+						},
+					},
+				},
+			}),
+			dst: NewFakeProvider("store", []model.List{
+				{
+					Name:     "L1 Original",
+					Modified: baseTime,
+					Items: []*model.Item{
+						{
+							Title:  "Active Item",
+							Status: model.StatusNotStarted,
+						},
+						{
+							Title:  "Deleted Item",
+							Status: model.StatusNotStarted,
+						},
+					},
+				},
+			}),
+			wantSrcLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1 Updated",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							ListID: "store-list-1",
+							Title:  "Active Item",
+							Status: model.StatusNotStarted,
+						},
+					},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1 Updated",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							ListID: "store-list-1",
+							Title:  "Active Item",
+							Status: model.StatusNotStarted,
+						},
+					},
 				},
 			},
 			wantUpdated: true,
