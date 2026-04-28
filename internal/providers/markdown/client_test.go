@@ -1625,7 +1625,31 @@ func TestClient_writeFile(t *testing.T) {
 * [ ] Task 1
 
 `,
-			wantErr: false,
+		},
+		{
+			name: "failed to render markdown file",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "render_fail.md")
+				if err := os.WriteFile(path, []byte("initial content"), 0o600); err != nil {
+					t.Fatalf("failed to create initial file: %v", err)
+				}
+
+				return path
+			},
+			lists: []model.List{
+				{
+					Name: "Invalid Status List",
+					Items: []*model.Item{
+						{
+							Title:  "Bad Task",
+							Status: "unknown_status",
+							ID:     "item-1",
+						},
+					},
+				},
+			},
+			want:    "initial content",
+			wantErr: true,
 		},
 		{
 			name: "failed to open markdown file for writing",
@@ -1638,23 +1662,26 @@ func TestClient_writeFile(t *testing.T) {
 				return path
 			},
 			lists:   nil,
-			want:    "",
+			want:    "# Inbox",
 			wantErr: true,
 		},
 		{
-			name: "failed to render markdown file",
+			name: "failed to write to markdown file",
 			setup: func(t *testing.T) string {
-				path := filepath.Join(t.TempDir(), "render_fail.md")
-				return path
+				if _, err := os.Stat("/dev/full"); os.IsNotExist(err) {
+					t.Skip("skipping test; /dev/full not available on this OS")
+				}
+
+				return "/dev/full"
 			},
 			lists: []model.List{
 				{
-					Name: "Invalid Status List",
+					Name:   "Inbox",
+					Status: model.StatusOpen,
 					Items: []*model.Item{
 						{
-							Title:  "Bad Task",
-							Status: "unknown_status",
-							ID:     "item-1",
+							Title:  "Task 1",
+							Status: model.StatusNotStarted,
 						},
 					},
 				},
@@ -1677,12 +1704,12 @@ func TestClient_writeFile(t *testing.T) {
 				t.Fatalf("writeFile() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if tt.wantErr {
-				return
+			if !tt.wantErr && client.lastModTime.IsZero() {
+				t.Fatal("expected lastModTime to be updated after successful mutation")
 			}
 
-			if client.lastModTime.IsZero() {
-				t.Fatal("expected lastModTime to be updated after successful mutation")
+			if testPath == "/dev/full" {
+				return
 			}
 
 			b, err := os.ReadFile(testPath)

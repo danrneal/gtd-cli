@@ -188,16 +188,25 @@ func assertIgnoredEvent(t *testing.T, timeout time.Duration, c *Client, events <
 		t.Fatalf("failed to trigger ignored event: %v", err)
 	}
 
-	if err := os.WriteFile(c.filepath, []byte("valid user edit"), 0o600); err != nil {
-		t.Fatalf("failed to trigger valid sentinel fsnotify: %v", err)
-	}
-
 	c.mu.RLock()
 	modified := c.lastModTime.Add(1 * time.Hour)
 	c.mu.RUnlock()
 
+	file, err := os.OpenFile(c.filepath, os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		t.Fatalf("failed to open sentinel file: %v", err)
+	}
+
+	if _, err := file.WriteString("\n"); err != nil {
+		t.Fatalf("failed to write sentinel byte: %v", err)
+	}
+
 	if err := os.Chtimes(c.filepath, modified, modified); err != nil {
 		t.Fatalf("failed to advance sentinel timestamp: %v", err)
+	}
+
+	if err := file.Close(); err != nil {
+		t.Fatalf("failed to close sentinel file: %v", err)
 	}
 
 	select {

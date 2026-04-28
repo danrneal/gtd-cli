@@ -281,6 +281,11 @@ func (c *Client) readFile() ([]model.List, error) {
 
 // writeFile renders the provided lists to Markdown and atomically overwrites the file.
 func (c *Client) writeFile(lists []model.List) error {
+	var buf bytes.Buffer
+	if err := render(&buf, lists); err != nil {
+		return fmt.Errorf("failed to render markdown file: %w", err)
+	}
+
 	file, err := os.OpenFile(c.filepath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to open markdown file for writing: %w", err)
@@ -288,8 +293,8 @@ func (c *Client) writeFile(lists []model.List) error {
 
 	defer file.Close()
 
-	if err = render(file, lists); err != nil {
-		return fmt.Errorf("failed to render markdown file: %w", err)
+	if _, err = file.Write(buf.Bytes()); err != nil {
+		return fmt.Errorf("failed to write to markdown file: %w", err)
 	}
 
 	if err = file.Close(); err != nil {
