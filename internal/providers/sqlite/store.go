@@ -353,23 +353,23 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 	}
 
 	query := `
-                INSERT INTO items (
-                        id,
-                        list_id,
-                        position,
-                        status,
-                        title,
-                        description,
-                        project_id,
-                        waiting_on,
-                        snoozed,
-                        due,
-                        tags,
-                        modified,
-                        created,
-                        external_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-        `
+        INSERT INTO items (
+            id,
+            list_id,
+            position,
+            status,
+            title,
+            description,
+            project_id,
+            waiting_on,
+            snoozed,
+            due,
+            tags,
+            modified,
+            created,
+            external_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    `
 
 	_, err = tx.ExecContext(ctx, query,
 		item.ID,
@@ -420,10 +420,21 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, er
 		FROM items i
 		INNER JOIN lists l
 		ON i.list_id = l.id
-		ORDER BY i.position
+		ORDER BY
+			CASE i.status
+				WHEN ? THEN 0
+				WHEN ? THEN 1
+				WHEN ? THEN 2
+				ELSE 3
+			END,
+			i.position
 	`
 
-	rows, err := tx.QueryContext(ctx, query)
+	rows, err := tx.QueryContext(ctx, query,
+		model.StatusInProgress,
+		model.StatusNotStarted,
+		model.StatusDone,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query items: %w", err)
 	}
@@ -527,19 +538,19 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 	}
 
 	query := `
-                UPDATE items SET
-                        status = ?,
-                        title = ?,
-                        description = ?,
-                        project_id = ?,
-                        waiting_on = ?,
-                        snoozed = ?,
-                        due = ?,
-                        tags = ?,
-                        modified = ?,
-                        external_id = COALESCE(?, external_id)
-                WHERE id = ?;
-        `
+        UPDATE items SET
+            status = ?,
+            title = ?,
+            description = ?,
+            project_id = ?,
+            waiting_on = ?,
+            snoozed = ?,
+            due = ?,
+            tags = ?,
+            modified = ?,
+            external_id = COALESCE(?, external_id)
+        WHERE id = ?;
+	`
 
 	res, err := tx.ExecContext(ctx, query,
 		item.Status,
