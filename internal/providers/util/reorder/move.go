@@ -4,13 +4,11 @@ package reorder
 import "github.com/danrneal/gtd.nvim/internal/model"
 
 // Move represents an operation to relocate or reorder an item.
-// It supports both index-based positioning (Position) and linked-list positioning (PreviousItemID).
+// It supports linked-list positioning via PreviousItemID.
 type Move struct {
 	ItemID            string
 	SourceListID      string
 	DestinationListID string
-	// Position is the 0-indexed position in the destination list.
-	Position int
 	// PreviousItemID is the ID of the item that should immediately precede this item in the destination list.
 	// It is empty if the item should be the first in the list.
 	PreviousItemID string
@@ -26,19 +24,17 @@ type Move struct {
 // Returns:
 //
 //	A slice of Move operations. The sequence of moves assumes they are applied in order.
-//	Positions are 0-indexed relative to the list at the time of the move.
 //	It uses a Longest Common Subsequence (LCS) algorithm to minimize the number of moves by identifying stable items.
 func CalculateMoves(list *model.List, currentItems []*model.Item) []Move {
 	var moves []Move
 	stableItemIDs := calculateStableItemIDs(list.Items, currentItems)
 	previousItemID := ""
-	for i, item := range list.Items {
+	for _, item := range list.Items {
 		if _, ok := stableItemIDs[*item.ExternalID]; !ok {
 			move := Move{
 				ItemID:            *item.ExternalID,
 				SourceListID:      *item.ExternalListID,
 				DestinationListID: *list.ExternalID,
-				Position:          i,
 				PreviousItemID:    previousItemID,
 			}
 
