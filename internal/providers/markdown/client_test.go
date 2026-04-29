@@ -1380,7 +1380,24 @@ func TestClient_DeleteItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			wantErr: true,
+			want: []model.List{
+				{
+					ID:       "list-1",
+					Name:     "Inbox",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:       "item-1",
+							ListID:   "list-1",
+							Title:    "Task 1",
+							Position: 0,
+							Status:   model.StatusNotStarted,
+						},
+					},
+				},
+			},
+			wantErr: false,
 		},
 		{
 			name: "write file error",

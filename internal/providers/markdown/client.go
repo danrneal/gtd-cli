@@ -232,7 +232,7 @@ func (c *Client) DeleteItem(_ context.Context, item *model.Item) error {
 	})
 
 	if itemIdx == -1 {
-		return fmt.Errorf("failed to delete item: item %q not found", item.ID)
+		return nil
 	}
 
 	list.Items = slices.Delete(list.Items, itemIdx, itemIdx+1)
