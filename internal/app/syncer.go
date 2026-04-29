@@ -61,16 +61,22 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 
 	changed := false
 	for _, srcList := range srcState.lists {
-		srcListChanged, err := ss.syncList(ctx, &srcList)
-		changed = changed || srcListChanged
+		created, err := ss.syncListCreation(ctx, &srcList)
+		changed = changed || created
+		if err != nil {
+			return changed, err
+		}
+
+		updated, err := ss.syncListUpdate(ctx, &srcList)
+		changed = changed || updated
 		if err != nil {
 			return changed, err
 		}
 	}
 
 	for _, dstList := range dstState.lists {
-		pruned, err := ss.pruneList(ctx, &dstList)
-		changed = changed || pruned
+		deleted, err := ss.syncListDeletion(ctx, &dstList)
+		changed = changed || deleted
 		if err != nil {
 			return changed, err
 		}
@@ -133,21 +139,21 @@ type syncSession struct {
 
 // syncList processes a single list from the source provider state, creating or updating it and its items
 // in the destination provider state as needed. It returns true if any changes were applied.
-func (ss *syncSession) syncList(ctx context.Context, srcList *model.List) (bool, error) {
+func (ss *syncSession) syncListCreation(ctx context.Context, srcList *model.List) (bool, error) {
 	if srcList.Status == model.StatusDeleted {
 		return false, nil
 	}
 
-	changed := false
+	created := false
 	listKey := ss.getKey(srcList)
-	dstList, ok := ss.dstState.listsMap[listKey]
-	if !ok {
+	if _, ok := ss.dstState.listsMap[listKey]; !ok {
 		if err := ss.createList(ctx, srcList); err != nil {
-			return false, err
+			return created, err
 		}
 
-		dstList = srcList
-		changed = true
+		listKey = ss.getKey(srcList)
+		ss.dstState.listsMap[listKey] = srcList
+		created = true
 	}
 
 	prevItemID := ""
@@ -158,54 +164,60 @@ func (ss *syncSession) syncList(ctx context.Context, srcList *model.List) (bool,
 
 		srcItem.ListID = srcList.ID
 		srcItem.ExternalListID = srcList.ExternalID
-		itemChanged, err := ss.syncItem(ctx, srcItem, prevItemID)
-		changed = changed || itemChanged
-		if err != nil {
-			return changed, err
+		itemKey := ss.getKey(srcItem)
+		if _, ok := ss.dstState.itemsMap[itemKey]; !ok {
+			if err := ss.createItem(ctx, srcItem, prevItemID); err != nil {
+				return created, err
+			}
+
+			created = true
 		}
 
 		prevItemID = ss.getKey(srcItem)
 	}
 
-	if !ok || (srcList.Modified.After(dstList.Modified) && !srcList.Equal(dstList)) {
-		if err := ss.updateList(ctx, srcList, dstList.Items); err != nil {
-			return changed, err
-		}
-
-		changed = true
-	}
-
-	return changed, nil
+	return created, nil
 }
 
-// syncItem processes a single item from the source provider state, creating or updating it
-// in the destination provider state as needed. It returns true if any changes were applied.
-func (ss *syncSession) syncItem(ctx context.Context, srcItem *model.Item, prevItemID string) (bool, error) {
-	itemKey := ss.getKey(srcItem)
-	dstItem, ok := ss.dstState.itemsMap[itemKey]
-	if !ok {
-		if err := ss.createItem(ctx, srcItem, prevItemID); err != nil {
-			return false, err
-		}
-
-		return true, nil
+func (ss *syncSession) syncListUpdate(ctx context.Context, srcList *model.List) (bool, error) {
+	if srcList.Status == model.StatusDeleted {
+		return false, nil
 	}
 
-	if srcItem.Modified.After(dstItem.Modified) && !srcItem.Equal(dstItem) {
-		if err := ss.updateItem(ctx, srcItem, dstItem); err != nil {
-			return false, err
+	updated := false
+	listKey := ss.getKey(srcList)
+	dstList := ss.dstState.listsMap[listKey]
+	if srcList == dstList || (srcList.Modified.After(dstList.Modified) && !srcList.Equal(dstList)) {
+		if err := ss.updateList(ctx, srcList, dstList.Items); err != nil {
+			return updated, err
 		}
 
-		return true, nil
+		updated = true
 	}
 
-	return false, nil
+	for _, srcItem := range srcList.Items {
+		if srcItem.Status == model.StatusDeleted {
+			continue
+		}
+
+		itemKey := ss.getKey(srcItem)
+		dstItem, ok := ss.dstState.itemsMap[itemKey]
+		if ok && srcItem.Modified.After(dstItem.Modified) && !srcItem.Equal(dstItem) {
+			if err := ss.updateItem(ctx, srcItem, dstItem); err != nil {
+				return updated, err
+			}
+
+			updated = true
+		}
+	}
+
+	return updated, nil
 }
 
 // pruneList processes a single list from the destination provider state, deleting it or its items
 // if they no longer exist in the source provider state or have been marked as deleted.
 // It returns true if any changes were applied.
-func (ss *syncSession) pruneList(ctx context.Context, dstList *model.List) (bool, error) {
+func (ss *syncSession) syncListDeletion(ctx context.Context, dstList *model.List) (bool, error) {
 	if dstList.Status == model.StatusDeleted {
 		return false, nil
 	}
@@ -224,41 +236,28 @@ func (ss *syncSession) pruneList(ctx context.Context, dstList *model.List) (bool
 		return true, nil
 	}
 
-	pruned := false
+	deleted := false
 	for _, dstItem := range dstList.Items {
-		itemPruned, err := ss.pruneItem(ctx, dstItem)
-		pruned = pruned || itemPruned
-		if err != nil {
-			return pruned, err
+		if dstItem.Status == model.StatusDeleted {
+			continue
+		}
+
+		itemKey := ss.getKey(dstItem)
+		if itemKey == "" {
+			continue
+		}
+
+		srcItem, ok := ss.srcState.itemsMap[itemKey]
+		if !ok || srcItem.Status == model.StatusDeleted {
+			if err := ss.deleteItem(ctx, srcItem, dstItem); err != nil {
+				return deleted, err
+			}
+
+			deleted = true
 		}
 	}
 
-	return pruned, nil
-}
-
-// pruneItem processes a single item from the destination provider state, deleting it
-// if it no longer exists in the source provider state or has been marked as deleted.
-// It returns true if any changes were applied.
-func (ss *syncSession) pruneItem(ctx context.Context, dstItem *model.Item) (bool, error) {
-	if dstItem.Status == model.StatusDeleted {
-		return false, nil
-	}
-
-	itemKey := ss.getKey(dstItem)
-	if itemKey == "" {
-		return false, nil
-	}
-
-	srcItem, ok := ss.srcState.itemsMap[itemKey]
-	if !ok || srcItem.Status == model.StatusDeleted {
-		if err := ss.deleteItem(ctx, srcItem, dstItem); err != nil {
-			return false, err
-		}
-
-		return true, nil
-	}
-
-	return false, nil
+	return deleted, nil
 }
 
 // createList creates a new list in the destination provider and backfills the external ID
