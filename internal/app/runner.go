@@ -54,6 +54,8 @@ func (r *Runner) Run(ctx context.Context) error {
 		}
 	}
 
+	r.syncTargets(ctx, syncEvent{})
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -111,7 +113,7 @@ func (r *Runner) startWatcher(ctx context.Context, target *SyncTarget) error {
 func (r *Runner) syncTargets(ctx context.Context, event syncEvent) {
 	changed := false
 	for _, target := range r.targets {
-		if target != event.target && !target.needsPullRetry {
+		if event.target != nil && target != event.target && !target.needsPullRetry {
 			continue
 		}
 
@@ -139,6 +141,7 @@ func (r *Runner) pull(ctx context.Context, target *SyncTarget) bool {
 		return false
 	}
 
+	target.needsPushRetry = target.needsPushRetry || target.needsPullRetry
 	target.needsPullRetry = false
 
 	return pulled

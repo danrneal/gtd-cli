@@ -24,7 +24,7 @@ type FakeWatcher struct {
 
 func NewFakeWatcher() *FakeWatcher {
 	watcher := &FakeWatcher{
-		events: make(chan error),
+		events: make(chan error, 1),
 	}
 
 	return watcher
@@ -40,7 +40,12 @@ func (f *FakeWatcher) Watch(_ context.Context) (<-chan error, error) {
 
 func (f *FakeWatcher) Trigger(err error) {
 	go func() {
-		f.events <- err
+		select {
+		case f.events <- err:
+			// Successfully sent the event
+		default:
+			// Non-blocking send: drop duplicate burst events if the channel is unread
+		}
 	}()
 }
 
@@ -58,6 +63,48 @@ func TestRun(t *testing.T) {
 		wantTasks    []model.List
 		wantErr      string
 	}{
+		{
+			name: "bootstrap sync processes initial state without events",
+			setup: func(_, _ *FakeWatcher) (*FakeProvider, *FakeProvider, *FakeProvider) {
+				store := NewFakeProvider("store", []model.List{})
+				md := NewFakeProvider("generic", []model.List{
+					{
+						Name:     "New Offline List",
+						Modified: modified,
+						Items:    []*model.Item{},
+					},
+				})
+
+				tasks := NewFakeProvider("external", []model.List{})
+
+				return store, md, tasks
+			},
+			wantStore: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "New Offline List",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantMd: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "New Offline List",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+			wantTasks: []model.List{
+				{
+					Name:       "New Offline List",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+			},
+		},
 		{
 			name: "single event triggers full reconciliation and ID backfill",
 			setup: func(_, _ *FakeWatcher) (*FakeProvider, *FakeProvider, *FakeProvider) {
@@ -313,7 +360,9 @@ func TestRun(t *testing.T) {
 				errChan <- runner.Run(ctx)
 			}()
 
-			tt.triggerEvent(mdWatcher, tasksWatcher)
+			if tt.triggerEvent != nil {
+				tt.triggerEvent(mdWatcher, tasksWatcher)
+			}
 
 			if tt.wantErr != "" {
 				select {
