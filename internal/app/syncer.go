@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
 )
@@ -162,10 +161,10 @@ func (ss *syncSession) syncListCreation(ctx context.Context, srcList *model.List
 			continue
 		}
 
-		srcItem.ListID = srcList.ID
-		srcItem.ExternalListID = srcList.ExternalID
 		itemKey := ss.getKey(srcItem)
 		if _, ok := ss.dstState.itemsMap[itemKey]; !ok {
+			srcItem.ListID = srcList.ID
+			srcItem.ExternalListID = srcList.ExternalID
 			if err := ss.createItem(ctx, srcItem, prevItemID); err != nil {
 				return created, err
 			}
@@ -310,10 +309,22 @@ func (ss *syncSession) updateItem(ctx context.Context, srcItem, dstItem *model.I
 // updateList updates an existing list in the destination provider, maintaining its position and metadata.
 func (ss *syncSession) updateList(ctx context.Context, list *model.List, currentItems []*model.Item) error {
 	syncList := *list
-	listItems := slices.Clone(syncList.Items)
-	listItems = slices.DeleteFunc(listItems, func(i *model.Item) bool {
-		return i.Status == model.StatusDeleted
-	})
+	listItems := make([]*model.Item, 0, len(syncList.Items))
+	for _, item := range syncList.Items {
+		if item.Status == model.StatusDeleted {
+			continue
+		}
+
+		listItem := *item
+
+		itemKey := ss.getKey(item)
+		if dstItem, ok := ss.dstState.itemsMap[itemKey]; ok {
+			listItem.ListID = dstItem.ListID
+			listItem.ExternalListID = dstItem.ExternalListID
+		}
+
+		listItems = append(listItems, &listItem)
+	}
 
 	syncList.Items = listItems
 	if err := ss.dstState.provider.UpdateList(ctx, &syncList, currentItems); err != nil {

@@ -171,7 +171,7 @@ func (f *FakeProvider) UpdateList(_ context.Context, updatedList *model.List, _ 
 					f.GetKey(item) == "" &&
 					item.Title == updatedItem.Title
 
-				return isMatch(item, updatedItem) || genericMatch
+				return isParent(&list, updatedItem) && (isMatch(item, updatedItem) || genericMatch)
 			})
 
 			if idx == -1 {
@@ -394,6 +394,10 @@ func isMatch(a, b model.Resource) bool {
 }
 
 func isParent(list *model.List, item *model.Item) bool {
+	if item.ListID == "" && item.ExternalListID == nil {
+		return true
+	}
+
 	if list.ID != "" && list.ID == item.ListID {
 		return true
 	}
