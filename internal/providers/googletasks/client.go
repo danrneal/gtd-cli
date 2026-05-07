@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
@@ -19,19 +20,21 @@ import (
 type Client struct {
 	service      *tasks.Service
 	pollInterval time.Duration
+	logger       *slog.Logger
 }
 
 const (
-	maxTaskResults    = 100
 	statusNeedsAction = "needsAction"
 	statusCompleted   = "completed"
+	maxTaskResults    = 100
 )
 
-// NewClient returns a new Google Tasks client.
-func NewClient(service *tasks.Service, pollInterval time.Duration) *Client {
+// NewClient creates a new Google Tasks client.
+func NewClient(service *tasks.Service, pollInterval time.Duration, logger *slog.Logger) *Client {
 	client := &Client{
 		service:      service,
 		pollInterval: pollInterval,
+		logger:       logger,
 	}
 
 	return client
@@ -61,6 +64,7 @@ func (c *Client) CreateList(ctx context.Context, list *model.List) error {
 		Title: list.Name,
 	}
 
+	c.logger.InfoContext(ctx, "Google Tasks: Inserting tasklist", "title", tasklist.Title)
 	taskList, err := c.service.Tasklists.Insert(tasklist).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("failed to create tasklist %s: %w", tasklist.Title, err)
@@ -120,6 +124,15 @@ func (c *Client) UpdateList(ctx context.Context, list *model.List, currentItems 
 		Title: list.Name,
 	}
 
+	c.logger.InfoContext(
+		ctx,
+		"Google Tasks: Patching tasklist",
+		"title",
+		tasklist.Title,
+		"externalId",
+		*list.ExternalID,
+	)
+
 	if _, err := c.service.Tasklists.Patch(*list.ExternalID, tasklist).Context(ctx).Do(); err != nil {
 		return fmt.Errorf("failed to update tasklist %s: %w", tasklist.Title, err)
 	}
@@ -140,6 +153,7 @@ func (c *Client) DeleteList(ctx context.Context, list *model.List) error {
 		return errors.New("failed to delete list: missing external ID")
 	}
 
+	c.logger.InfoContext(ctx, "Google Tasks: Deleting tasklist", "externalId", *list.ExternalID)
 	if err := c.service.Tasklists.Delete(*list.ExternalID).Context(ctx).Do(); err != nil {
 		return fmt.Errorf("failed to delete tasklist: %w", err)
 	}
@@ -186,6 +200,17 @@ func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemI
 	if previousItemID != "" {
 		tasksInsertCall.Previous(previousItemID)
 	}
+
+	c.logger.InfoContext(
+		ctx,
+		"Google Tasks: Inserting task",
+		"title",
+		task.Title,
+		"externalListId",
+		*item.ExternalListID,
+		"previousItemId",
+		previousItemID,
+	)
 
 	task, err := tasksInsertCall.Context(ctx).Do()
 	if err != nil {
@@ -281,6 +306,17 @@ func (c *Client) UpdateItem(ctx context.Context, item *model.Item) error {
 		task.NullFields = append(task.NullFields, "Due")
 	}
 
+	c.logger.InfoContext(
+		ctx,
+		"Google Tasks: Patching task",
+		"title",
+		task.Title,
+		"externalId",
+		*item.ExternalID,
+		"externalListId",
+		*item.ExternalListID,
+	)
+
 	if _, err := c.service.Tasks.Patch(*item.ExternalListID, *item.ExternalID, task).Context(ctx).Do(); err != nil {
 		return fmt.Errorf("failed to update task: %w", err)
 	}
@@ -299,6 +335,19 @@ func (c *Client) moveItem(ctx context.Context, move reorder.Move) error {
 		tasksMoveCall.DestinationTasklist(move.DestinationListID)
 	}
 
+	c.logger.InfoContext(
+		ctx,
+		"Google Tasks: Moving task",
+		"itemId",
+		move.ItemID,
+		"sourceListId",
+		move.SourceListID,
+		"destinationListId",
+		move.DestinationListID,
+		"previousItemId",
+		move.PreviousItemID,
+	)
+
 	if _, err := tasksMoveCall.Context(ctx).Do(); err != nil {
 		return fmt.Errorf("failed to move task: %w", err)
 	}
@@ -311,6 +360,17 @@ func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
 	if item.ExternalID == nil || item.ExternalListID == nil {
 		return errors.New("failed to delete item: missing external identifiers")
 	}
+
+	c.logger.InfoContext(
+		ctx,
+		"Google Tasks: Deleting task",
+		"title",
+		item.Title,
+		"externalId",
+		*item.ExternalID,
+		"externalListId",
+		*item.ExternalListID,
+	)
 
 	if err := c.service.Tasks.Delete(*item.ExternalListID, *item.ExternalID).Context(ctx).Do(); err != nil {
 		return fmt.Errorf("failed to delete task: %w", err)

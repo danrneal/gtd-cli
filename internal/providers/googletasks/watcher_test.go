@@ -2,6 +2,7 @@ package googletasks
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -71,7 +72,7 @@ func TestClient_Watch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			client := NewClient(nil, tt.interval)
+			client := NewClient(nil, tt.interval, slog.Default())
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()

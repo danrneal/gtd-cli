@@ -9,17 +9,17 @@ import (
 
 // Runner orchestrates state synchronization across multiple SyncTargets.
 type Runner struct {
-	logger  *slog.Logger
 	targets []*SyncTarget
 	events  chan syncEvent
+	logger  *slog.Logger
 }
 
 // NewRunner creates a new Runner instance with the provided logger and configuration targets.
-func NewRunner(logger *slog.Logger, targets []*SyncTarget) *Runner {
+func NewRunner(targets []*SyncTarget, logger *slog.Logger) *Runner {
 	runner := &Runner{
-		logger:  logger,
 		targets: targets,
 		events:  make(chan syncEvent, len(targets)),
+		logger:  logger,
 	}
 
 	return runner

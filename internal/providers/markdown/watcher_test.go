@@ -3,6 +3,7 @@ package markdown
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -140,7 +141,7 @@ func TestClient_Watch(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath)
+			client := NewClient(testPath, slog.Default())
 
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()

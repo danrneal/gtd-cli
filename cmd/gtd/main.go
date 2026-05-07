@@ -81,7 +81,7 @@ func run(cfg *Config, logger *slog.Logger) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	sqliteStore, err := sqlite.NewStore(ctx, cfg.db)
+	sqliteStore, err := sqlite.NewStore(ctx, cfg.db, logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize sqlite store: %w", err)
 	}
@@ -89,7 +89,7 @@ func run(cfg *Config, logger *slog.Logger) error {
 
 	var syncTargets []*app.SyncTarget
 
-	mdClient := markdown.NewClient(cfg.mdFile)
+	mdClient := markdown.NewClient(cfg.mdFile, logger)
 	mdSyncer := app.NewSyncer(sqliteStore, mdClient)
 	mdSyncTarget := &app.SyncTarget{
 		Name:    "markdown",
@@ -113,7 +113,7 @@ func run(cfg *Config, logger *slog.Logger) error {
 			}
 
 			pollInterval := time.Duration(cfg.googleTasksPollInterval) * time.Second
-			tasksClient := googletasks.NewClient(tasksService, pollInterval)
+			tasksClient := googletasks.NewClient(tasksService, pollInterval, logger)
 			tasksSyncer := app.NewSyncer(sqliteStore, tasksClient)
 			tasksSyncTarget := &app.SyncTarget{
 				Name:    "google_tasks",
@@ -127,7 +127,7 @@ func run(cfg *Config, logger *slog.Logger) error {
 		}
 	}
 
-	runner := app.NewRunner(logger, syncTargets)
+	runner := app.NewRunner(syncTargets, logger)
 	if err = runner.Run(ctx); err != nil {
 		return fmt.Errorf("sync loop failed: %w", err)
 	}

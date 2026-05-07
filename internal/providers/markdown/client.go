@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"slices"
 	"sync"
@@ -17,13 +18,17 @@ import (
 // Client is a markdown file provider client.
 type Client struct {
 	filepath    string
+	logger      *slog.Logger
 	mu          sync.RWMutex
 	lastModTime time.Time
 }
 
 // NewClient creates a new markdown client with the given file path.
-func NewClient(filepath string) *Client {
-	client := &Client{filepath: filepath}
+func NewClient(filepath string, logger *slog.Logger) *Client {
+	client := &Client{
+		filepath: filepath,
+		logger:   logger,
+	}
 
 	return client
 }
@@ -38,7 +43,7 @@ func (c *Client) GetKey(resource model.Resource) string {
 }
 
 // CreateList creates a new list in the markdown file.
-func (c *Client) CreateList(_ context.Context, list *model.List) error {
+func (c *Client) CreateList(ctx context.Context, list *model.List) error {
 	list.Clean()
 	if err := list.Validate(); err != nil {
 		return fmt.Errorf("invalid list: %w", err)
@@ -54,6 +59,7 @@ func (c *Client) CreateList(_ context.Context, list *model.List) error {
 	}
 
 	lists = append(lists, *list)
+	c.logger.InfoContext(ctx, "Markdown: Creating list", "id", list.ID, "name", list.Name)
 	err = c.writeFile(lists)
 
 	return err
@@ -96,7 +102,7 @@ func (c *Client) UpdateList(_ context.Context, list *model.List, _ []*model.Item
 }
 
 // DeleteList removes a list from the markdown file.
-func (c *Client) DeleteList(_ context.Context, list *model.List) error {
+func (c *Client) DeleteList(ctx context.Context, list *model.List) error {
 	if list.ID == "" {
 		return errors.New("failed to delete list: missing ID")
 	}
@@ -115,13 +121,14 @@ func (c *Client) DeleteList(_ context.Context, list *model.List) error {
 	}
 
 	lists = slices.Delete(lists, idx, idx+1)
+	c.logger.InfoContext(ctx, "Markdown: Deleting list", "id", list.ID, "name", list.Name)
 	err = c.writeFile(lists)
 
 	return err
 }
 
 // CreateItem adds a new item to a list in the markdown file.
-func (c *Client) CreateItem(_ context.Context, item *model.Item, previousItemID string) error {
+func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemID string) error {
 	item.Clean()
 	if err := item.Validate(); err != nil {
 		return fmt.Errorf("invalid item: %w", err)
@@ -160,13 +167,14 @@ func (c *Client) CreateItem(_ context.Context, item *model.Item, previousItemID 
 
 	list.Items = slices.Insert(list.Items, prevItemIdx+1, item)
 	lists[listIdx] = list
+	c.logger.InfoContext(ctx, "Markdown: Creating item", "id", item.ID, "title", item.Title, "listId", item.ListID)
 	err = c.writeFile(lists)
 
 	return err
 }
 
 // UpdateItem updates an existing item in the markdown file.
-func (c *Client) UpdateItem(_ context.Context, item *model.Item) error {
+func (c *Client) UpdateItem(ctx context.Context, item *model.Item) error {
 	item.Clean()
 	if err := item.Validate(); err != nil {
 		return fmt.Errorf("invalid item: %w", err)
@@ -201,13 +209,14 @@ func (c *Client) UpdateItem(_ context.Context, item *model.Item) error {
 
 	list.Items[itemIdx] = item
 	lists[listIdx] = list
+	c.logger.InfoContext(ctx, "Markdown: Updating item", "id", item.ID, "title", item.Title, "listId", item.ListID)
 	err = c.writeFile(lists)
 
 	return err
 }
 
 // DeleteItem removes an item from the markdown file.
-func (c *Client) DeleteItem(_ context.Context, item *model.Item) error {
+func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
 	if item.ID == "" || item.ListID == "" {
 		return errors.New("failed to delete item: missing identifiers")
 	}
@@ -237,6 +246,7 @@ func (c *Client) DeleteItem(_ context.Context, item *model.Item) error {
 
 	list.Items = slices.Delete(list.Items, itemIdx, itemIdx+1)
 	lists[listIdx] = list
+	c.logger.InfoContext(ctx, "Markdown: Deleting item", "id", item.ID, "title", item.Title, "listId", item.ListID)
 	err = c.writeFile(lists)
 
 	return err

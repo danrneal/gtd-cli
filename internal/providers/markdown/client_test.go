@@ -3,6 +3,7 @@ package markdown
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -170,7 +171,7 @@ func TestClient_CreateList(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath)
+			client := NewClient(testPath, slog.Default())
 
 			err := client.CreateList(context.Background(), tt.list)
 
@@ -263,7 +264,7 @@ func TestClient_ListLists(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath)
+			client := NewClient(testPath, slog.Default())
 
 			got, err := client.ListLists(context.Background())
 
@@ -569,7 +570,7 @@ func TestClient_UpdateList(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath)
+			client := NewClient(testPath, slog.Default())
 
 			err := client.UpdateList(context.Background(), tt.list, nil)
 
@@ -718,7 +719,7 @@ func TestClient_DeleteList(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath)
+			client := NewClient(testPath, slog.Default())
 
 			err := client.DeleteList(context.Background(), tt.list)
 
@@ -975,7 +976,7 @@ func TestClient_CreateItem(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath)
+			client := NewClient(testPath, slog.Default())
 
 			err := client.CreateItem(context.Background(), tt.item, tt.previousItemID)
 
@@ -1224,7 +1225,7 @@ func TestClient_UpdateItem(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath)
+			client := NewClient(testPath, slog.Default())
 
 			err := client.UpdateItem(context.Background(), tt.item)
 
@@ -1423,7 +1424,7 @@ func TestClient_DeleteItem(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath)
+			client := NewClient(testPath, slog.Default())
 
 			err := client.DeleteItem(context.Background(), tt.item)
 
@@ -1575,7 +1576,7 @@ func TestClient_readFile(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath)
+			client := NewClient(testPath, slog.Default())
 
 			got, err := client.readFile()
 
@@ -1713,7 +1714,7 @@ func TestClient_writeFile(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath)
+			client := NewClient(testPath, slog.Default())
 
 			err := client.writeFile(tt.lists)
 
@@ -1750,7 +1751,7 @@ func TestClient_Concurrency(t *testing.T) {
 		t.Fatalf("failed to setup file: %v", err)
 	}
 
-	client := NewClient(path)
+	client := NewClient(path, slog.Default())
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 
@@ -15,12 +16,13 @@ import (
 
 // Store manages the SQLite database connection and executes queries.
 type Store struct {
-	db *sql.DB
+	db     *sql.DB
+	logger *slog.Logger
 }
 
 // NewStore initializes a new SQLite store.
 // It opens the database at dbPath, ensures it is accessible, and creates the necessary schema.
-func NewStore(ctx context.Context, dbPath string) (*Store, error) {
+func NewStore(ctx context.Context, dbPath string, logger *slog.Logger) (*Store, error) {
 	dataSourceName := fmt.Sprintf("%s?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", dbPath)
 	db, err := sql.Open("sqlite3", dataSourceName)
 	if err != nil {
@@ -32,7 +34,10 @@ func NewStore(ctx context.Context, dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	store := &Store{db: db}
+	store := &Store{
+		db:     db,
+		logger: logger,
+	}
 	if err := store.createTables(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -115,6 +120,7 @@ func (s *Store) CreateList(ctx context.Context, list *model.List) error {
 		) VALUES (?, ?, ?, ?, ?, ?);
 	`
 
+	s.logger.InfoContext(ctx, "SQLite: Inserting list", "id", list.ID, "name", list.Name)
 	_, err := s.db.ExecContext(ctx, query,
 		list.ID,
 		list.Name,
@@ -263,6 +269,7 @@ func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems [
         WHERE id = ?;
     `
 
+	s.logger.InfoContext(ctx, "SQLite: Updating list", "id", list.ID, "name", list.Name)
 	res, err := tx.ExecContext(ctx, query,
 		list.Name,
 		list.Position,
@@ -306,6 +313,7 @@ func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems [
 
 // DeleteList deletes a list from the database.
 func (s *Store) DeleteList(ctx context.Context, list *model.List) error {
+	s.logger.InfoContext(ctx, "SQLite: Deleting list", "id", list.ID, "name", list.Name)
 	if err := s.deleteResource(ctx, list); err != nil {
 		return fmt.Errorf("failed to delete list %q (ID: %s): %w", list.Name, list.ID, err)
 	}
@@ -371,6 +379,7 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `
 
+	s.logger.InfoContext(ctx, "SQLite: Inserting item", "id", item.ID, "title", item.Title, "listId", item.ListID)
 	_, err = tx.ExecContext(ctx, query,
 		item.ID,
 		item.ListID,
@@ -550,8 +559,9 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
             modified = ?,
             external_id = COALESCE(?, external_id)
         WHERE id = ?;
-	`
+    `
 
+	s.logger.InfoContext(ctx, "SQLite: Updating item", "id", item.ID, "title", item.Title, "status", item.Status)
 	res, err := tx.ExecContext(ctx, query,
 		item.Status,
 		item.Title,
@@ -640,6 +650,7 @@ func (s *Store) batchMoveItems(ctx context.Context, tx *sql.Tx, items []*model.I
 
 // DeleteItem deletes an item from the database.
 func (s *Store) DeleteItem(ctx context.Context, item *model.Item) error {
+	s.logger.InfoContext(ctx, "SQLite: Deleting item", "id", item.ID, "title", item.Title)
 	if err := s.deleteResource(ctx, item); err != nil {
 		return fmt.Errorf("failed to delete item %q (ID: %s): %w", item.Title, item.ID, err)
 	}

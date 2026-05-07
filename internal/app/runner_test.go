@@ -356,7 +356,7 @@ func TestRun(t *testing.T) {
 
 			errChan := make(chan error, 1)
 			go func() {
-				runner := NewRunner(logger, targets)
+				runner := NewRunner(targets, logger)
 				errChan <- runner.Run(ctx)
 			}()
 
