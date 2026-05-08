@@ -46,7 +46,7 @@ func parse(reader io.Reader, modified time.Time) ([]model.List, error) {
 
 			var item *model.Item
 			itemContent := matches[2]
-			if p.list.Name == "Waiting For" {
+			if p.list.Name == model.ListWaitingFor {
 				item = parseWaitingForItemContent(itemContent)
 			} else {
 				item = parseItemContent(itemContent)

@@ -32,6 +32,7 @@ func NewFakeProvider(name string, lists []model.List) *FakeProvider {
 
 	for i, list := range lists {
 		provider.ListCounter++
+
 		listID := fmt.Sprintf("%s-list-%d", name, provider.ListCounter)
 		if list.ID == "" && name == "store" {
 			list.ID = listID
@@ -46,6 +47,7 @@ func NewFakeProvider(name string, lists []model.List) *FakeProvider {
 		list.Position = i
 		for j, item := range list.Items {
 			provider.ItemCounter++
+
 			itemID := fmt.Sprintf("%s-item-%d", name, provider.ItemCounter)
 			if item.ID == "" && name == "store" {
 				item.ID = itemID

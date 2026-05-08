@@ -237,7 +237,7 @@ func (c *Client) listItems(ctx context.Context, list *model.List) ([]*model.Item
 	var items []*model.Item
 	for i, task := range resp.Items {
 		var item *model.Item
-		if list.Name == "Waiting For" {
+		if list.Name == model.ListWaitingFor {
 			item = parseWaitingForTitle(task.Title)
 		} else {
 			item = parseTitle(task.Title)

@@ -7,6 +7,13 @@ import (
 	"time"
 )
 
+const (
+	// ListWaitingFor is the reserved name for the "Waiting For" list.
+	ListWaitingFor = "Waiting For"
+	// ListSnoozed is the reserved name for the "Snoozed" list.
+	ListSnoozed = "Snoozed"
+)
+
 // List represents a named collection of tasks (Items).
 type List struct {
 	ID         string    `json:"id"`

@@ -121,6 +121,7 @@ func (c *Client) DeleteList(ctx context.Context, list *model.List) error {
 	}
 
 	lists = slices.Delete(lists, idx, idx+1)
+
 	c.logger.InfoContext(ctx, "Markdown: Deleting list", "id", list.ID, "name", list.Name)
 	err = c.writeFile(lists)
 
@@ -167,6 +168,7 @@ func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemI
 
 	list.Items = slices.Insert(list.Items, prevItemIdx+1, item)
 	lists[listIdx] = list
+
 	c.logger.InfoContext(ctx, "Markdown: Creating item", "id", item.ID, "title", item.Title, "listId", item.ListID)
 	err = c.writeFile(lists)
 
@@ -209,6 +211,7 @@ func (c *Client) UpdateItem(ctx context.Context, item *model.Item) error {
 
 	list.Items[itemIdx] = item
 	lists[listIdx] = list
+
 	c.logger.InfoContext(ctx, "Markdown: Updating item", "id", item.ID, "title", item.Title, "listId", item.ListID)
 	err = c.writeFile(lists)
 
@@ -246,6 +249,7 @@ func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
 
 	list.Items = slices.Delete(list.Items, itemIdx, itemIdx+1)
 	lists[listIdx] = list
+
 	c.logger.InfoContext(ctx, "Markdown: Deleting item", "id", item.ID, "title", item.Title, "listId", item.ListID)
 	err = c.writeFile(lists)
 

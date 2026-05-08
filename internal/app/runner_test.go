@@ -398,6 +398,7 @@ func TestRun(t *testing.T) {
 			})
 
 			cancel()
+
 			select {
 			case err := <-errChan:
 				if err != nil && !errors.Is(err, context.Canceled) {

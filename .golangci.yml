@@ -173,9 +173,6 @@ linters:
         - (*database/sql.Tx).Rollback
 
     exhaustive:
-      check:
-        - switch
-        - map
       default-signifies-exhaustive: true
 
     funlen:
@@ -184,6 +181,7 @@ linters:
 
     funcorder:
       struct-method: false
+      function: true
 
     gocognit:
       min-complexity: 20
@@ -263,6 +261,9 @@ linters:
       require-explanation: true
       require-specific: true
 
+    paralleltest:
+      check-cleanup: true
+
     perfsprint:
       strconcat: false
 
@@ -327,27 +328,28 @@ linters:
 
     wsl_v5:
       allow-whole-block: true
+      cuddle-max-statements: 50
       default: none
       enable:
         - after-block
+        - after-defer
+        - after-go
         - append
         - decl
         - defer
         - err
+        - expr
+        - for
+        - go
         - label
         - leading-whitespace
+        - range
         - return
+        - select
         - send
+        - switch
         - trailing-whitespace
-        # Reconsider after https://github.com/bombsimon/wsl/pull/245 is merged
-        # - if
-        # - for
-        # - range
-        # - select
-        # - switch
-        # Reconsider after https://github.com/bombsimon/wsl/issues/244 is resolved
-        # - expr
-        # - go
+        - type-switch
 
   exclusions:
     warn-unused: true

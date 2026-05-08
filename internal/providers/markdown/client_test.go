@@ -1754,7 +1754,7 @@ func TestClient_Concurrency(t *testing.T) {
 	client := NewClient(path, slog.Default())
 
 	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
+	t.Cleanup(cancel)
 
 	events, err := client.Watch(ctx)
 	if err != nil {
