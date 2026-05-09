@@ -232,30 +232,6 @@ func TestList_Equal(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "different item positions",
-			list: &List{
-				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
-				Name:       "Inbox",
-				Status:     StatusOpen,
-				Position:   0,
-				Items: []*Item{
-					{ID: "item-1", Position: 0},
-				},
-			},
-			other: &List{
-				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
-				Name:       "Inbox",
-				Status:     StatusOpen,
-				Position:   0,
-				Items: []*Item{
-					{ID: "item-1", Position: 1},
-				},
-			},
-			want: false,
-		},
-		{
 			name: "different item IDs when both set",
 			list: &List{
 				ID:         "1",

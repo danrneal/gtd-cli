@@ -97,10 +97,6 @@ func (l *List) Equal(other *List) bool {
 	for i, item := range l.Items {
 		otherItem := other.Items[i]
 
-		if item.Position != otherItem.Position {
-			return false
-		}
-
 		if item.ID != "" && otherItem.ID != "" && item.ID != otherItem.ID {
 			return false
 		}

@@ -90,14 +90,6 @@ func (i *Item) Equal(other *Item) bool {
 		return false
 	}
 
-	if i.ListID != "" && other.ListID != "" && i.ListID != other.ListID {
-		return false
-	}
-
-	if i.ExternalListID != nil && other.ExternalListID != nil && *i.ExternalListID != *other.ExternalListID {
-		return false
-	}
-
 	if i.Title != other.Title {
 		return false
 	}
@@ -107,10 +99,6 @@ func (i *Item) Equal(other *Item) bool {
 	}
 
 	if i.Status != other.Status {
-		return false
-	}
-
-	if i.Position != other.Position {
 		return false
 	}
 
