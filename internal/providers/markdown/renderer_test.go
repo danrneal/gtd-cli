@@ -109,7 +109,7 @@ func TestRender(t *testing.T) {
 			want: `# Statuses (3)
 * [ ] Not started
 * [-] In progress
-* [x] Done
+* [x] ~~Done~~
 
 `,
 			wantErr: false,

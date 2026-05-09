@@ -63,6 +63,7 @@ func renderItem(buf *strings.Builder, item *model.Item) error {
 		itemStatus = "-"
 	case model.StatusDone:
 		itemStatus = "x"
+		title = fmt.Sprintf("~~%s~~", title)
 	default:
 		return fmt.Errorf("render received invalid status %q on item %s", item.Status, item.ID)
 	}

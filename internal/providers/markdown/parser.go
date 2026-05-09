@@ -13,7 +13,7 @@ import (
 
 var (
 	listRegex = regexp.MustCompile(`^#+\s+(.+?)(?:\s+\(\d+\))?(?:\s+{{([^}]+)}})?$`)
-	itemRegex = regexp.MustCompile(`^[*-]\s+\[(.)\]\s+~*(.+?)(?:\s+{{([^}]+)}})?~*$`)
+	itemRegex = regexp.MustCompile(`^[*-]\s+\[(.)\]\s+~*(.+?)~*(?:\s+{{([^}]+)}})?$`)
 )
 
 // parse reads Markdown content and converts it into a slice of model.List.
