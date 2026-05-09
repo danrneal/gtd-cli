@@ -573,8 +573,3 @@ func TestItem_Equal(t *testing.T) {
 		})
 	}
 }
-
-func iso8601ToDate(s string) *time.Time {
-	t, _ := time.Parse("2006-01-02", s)
-	return &t
-}

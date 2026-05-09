@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 )
@@ -41,6 +42,8 @@ func (l *List) Clean() {
 	if l.Status == "" {
 		l.Status = StatusOpen
 	}
+
+	l.sortItems()
 }
 
 // Validate checks if the current state of the list satisfies domain invariants.
@@ -107,4 +110,38 @@ func (l *List) Equal(other *List) bool {
 	}
 
 	return true
+}
+
+func (l *List) sortItems() {
+	statusRank := map[Status]int{
+		StatusInProgress: -1,
+		StatusDone:       1,
+	}
+
+	slices.SortStableFunc(l.Items, func(a, b *Item) int {
+		switch l.Name {
+		case ListWaitingFor:
+			return a.Created.Compare(b.Created)
+		case ListSnoozed:
+			if a.Snoozed == nil && b.Snoozed == nil {
+				return 0
+			}
+
+			if a.Snoozed == nil {
+				return -1
+			}
+
+			if b.Snoozed == nil {
+				return 1
+			}
+
+			return a.Snoozed.Compare(*b.Snoozed)
+		default:
+			return statusRank[a.Status] - statusRank[b.Status]
+		}
+	})
+
+	for i, item := range l.Items {
+		item.Position = i
+	}
 }

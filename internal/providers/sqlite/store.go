@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -126,7 +127,7 @@ func (s *Store) CreateList(ctx context.Context, list *model.List) error {
 		list.Name,
 		list.Position,
 		list.Status,
-		list.Modified,
+		time.Now(),
 		list.ExternalID,
 	)
 	if err != nil {
@@ -274,7 +275,7 @@ func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems [
 		list.Name,
 		list.Position,
 		list.Status,
-		list.Modified,
+		time.Now(),
 		list.ExternalID,
 		list.ID,
 	)
@@ -392,7 +393,7 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 		item.Snoozed,
 		item.Due,
 		string(tagsJSON),
-		item.Modified,
+		time.Now(),
 		item.Created,
 		item.ExternalID,
 	)
@@ -429,21 +430,10 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, er
 		FROM items i
 		INNER JOIN lists l
 		ON i.list_id = l.id
-		ORDER BY
-			CASE i.status
-				WHEN ? THEN 0
-				WHEN ? THEN 1
-				WHEN ? THEN 2
-				ELSE 3
-			END,
-			i.position
+		ORDER BY i.position
 	`
 
-	rows, err := tx.QueryContext(ctx, query,
-		model.StatusInProgress,
-		model.StatusNotStarted,
-		model.StatusDone,
-	)
+	rows, err := tx.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query items: %w", err)
 	}
@@ -571,7 +561,7 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 		item.Snoozed,
 		item.Due,
 		string(tagsJSON),
-		item.Modified,
+		time.Now(),
 		item.ExternalID,
 		item.ID,
 	)

@@ -1392,7 +1392,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
-							Status:   model.StatusNotStarted,
+							Status:   model.StatusInProgress,
 							Modified: baseTime,
 						},
 						{
@@ -1404,7 +1404,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							ID:       "store-item-3",
 							Title:    "I3",
-							Status:   model.StatusInProgress,
+							Status:   model.StatusNotStarted,
 							Modified: baseTime,
 						},
 					},
@@ -1443,7 +1443,7 @@ func TestOneWaySync(t *testing.T) {
 							ID:       "store-item-2",
 							Title:    "I2",
 							Position: 0,
-							Status:   model.StatusNotStarted,
+							Status:   model.StatusInProgress,
 							ListID:   "store-list-2",
 						},
 						{
@@ -1457,7 +1457,7 @@ func TestOneWaySync(t *testing.T) {
 							ID:       "store-item-3",
 							Title:    "I3",
 							Position: 2,
-							Status:   model.StatusInProgress,
+							Status:   model.StatusNotStarted,
 							ListID:   "store-list-2",
 						},
 					},
@@ -1481,7 +1481,7 @@ func TestOneWaySync(t *testing.T) {
 							ID:       "store-item-2",
 							Title:    "I2",
 							Position: 0,
-							Status:   model.StatusNotStarted,
+							Status:   model.StatusInProgress,
 							ListID:   "store-list-2",
 						},
 						{
@@ -1495,7 +1495,7 @@ func TestOneWaySync(t *testing.T) {
 							ID:       "store-item-3",
 							Title:    "I3",
 							Position: 2,
-							Status:   model.StatusInProgress,
+							Status:   model.StatusNotStarted,
 							ListID:   "store-list-2",
 						},
 					},
@@ -1518,7 +1518,7 @@ func TestOneWaySync(t *testing.T) {
 					Items: []*model.Item{
 						{
 							Title:    "I2",
-							Status:   model.StatusNotStarted,
+							Status:   model.StatusInProgress,
 							Modified: baseTime,
 						},
 						{
@@ -1529,7 +1529,7 @@ func TestOneWaySync(t *testing.T) {
 						},
 						{
 							Title:    "I3",
-							Status:   model.StatusInProgress,
+							Status:   model.StatusNotStarted,
 							Modified: baseTime,
 						},
 					},
@@ -1566,7 +1566,7 @@ func TestOneWaySync(t *testing.T) {
 							ID:       "store-item-2",
 							Title:    "I2",
 							Position: 0,
-							Status:   model.StatusNotStarted,
+							Status:   model.StatusInProgress,
 							ListID:   "store-list-2",
 						},
 						{
@@ -1580,7 +1580,7 @@ func TestOneWaySync(t *testing.T) {
 							ID:       "store-item-3",
 							Title:    "I3",
 							Position: 2,
-							Status:   model.StatusInProgress,
+							Status:   model.StatusNotStarted,
 							ListID:   "store-list-2",
 						},
 					},
@@ -1604,7 +1604,7 @@ func TestOneWaySync(t *testing.T) {
 							ID:       "store-item-2",
 							Title:    "I2",
 							Position: 0,
-							Status:   model.StatusNotStarted,
+							Status:   model.StatusInProgress,
 							ListID:   "store-list-2",
 						},
 						{
@@ -1618,7 +1618,7 @@ func TestOneWaySync(t *testing.T) {
 							ID:       "store-item-3",
 							Title:    "I3",
 							Position: 2,
-							Status:   model.StatusInProgress,
+							Status:   model.StatusNotStarted,
 							ListID:   "store-list-2",
 						},
 					},
@@ -1642,7 +1642,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
-							Status:   model.StatusNotStarted,
+							Status:   model.StatusInProgress,
 							Modified: baseTime,
 						},
 						{
@@ -1655,7 +1655,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							ID:       "store-item-3",
 							Title:    "I3",
-							Status:   model.StatusInProgress,
+							Status:   model.StatusNotStarted,
 							Modified: baseTime,
 						},
 					},
@@ -1694,7 +1694,7 @@ func TestOneWaySync(t *testing.T) {
 							ID:             "store-item-2",
 							Title:          "I2",
 							Position:       0,
-							Status:         model.StatusNotStarted,
+							Status:         model.StatusInProgress,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
 							ExternalID:     stringPtr("external-item-2"),
@@ -1712,7 +1712,7 @@ func TestOneWaySync(t *testing.T) {
 							ID:             "store-item-3",
 							Title:          "I3",
 							Position:       2,
-							Status:         model.StatusInProgress,
+							Status:         model.StatusNotStarted,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
 							ExternalID:     stringPtr("external-item-3"),
@@ -1737,7 +1737,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							Title:          "I2",
 							Position:       0,
-							Status:         model.StatusNotStarted,
+							Status:         model.StatusInProgress,
 							ExternalListID: stringPtr("external-list-2"),
 							ExternalID:     stringPtr("external-item-2"),
 						},
@@ -1751,7 +1751,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							Title:          "I3",
 							Position:       2,
-							Status:         model.StatusInProgress,
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-2"),
 							ExternalID:     stringPtr("external-item-3"),
 						},
@@ -1774,7 +1774,7 @@ func TestOneWaySync(t *testing.T) {
 					Items: []*model.Item{
 						{
 							Title:      "I2",
-							Status:     model.StatusNotStarted,
+							Status:     model.StatusInProgress,
 							ExternalID: stringPtr("external-item-2"),
 							Modified:   baseTime,
 						},
@@ -1786,7 +1786,7 @@ func TestOneWaySync(t *testing.T) {
 						},
 						{
 							Title:      "I3",
-							Status:     model.StatusInProgress,
+							Status:     model.StatusNotStarted,
 							ExternalID: stringPtr("external-item-3"),
 							Modified:   baseTime,
 						},
@@ -1825,7 +1825,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							Title:          "I2",
 							Position:       0,
-							Status:         model.StatusNotStarted,
+							Status:         model.StatusInProgress,
 							ExternalListID: stringPtr("external-list-2"),
 							ExternalID:     stringPtr("external-item-2"),
 						},
@@ -1839,7 +1839,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							Title:          "I3",
 							Position:       2,
-							Status:         model.StatusInProgress,
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-2"),
 							ExternalID:     stringPtr("external-item-3"),
 						},
@@ -1866,7 +1866,7 @@ func TestOneWaySync(t *testing.T) {
 							ID:             "store-item-2",
 							Title:          "I2",
 							Position:       0,
-							Status:         model.StatusNotStarted,
+							Status:         model.StatusInProgress,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
 							ExternalID:     stringPtr("external-item-2"),
@@ -1884,7 +1884,7 @@ func TestOneWaySync(t *testing.T) {
 							ID:             "store-item-3",
 							Title:          "I3",
 							Position:       2,
-							Status:         model.StatusInProgress,
+							Status:         model.StatusNotStarted,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
 							ExternalID:     stringPtr("external-item-3"),

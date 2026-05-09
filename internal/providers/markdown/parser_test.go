@@ -251,21 +251,21 @@ Second line.
 					Modified: modified,
 					Items: []*model.Item{
 						{
-							Title:    "Not started",
-							Position: 0,
-							Status:   model.StatusNotStarted,
-							Modified: modified,
-						},
-						{
 							Title:    "In progress",
-							Position: 1,
+							Position: 0,
 							Status:   model.StatusInProgress,
 							Modified: modified,
 						},
 						{
 							Title:    "In progress custom",
-							Position: 2,
+							Position: 1,
 							Status:   model.StatusInProgress,
+							Modified: modified,
+						},
+						{
+							Title:    "Not started",
+							Position: 2,
+							Status:   model.StatusNotStarted,
 							Modified: modified,
 						},
 						{
