@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
 )
@@ -27,21 +28,21 @@ func NewSyncer(local Provider, remote RemoteProvider) *Syncer {
 
 // Push synchronizes changes from the local provider to the remote provider.
 // It returns true if any changes were pushed.
-func (s *Syncer) Push(ctx context.Context) error {
-	_, err := s.oneWaySync(ctx, s.local, s.remote)
+func (s *Syncer) Push(ctx context.Context, syncStart time.Time) error {
+	_, err := s.oneWaySync(ctx, s.local, s.remote, syncStart)
 	return err
 }
 
 // Pull synchronizes changes from the remote provider to the local provider.
 // It returns true if any changes were pulled.
-func (s *Syncer) Pull(ctx context.Context) (bool, error) {
-	return s.oneWaySync(ctx, s.remote, s.local)
+func (s *Syncer) Pull(ctx context.Context, syncStart time.Time) (bool, error) {
+	return s.oneWaySync(ctx, s.remote, s.local, syncStart)
 }
 
 // oneWaySync performs a unidirectional synchronization from the source provider to the destination provider.
 // It handles creation, updates, and deletions of lists and items based on modification timestamps and status.
 // It returns true if any changes were applied to the destination.
-func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error) {
+func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider, syncStart time.Time) (bool, error) {
 	srcState, err := s.buildProviderState(ctx, src)
 	if err != nil {
 		return false, err
@@ -53,9 +54,10 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider) (bool, error
 	}
 
 	ss := &syncSession{
-		getKey:   s.getKey,
-		srcState: srcState,
-		dstState: dstState,
+		getKey:    s.getKey,
+		srcState:  srcState,
+		dstState:  dstState,
+		syncStart: syncStart,
 	}
 
 	changed := false
@@ -131,9 +133,10 @@ type providerState struct {
 
 // syncSession encapsulates the state required for a single one-way synchronization pass.
 type syncSession struct {
-	getKey   func(model.Resource) string
-	srcState *providerState
-	dstState *providerState
+	getKey    func(model.Resource) string
+	srcState  *providerState
+	dstState  *providerState
+	syncStart time.Time
 }
 
 // syncList processes a single list from the source provider state, creating or updating it and its items
@@ -227,7 +230,7 @@ func (ss *syncSession) syncListDeletion(ctx context.Context, dstList *model.List
 	}
 
 	srcList, ok := ss.srcState.listsMap[listKey]
-	if !ok || srcList.Status == model.StatusDeleted {
+	if (!ok || srcList.Status == model.StatusDeleted) && dstList.Modified.Before(ss.syncStart) {
 		if err := ss.deleteList(ctx, srcList, dstList); err != nil {
 			return false, err
 		}
@@ -247,7 +250,7 @@ func (ss *syncSession) syncListDeletion(ctx context.Context, dstList *model.List
 		}
 
 		srcItem, ok := ss.srcState.itemsMap[itemKey]
-		if !ok || srcItem.Status == model.StatusDeleted {
+		if (!ok || srcItem.Status == model.StatusDeleted) && dstItem.Modified.Before(ss.syncStart) {
 			if err := ss.deleteItem(ctx, srcItem, dstItem); err != nil {
 				return deleted, err
 			}

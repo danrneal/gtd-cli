@@ -4057,6 +4057,124 @@ func TestOneWaySync(t *testing.T) {
 			wantUpdated: false,
 		},
 		{
+			name: "skip delete item due to concurrent edit (push)",
+			src: NewFakeProvider("store", []model.List{
+				{
+					Name:     "L1",
+					Modified: baseTime,
+					Items: []*model.Item{
+						{
+							Title:  "I1",
+							Status: model.StatusDeleted,
+						},
+					},
+				},
+			}),
+			dst: NewFakeProvider("generic", []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Modified: baseTime,
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime.Add(2 * time.Hour),
+						},
+					},
+				},
+			}),
+			wantSrcLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1",
+							Status:   model.StatusDeleted,
+							ListID:   "store-list-1",
+							Position: 0,
+						},
+					},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1",
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-1",
+							Position: 0,
+						},
+					},
+				},
+			},
+			wantUpdated: false,
+		},
+		{
+			name: "skip delete item due to concurrent edit (pull)",
+			src: NewFakeProvider("generic", []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Modified: baseTime,
+					Items:    []*model.Item{}, 
+				},
+			}),
+			dst: NewFakeProvider("store", []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Modified: baseTime,
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime.Add(2 * time.Hour),
+						},
+					},
+				},
+			}),
+			wantSrcLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1",
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-1",
+							Position: 0,
+						},
+					},
+				},
+			},
+			wantUpdated: false,
+		},
+		{
 			name: "delete item (push)",
 			src: NewFakeProvider("store", []model.List{
 				{
@@ -4617,7 +4735,8 @@ func TestOneWaySync(t *testing.T) {
 				t.Fatalf("test must have at least one 'store' provider")
 			}
 
-			updated, err := s.oneWaySync(context.Background(), tt.src, tt.dst)
+			syncStart := baseTime.Add(time.Hour)
+			updated, err := s.oneWaySync(context.Background(), tt.src, tt.dst, syncStart)
 			if err != nil {
 				t.Fatalf("oneWaySync failed: %v", err)
 			}

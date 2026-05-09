@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 )
 
 // Runner orchestrates state synchronization across multiple SyncTargets.
@@ -111,13 +112,15 @@ func (r *Runner) startWatcher(ctx context.Context, target *SyncTarget) error {
 // syncTargets orchestrates the pulling and pushing of state across all targets
 // in response to an event. It cross-pollinates changes while respecting retry states.
 func (r *Runner) syncTargets(ctx context.Context, event syncEvent) {
+	syncStart := time.Now()
+
 	changed := false
 	for _, target := range r.targets {
 		if event.target != nil && target != event.target && !target.needsPullRetry {
 			continue
 		}
 
-		pulled := r.pull(ctx, target)
+		pulled := r.pull(ctx, target, syncStart)
 		changed = changed || pulled
 	}
 
@@ -126,14 +129,15 @@ func (r *Runner) syncTargets(ctx context.Context, event syncEvent) {
 			continue
 		}
 
-		r.push(ctx, target)
+		r.push(ctx, target, syncStart)
 	}
 }
 
 // pull attempts to synchronize state from the given target to the local store.
 // It returns true if changes were successfully pulled, and sets retry flags on failure.
-func (r *Runner) pull(ctx context.Context, target *SyncTarget) bool {
-	pulled, err := target.Syncer.Pull(ctx)
+func (r *Runner) pull(ctx context.Context, target *SyncTarget, syncStart time.Time) bool {
+	r.logger.InfoContext(ctx, fmt.Sprintf("---> Pulling from %s", target.Name))
+	pulled, err := target.Syncer.Pull(ctx, syncStart)
 	if err != nil {
 		r.logger.ErrorContext(ctx, "Failed to pull", "syncTarget", target.Name, "err", err)
 		target.needsPullRetry = true
@@ -149,12 +153,13 @@ func (r *Runner) pull(ctx context.Context, target *SyncTarget) bool {
 
 // push attempts to synchronize state from the local store to the given target.
 // It avoids pushing if the target needs a pull retry, and updates retry flags appropriately.
-func (r *Runner) push(ctx context.Context, target *SyncTarget) {
+func (r *Runner) push(ctx context.Context, target *SyncTarget, syncStart time.Time) {
+	r.logger.InfoContext(ctx, fmt.Sprintf("---> Pushing to %s", target.Name))
 	if target.needsPullRetry {
 		return
 	}
 
-	if err := target.Syncer.Push(ctx); err != nil {
+	if err := target.Syncer.Push(ctx, syncStart); err != nil {
 		r.logger.ErrorContext(ctx, "Failed to push", "syncTarget", target.Name, "err", err)
 		target.needsPushRetry = true
 
