@@ -300,6 +300,9 @@ func (c *Client) writeFile(lists []model.List) error {
 		return fmt.Errorf("failed to render markdown file: %w", err)
 	}
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	file, err := os.OpenFile(c.filepath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to open markdown file for writing: %w", err)
@@ -320,9 +323,7 @@ func (c *Client) writeFile(lists []model.List) error {
 		return fmt.Errorf("failed to stat markdown file after writing: %w", err)
 	}
 
-	c.mu.Lock()
 	c.lastModTime = stat.ModTime()
-	c.mu.Unlock()
 
 	return nil
 }
