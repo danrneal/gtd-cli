@@ -72,7 +72,8 @@ func TestClient_Watch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			client := NewClient(nil, tt.interval, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			client := NewClient(nil, tt.interval, logger)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()

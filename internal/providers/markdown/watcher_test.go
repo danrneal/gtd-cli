@@ -141,7 +141,8 @@ func TestClient_Watch(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			client := NewClient(testPath, logger)
 
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()

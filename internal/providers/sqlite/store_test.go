@@ -83,7 +83,8 @@ func TestNewStore(t *testing.T) {
 			ctx := context.Background()
 
 			dbPath := tt.setupDBPath(t)
-			store, err := NewStore(ctx, dbPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			store, err := NewStore(ctx, dbPath, logger)
 
 			if tt.wantErr {
 				if err == nil {
@@ -203,7 +204,8 @@ func TestCreateList(t *testing.T) {
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
-			store, err := NewStore(context.Background(), dbPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			store, err := NewStore(context.Background(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -447,7 +449,8 @@ func TestListLists(t *testing.T) {
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
-			store, err := NewStore(context.Background(), dbPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			store, err := NewStore(context.Background(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -1137,7 +1140,8 @@ func TestUpdateList(t *testing.T) {
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
-			store, err := NewStore(context.Background(), dbPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			store, err := NewStore(context.Background(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -1359,7 +1363,8 @@ func TestDeleteList(t *testing.T) {
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
-			store, err := NewStore(context.Background(), dbPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			store, err := NewStore(context.Background(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -1567,7 +1572,8 @@ func TestCreateItem(t *testing.T) {
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
-			store, err := NewStore(context.Background(), dbPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			store, err := NewStore(context.Background(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -1984,7 +1990,8 @@ func TestUpdateItem(t *testing.T) {
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
-			store, err := NewStore(context.Background(), dbPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			store, err := NewStore(context.Background(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -2237,7 +2244,8 @@ func TestDeleteItem(t *testing.T) {
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
-			store, err := NewStore(context.Background(), dbPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			store, err := NewStore(context.Background(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}

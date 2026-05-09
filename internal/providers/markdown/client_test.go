@@ -171,7 +171,8 @@ func TestClient_CreateList(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			client := NewClient(testPath, logger)
 
 			err := client.CreateList(context.Background(), tt.list)
 
@@ -264,7 +265,8 @@ func TestClient_ListLists(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			client := NewClient(testPath, logger)
 
 			got, err := client.ListLists(context.Background())
 
@@ -570,7 +572,8 @@ func TestClient_UpdateList(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			client := NewClient(testPath, logger)
 
 			err := client.UpdateList(context.Background(), tt.list, nil)
 
@@ -719,7 +722,8 @@ func TestClient_DeleteList(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			client := NewClient(testPath, logger)
 
 			err := client.DeleteList(context.Background(), tt.list)
 
@@ -976,7 +980,8 @@ func TestClient_CreateItem(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			client := NewClient(testPath, logger)
 
 			err := client.CreateItem(context.Background(), tt.item, tt.previousItemID)
 
@@ -1225,7 +1230,8 @@ func TestClient_UpdateItem(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			client := NewClient(testPath, logger)
 
 			err := client.UpdateItem(context.Background(), tt.item)
 
@@ -1424,7 +1430,8 @@ func TestClient_DeleteItem(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			client := NewClient(testPath, logger)
 
 			err := client.DeleteItem(context.Background(), tt.item)
 
@@ -1576,7 +1583,8 @@ func TestClient_readFile(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			client := NewClient(testPath, logger)
 
 			got, err := client.readFile()
 
@@ -1714,7 +1722,8 @@ func TestClient_writeFile(t *testing.T) {
 			t.Parallel()
 
 			testPath := tt.setup(t)
-			client := NewClient(testPath, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			client := NewClient(testPath, logger)
 
 			err := client.writeFile(tt.lists)
 
@@ -1751,7 +1760,8 @@ func TestClient_Concurrency(t *testing.T) {
 		t.Fatalf("failed to setup file: %v", err)
 	}
 
-	client := NewClient(path, slog.Default())
+	logger := slog.New(slog.DiscardHandler)
+	client := NewClient(path, logger)
 
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)

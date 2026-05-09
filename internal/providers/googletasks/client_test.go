@@ -172,7 +172,8 @@ func TestCreateList(t *testing.T) {
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			pollInterval := 30 * time.Second
-			tasksClient := NewClient(tasksService, pollInterval, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			err := tasksClient.CreateList(context.Background(), tt.list)
 
@@ -343,7 +344,8 @@ func TestListLists(t *testing.T) {
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			pollInterval := 30 * time.Second
-			tasksClient := NewClient(tasksService, pollInterval, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			got, err := tasksClient.ListLists(context.Background())
 
@@ -736,7 +738,8 @@ func TestUpdateList(t *testing.T) {
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			pollInterval := 30 * time.Second
-			tasksClient := NewClient(tasksService, pollInterval, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			err := tasksClient.UpdateList(context.Background(), tt.list, tt.currentItems)
 
@@ -834,7 +837,8 @@ func TestDeleteList(t *testing.T) {
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			pollInterval := 30 * time.Second
-			tasksClient := NewClient(tasksService, pollInterval, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			err := tasksClient.DeleteList(context.Background(), tt.list)
 
@@ -1088,7 +1092,8 @@ func TestCreateItem(t *testing.T) {
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			pollInterval := 30 * time.Second
-			tasksClient := NewClient(tasksService, pollInterval, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			err := tasksClient.CreateItem(context.Background(), tt.item, tt.previousItemID)
 
@@ -1518,7 +1523,8 @@ func TestListItems(t *testing.T) {
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			pollInterval := 30 * time.Second
-			tasksClient := NewClient(tasksService, pollInterval, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			got, err := tasksClient.listItems(context.Background(), tt.list)
 
@@ -1808,7 +1814,8 @@ func TestUpdateItem(t *testing.T) {
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			pollInterval := 30 * time.Second
-			tasksClient := NewClient(tasksService, pollInterval, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			err := tasksClient.UpdateItem(context.Background(), tt.item)
 
@@ -1909,7 +1916,8 @@ func TestDeleteItem(t *testing.T) {
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
 			pollInterval := 30 * time.Second
-			tasksClient := NewClient(tasksService, pollInterval, slog.Default())
+			logger := slog.New(slog.DiscardHandler)
+			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			err := tasksClient.DeleteItem(context.Background(), tt.item)
 
