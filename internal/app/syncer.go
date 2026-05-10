@@ -140,7 +140,7 @@ type syncSession struct {
 	syncStart time.Time
 }
 
-// syncList processes a single list from the source provider state, creating or updating it and its items
+// syncListCreation processes a single list from the source provider state, creating or updating it and its items
 // in the destination provider state as needed. It returns true if any changes were applied.
 func (ss *syncSession) syncListCreation(ctx context.Context, srcList *model.List) (bool, error) {
 	if srcList.Status == model.StatusDeleted {
@@ -201,6 +201,8 @@ func (ss *syncSession) syncListCreation(ctx context.Context, srcList *model.List
 	return created, nil
 }
 
+// syncListUpdate evaluates an existing list and its items from the source provider state,
+// updating them in the destination provider if the source is newer or structurally different.
 func (ss *syncSession) syncListUpdate(ctx context.Context, srcList *model.List) (bool, error) {
 	if srcList.Status == model.StatusDeleted {
 		return false, nil
@@ -236,7 +238,7 @@ func (ss *syncSession) syncListUpdate(ctx context.Context, srcList *model.List) 
 	return updated, nil
 }
 
-// pruneList processes a single list from the destination provider state, deleting it or its items
+// syncListDeletion processes a single list from the destination provider state, deleting it or its items
 // if they no longer exist in the source provider state or have been marked as deleted.
 // It returns true if any changes were applied.
 func (ss *syncSession) syncListDeletion(ctx context.Context, dstList *model.List) (bool, error) {

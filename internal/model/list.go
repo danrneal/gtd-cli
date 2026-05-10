@@ -112,6 +112,9 @@ func (l *List) Equal(other *List) bool {
 	return true
 }
 
+// sortItems dynamically orders the list's items according to domain rules.
+// Default lists sort by Status (InProgress -> NotStarted -> Done).
+// "Waiting For" lists sort by Created date, and "Snoozed" lists sort by Snoozed date.
 func (l *List) sortItems() {
 	statusRank := map[Status]int{
 		StatusInProgress: -1,
