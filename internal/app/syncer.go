@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
@@ -148,13 +149,19 @@ func (ss *syncSession) syncListCreation(ctx context.Context, srcList *model.List
 
 	created := false
 	listKey := ss.getKey(srcList)
-	if _, ok := ss.dstState.listsMap[listKey]; !ok {
+	dstList, ok := ss.dstState.listsMap[listKey]
+	if !ok {
 		if err := ss.createList(ctx, srcList); err != nil {
 			return created, err
 		}
 
-		listKey = ss.getKey(srcList)
-		ss.dstState.listsMap[listKey] = srcList
+		createdList := *srcList
+		createdList.Modified = createdList.Modified.Add(-1)
+		createdList.Items = []*model.Item{}
+		dstList = &createdList
+		listKey = ss.getKey(dstList)
+		ss.dstState.listsMap[listKey] = dstList
+
 		created = true
 	}
 
@@ -165,17 +172,30 @@ func (ss *syncSession) syncListCreation(ctx context.Context, srcList *model.List
 		}
 
 		itemKey := ss.getKey(srcItem)
-		if _, ok := ss.dstState.itemsMap[itemKey]; !ok {
+		dstItem, ok := ss.dstState.itemsMap[itemKey]
+		if !ok {
 			srcItem.ListID = srcList.ID
 			srcItem.ExternalListID = srcList.ExternalID
 			if err := ss.createItem(ctx, srcItem, prevItemID); err != nil {
 				return created, err
 			}
 
+			idx := slices.IndexFunc(dstList.Items, func(i *model.Item) bool {
+				return ss.getKey(i) == prevItemID
+			})
+
+			dstItem = srcItem
+			dstList.Items = slices.Insert(dstList.Items, idx+1, dstItem)
+
+			itemKey = ss.getKey(srcItem)
+			ss.dstState.itemsMap[itemKey] = dstItem
+
 			created = true
 		}
 
-		prevItemID = ss.getKey(srcItem)
+		if dstItem.ListID == srcList.ID {
+			prevItemID = ss.getKey(srcItem)
+		}
 	}
 
 	return created, nil
@@ -189,7 +209,7 @@ func (ss *syncSession) syncListUpdate(ctx context.Context, srcList *model.List) 
 	updated := false
 	listKey := ss.getKey(srcList)
 	dstList := ss.dstState.listsMap[listKey]
-	if srcList == dstList || (srcList.Modified.After(dstList.Modified) && !srcList.Equal(dstList)) {
+	if srcList.Modified.After(dstList.Modified) && !srcList.Equal(dstList) {
 		if err := ss.updateList(ctx, srcList, dstList.Items); err != nil {
 			return updated, err
 		}

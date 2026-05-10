@@ -247,7 +247,7 @@ func (f *FakeProvider) DeleteList(_ context.Context, deletedList *model.List) er
 	return nil
 }
 
-func (f *FakeProvider) CreateItem(_ context.Context, item *model.Item, _ string) error {
+func (f *FakeProvider) CreateItem(_ context.Context, item *model.Item, prevItemID string) error {
 	item.Clean()
 	if err := item.Validate(); err != nil {
 		return err
@@ -273,6 +273,15 @@ func (f *FakeProvider) CreateItem(_ context.Context, item *model.Item, _ string)
 	}
 
 	list := f.Lists[idx]
+
+	ok := slices.ContainsFunc(list.Items, func(i *model.Item) bool {
+		return i.ID == prevItemID || (i.ExternalID != nil && *i.ExternalID == prevItemID)
+	})
+
+	if !ok && prevItemID != "" {
+		return fmt.Errorf("mock API error: prevItemID %q does not exist in list %q", prevItemID, list.ID)
+	}
+
 	createdItem := *item
 	if f.Name == "external" {
 		createdItem.ID = ""
@@ -1888,6 +1897,449 @@ func TestOneWaySync(t *testing.T) {
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
 							ExternalID:     stringPtr("external-item-3"),
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "create item after cross list move (push)",
+			src: NewFakeProvider("store", []model.List{
+				{
+					Name:     "L1",
+					Modified: baseTime.Add(1),
+					Items:    []*model.Item{},
+				},
+				{
+					Name:     "L2",
+					Modified: baseTime.Add(1),
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1",
+							Status:   model.StatusInProgress,
+							Modified: baseTime,
+						},
+						{
+							ID:       "store-item-2",
+							Title:    "I2",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime,
+						},
+					},
+				},
+			}),
+			dst: NewFakeProvider("generic", []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Modified: baseTime,
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1",
+							Status:   model.StatusInProgress,
+							Modified: baseTime,
+						},
+					},
+				},
+			}),
+			wantSrcLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1",
+							Position: 0,
+							Status:   model.StatusInProgress,
+							ListID:   "store-list-2",
+						},
+						{
+							ID:       "store-item-2",
+							Title:    "I2",
+							Position: 1,
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-2",
+						},
+					},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1",
+							Position: 0,
+							Status:   model.StatusInProgress,
+							ListID:   "store-list-2",
+						},
+						{
+							ID:       "store-item-2",
+							Title:    "I2",
+							Position: 1,
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-2",
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "create item after cross list move (pull)",
+			src: NewFakeProvider("generic", []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Modified: baseTime.Add(1),
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Modified: baseTime.Add(1),
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1",
+							Status:   model.StatusInProgress,
+							Modified: baseTime,
+						},
+						{
+							Title:    "I2",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime,
+						},
+					},
+				},
+			}),
+			dst: NewFakeProvider("store", []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Modified: baseTime,
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1",
+							Status:   model.StatusInProgress,
+							Modified: baseTime,
+						},
+					},
+				},
+			}),
+			wantSrcLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1",
+							Position: 0,
+							Status:   model.StatusInProgress,
+							ListID:   "store-list-2",
+						},
+						{
+							ID:       "store-item-2",
+							Title:    "I2",
+							Position: 1,
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-2",
+						},
+					},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1",
+							Position: 0,
+							Status:   model.StatusInProgress,
+							ListID:   "store-list-2",
+						},
+						{
+							ID:       "store-item-2",
+							Title:    "I2",
+							Position: 1,
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-2",
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "create item after cross list move external (push)",
+			src: NewFakeProvider("store", []model.List{
+				{
+					Name:       "L1",
+					ExternalID: stringPtr("external-list-1"),
+					Modified:   baseTime.Add(1),
+					Items:      []*model.Item{},
+				},
+				{
+					Name:     "L2",
+					Modified: baseTime.Add(1),
+					Items: []*model.Item{
+						{
+							ID:         "store-item-1",
+							Title:      "I1",
+							Status:     model.StatusInProgress,
+							ExternalID: stringPtr("external-item-1"),
+							Modified:   baseTime,
+						},
+						{
+							ID:       "store-item-2",
+							Title:    "I2",
+							Status:   model.StatusNotStarted,
+							Modified: baseTime,
+						},
+					},
+				},
+			}),
+			dst: NewFakeProvider("external", []model.List{
+				{
+					Name:       "L1",
+					ExternalID: stringPtr("external-list-1"),
+					Modified:   baseTime,
+					Items: []*model.Item{
+						{
+							Title:      "I1",
+							ExternalID: stringPtr("external-item-1"),
+							Status:     model.StatusInProgress,
+							Modified:   baseTime,
+						},
+					},
+				},
+			}),
+			wantSrcLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
+					ID:         "store-list-2",
+					Name:       "L2",
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: stringPtr("external-list-2"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-1",
+							Title:          "I1",
+							Position:       0,
+							Status:         model.StatusInProgress,
+							ListID:         "store-list-2",
+							ExternalListID: stringPtr("external-list-2"),
+							ExternalID:     stringPtr("external-item-1"),
+						},
+						{
+							ID:             "store-item-2",
+							Title:          "I2",
+							Position:       1,
+							Status:         model.StatusNotStarted,
+							ListID:         "store-list-2",
+							ExternalListID: stringPtr("external-list-2"),
+							ExternalID:     stringPtr("external-item-2"),
+						},
+					},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
+					Name:       "L2",
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: stringPtr("external-list-2"),
+					Items: []*model.Item{
+						{
+							Title:          "I1",
+							Position:       0,
+							Status:         model.StatusInProgress,
+							ExternalListID: stringPtr("external-list-2"),
+							ExternalID:     stringPtr("external-item-1"),
+						},
+						{
+							Title:          "I2",
+							Position:       1,
+							Status:         model.StatusNotStarted,
+							ExternalListID: stringPtr("external-list-2"),
+							ExternalID:     stringPtr("external-item-2"),
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "create item after cross list move external (pull)",
+			src: NewFakeProvider("external", []model.List{
+				{
+					Name:       "L1",
+					ExternalID: stringPtr("external-list-1"),
+					Modified:   baseTime.Add(1),
+					Items:      []*model.Item{},
+				},
+				{
+					Name:       "L2",
+					ExternalID: stringPtr("external-list-2"),
+					Modified:   baseTime.Add(1),
+					Items: []*model.Item{
+						{
+							Title:      "I1",
+							Status:     model.StatusInProgress,
+							ExternalID: stringPtr("external-item-1"),
+							Modified:   baseTime,
+						},
+						{
+							Title:      "I2",
+							Status:     model.StatusNotStarted,
+							ExternalID: stringPtr("external-item-2"),
+							Modified:   baseTime,
+						},
+					},
+				},
+			}),
+			dst: NewFakeProvider("store", []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "L1",
+					ExternalID: stringPtr("external-list-1"),
+					Modified:   baseTime,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-1",
+							Title:      "I1",
+							ExternalID: stringPtr("external-item-1"),
+							Status:     model.StatusInProgress,
+							Modified:   baseTime,
+						},
+					},
+				},
+			}),
+			wantSrcLists: []model.List{
+				{
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
+					Name:       "L2",
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: stringPtr("external-list-2"),
+					Items: []*model.Item{
+						{
+							Title:          "I1",
+							Position:       0,
+							Status:         model.StatusInProgress,
+							ExternalListID: stringPtr("external-list-2"),
+							ExternalID:     stringPtr("external-item-1"),
+						},
+						{
+							Title:          "I2",
+							Position:       1,
+							Status:         model.StatusNotStarted,
+							ExternalListID: stringPtr("external-list-2"),
+							ExternalID:     stringPtr("external-item-2"),
+						},
+					},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
+					ID:         "store-list-2",
+					Name:       "L2",
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: stringPtr("external-list-2"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-1",
+							Title:          "I1",
+							Position:       0,
+							Status:         model.StatusInProgress,
+							ListID:         "store-list-2",
+							ExternalListID: stringPtr("external-list-2"),
+							ExternalID:     stringPtr("external-item-1"),
+						},
+						{
+							ID:             "store-item-2",
+							Title:          "I2",
+							Position:       1,
+							Status:         model.StatusNotStarted,
+							ListID:         "store-list-2",
+							ExternalListID: stringPtr("external-list-2"),
+							ExternalID:     stringPtr("external-item-2"),
 						},
 					},
 				},
@@ -4128,7 +4580,7 @@ func TestOneWaySync(t *testing.T) {
 					ID:       "store-list-1",
 					Name:     "L1",
 					Modified: baseTime,
-					Items:    []*model.Item{}, 
+					Items:    []*model.Item{},
 				},
 			}),
 			dst: NewFakeProvider("store", []model.List{
