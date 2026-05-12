@@ -500,7 +500,7 @@ func TestUpdateList(t *testing.T) {
 		name         string
 		setupDB      func(t *testing.T, db *sql.DB) string
 		setupList    func(id string) model.List
-		setupCurrent func() []*model.Item
+		setupCurrent func() *model.List
 		setupCtx     func() (context.Context, context.CancelFunc)
 		wantList     *model.List
 		wantItems    []*model.Item
@@ -646,16 +646,19 @@ func TestUpdateList(t *testing.T) {
 
 				return list
 			},
-			setupCurrent: func() []*model.Item {
-				items := []*model.Item{
-					{
-						ID:       "item-opt",
-						ListID:   "list-opt",
-						Position: 0,
+			setupCurrent: func() *model.List {
+				list := &model.List{
+					Name: "Optimization",
+					Items: []*model.Item{
+						{
+							ID:       "item-opt",
+							ListID:   "list-opt",
+							Position: 0,
+						},
 					},
 				}
 
-				return items
+				return list
 			},
 			wantList: &model.List{
 				ID:     "list-opt",
@@ -1153,14 +1156,17 @@ func TestUpdateList(t *testing.T) {
 
 			defer db.Close()
 
-			var currentItems []*model.Item
-			if tt.setupCurrent != nil {
-				currentItems = tt.setupCurrent()
-			}
-
 			id := tt.setupDB(t, db)
 			list := tt.setupList(id)
-			err = store.UpdateList(ctx, &list, currentItems)
+			currentList := &model.List{
+				Name: list.Name,
+			}
+
+			if tt.setupCurrent != nil {
+				currentList = tt.setupCurrent()
+			}
+
+			err = store.UpdateList(ctx, &list, currentList)
 
 			if tt.wantErr {
 				if err == nil {

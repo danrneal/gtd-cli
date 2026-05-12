@@ -212,7 +212,7 @@ func (ss *syncSession) syncListUpdate(ctx context.Context, srcList *model.List) 
 	listKey := ss.getKey(srcList)
 	dstList := ss.dstState.listsMap[listKey]
 	if srcList.Modified.After(dstList.Modified) && !srcList.Equal(dstList) {
-		if err := ss.updateList(ctx, srcList, dstList.Items); err != nil {
+		if err := ss.updateList(ctx, srcList, dstList); err != nil {
 			return updated, err
 		}
 
@@ -293,7 +293,7 @@ func (ss *syncSession) createList(ctx context.Context, list *model.List) error {
 	}
 
 	if listKey == "" {
-		if err := ss.srcState.provider.UpdateList(ctx, list, list.Items); err != nil {
+		if err := ss.srcState.provider.UpdateList(ctx, list, list); err != nil {
 			return fmt.Errorf("failed to backfill external key for list %q in source: %w", list.Name, err)
 		}
 	}
@@ -332,7 +332,7 @@ func (ss *syncSession) updateItem(ctx context.Context, srcItem, dstItem *model.I
 }
 
 // updateList updates an existing list in the destination provider, maintaining its position and metadata.
-func (ss *syncSession) updateList(ctx context.Context, list *model.List, currentItems []*model.Item) error {
+func (ss *syncSession) updateList(ctx context.Context, list, dstList *model.List) error {
 	syncList := *list
 	listItems := make([]*model.Item, 0, len(syncList.Items))
 	for _, item := range syncList.Items {
@@ -352,7 +352,7 @@ func (ss *syncSession) updateList(ctx context.Context, list *model.List, current
 	}
 
 	syncList.Items = listItems
-	if err := ss.dstState.provider.UpdateList(ctx, &syncList, currentItems); err != nil {
+	if err := ss.dstState.provider.UpdateList(ctx, &syncList, dstList); err != nil {
 		return fmt.Errorf("failed to update list %q in destination: %w", syncList.Name, err)
 	}
 
@@ -364,7 +364,7 @@ func (ss *syncSession) updateList(ctx context.Context, list *model.List, current
 func (ss *syncSession) deleteList(ctx context.Context, srcList, dstList *model.List) error {
 	if srcList == nil {
 		dstList.Status = model.StatusDeleted
-		if err := ss.dstState.provider.UpdateList(ctx, dstList, dstList.Items); err != nil {
+		if err := ss.dstState.provider.UpdateList(ctx, dstList, dstList); err != nil {
 			return fmt.Errorf("failed to mark list %q as deleted in destination: %w", dstList.Name, err)
 		}
 

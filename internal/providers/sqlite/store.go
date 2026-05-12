@@ -233,7 +233,7 @@ func (s *Store) getListID(ctx context.Context, tx *sql.Tx, externalID *string) (
 // Parameters:
 //   - list: The list with the desired state. It identifies the record via ID or ExternalID.
 //   - currentItems: The items currently associated with this list, used to optimize position updates.
-func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems []*model.Item) error {
+func (s *Store) UpdateList(ctx context.Context, list, currentList *model.List) error {
 	list.Clean()
 	if err := list.Validate(); err != nil {
 		return fmt.Errorf("invalid list: %w", err)
@@ -298,7 +298,7 @@ func (s *Store) UpdateList(ctx context.Context, list *model.List, currentItems [
 		}
 	}
 
-	itemsToMove := calculateItemsToMove(list, currentItems)
+	itemsToMove := calculateItemsToMove(list, currentList.Items)
 	if len(itemsToMove) > 0 {
 		if err := s.batchMoveItems(ctx, tx, itemsToMove); err != nil {
 			return err

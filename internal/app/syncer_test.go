@@ -143,7 +143,7 @@ func (f *FakeProvider) ListLists(_ context.Context) ([]model.List, error) {
 	return lists, nil
 }
 
-func (f *FakeProvider) UpdateList(_ context.Context, updatedList *model.List, _ []*model.Item) error {
+func (f *FakeProvider) UpdateList(_ context.Context, updatedList, _ *model.List) error {
 	updatedList.Clean()
 	if err := updatedList.Validate(); err != nil {
 		return err

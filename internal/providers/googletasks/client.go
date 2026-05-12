@@ -110,7 +110,7 @@ func (c *Client) ListLists(ctx context.Context) ([]model.List, error) {
 }
 
 // UpdateList updates an existing task list on Google Tasks.
-func (c *Client) UpdateList(ctx context.Context, list *model.List, currentItems []*model.Item) error {
+func (c *Client) UpdateList(ctx context.Context, list, currentList *model.List) error {
 	list.Clean()
 	if err := list.Validate(); err != nil {
 		return fmt.Errorf("invalid list: %w", err)
@@ -120,24 +120,34 @@ func (c *Client) UpdateList(ctx context.Context, list *model.List, currentItems 
 		return errors.New("failed to update list: missing external ID")
 	}
 
-	tasklist := &tasks.TaskList{
-		Title: list.Name,
+	if list.Name != currentList.Name {
+		tasklist := &tasks.TaskList{
+			Title: list.Name,
+		}
+
+		c.logger.InfoContext(
+			ctx,
+			"Google Tasks: Patching tasklist",
+			"title",
+			tasklist.Title,
+			"externalId",
+			*list.ExternalID,
+		)
+
+		if _, err := c.service.Tasklists.Patch(*list.ExternalID, tasklist).Context(ctx).Do(); err != nil {
+			return fmt.Errorf("failed to update tasklist %s: %w", tasklist.Title, err)
+		}
 	}
 
-	c.logger.InfoContext(
-		ctx,
-		"Google Tasks: Patching tasklist",
-		"title",
-		tasklist.Title,
-		"externalId",
-		*list.ExternalID,
-	)
-
-	if _, err := c.service.Tasklists.Patch(*list.ExternalID, tasklist).Context(ctx).Do(); err != nil {
-		return fmt.Errorf("failed to update tasklist %s: %w", tasklist.Title, err)
+	updateList := *list
+	updateList.Items = []*model.Item{}
+	for _, item := range list.Items {
+		if item.Status != model.StatusDone {
+			updateList.Items = append(updateList.Items, item)
+		}
 	}
 
-	moves := reorder.CalculateMoves(list, currentItems)
+	moves := reorder.CalculateMoves(&updateList, currentList.Items)
 	for _, move := range moves {
 		if err := c.moveItem(ctx, move); err != nil {
 			return err

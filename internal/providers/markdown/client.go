@@ -72,7 +72,7 @@ func (c *Client) ListLists(_ context.Context) ([]model.List, error) {
 }
 
 // UpdateList updates an existing list and its items in the markdown file.
-func (c *Client) UpdateList(_ context.Context, list *model.List, _ []*model.Item) error {
+func (c *Client) UpdateList(_ context.Context, list, currentList *model.List) error {
 	list.Clean()
 	if err := list.Validate(); err != nil {
 		return fmt.Errorf("invalid list: %w", err)

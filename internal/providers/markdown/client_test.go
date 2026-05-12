@@ -287,11 +287,12 @@ func TestClient_UpdateList(t *testing.T) {
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name    string
-		setup   func(t *testing.T) string
-		list    *model.List
-		want    []model.List
-		wantErr bool
+		name        string
+		setup       func(t *testing.T) string
+		list        *model.List
+		currentList *model.List
+		want        []model.List
+		wantErr     bool
 	}{
 		{
 			name: "success (backfill fallback)",
@@ -324,6 +325,9 @@ func TestClient_UpdateList(t *testing.T) {
 						Modified: modified,
 					},
 				},
+			},
+			currentList: &model.List{
+				Name: "Inbox",
 			},
 			want: []model.List{
 				{
@@ -377,6 +381,9 @@ func TestClient_UpdateList(t *testing.T) {
 						Modified: modified,
 					},
 				},
+			},
+			currentList: &model.List{
+				Name: "Inbox",
 			},
 			want: []model.List{
 				{
@@ -446,6 +453,9 @@ func TestClient_UpdateList(t *testing.T) {
 						Modified: modified,
 					},
 				},
+			},
+			currentList: &model.List{
+				Name: "Inbox",
 			},
 			want: []model.List{
 				{
@@ -575,7 +585,7 @@ func TestClient_UpdateList(t *testing.T) {
 			logger := slog.New(slog.DiscardHandler)
 			client := NewClient(testPath, logger)
 
-			err := client.UpdateList(context.Background(), tt.list, nil)
+			err := client.UpdateList(context.Background(), tt.list, tt.currentList)
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("UpdateList() error = %v, wantErr %v", err, tt.wantErr)

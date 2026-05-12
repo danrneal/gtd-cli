@@ -3,9 +3,14 @@ package googletasks
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
+	"regexp"
+	"slices"
 	"testing"
 	"time"
 
@@ -16,6 +21,11 @@ import (
 	"github.com/danrneal/gtd.nvim/internal/model"
 )
 
+var (
+	taskListRegex = regexp.MustCompile(`^/tasks/v1/users/@me/lists(?:/([^/]+))?$`)
+	taskRegex     = regexp.MustCompile(`^/tasks/v1/lists/([^/]+)/tasks(?:/([^/]+)(?:/move)?)?$`)
+)
+
 // mockTransport implements [http.RoundTripper] to mock API responses.
 type mockTransport struct {
 	roundTripFunc func(req *http.Request) (*http.Response, error)
@@ -23,6 +33,409 @@ type mockTransport struct {
 
 func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return m.roundTripFunc(req)
+}
+
+type FakeGoogleTasks struct {
+	t                  *testing.T
+	taskLists          map[string]*tasks.TaskList
+	tasks              map[string][]*tasks.Task
+	failInsertTaskList bool
+	failListTaskLists  bool
+	failPatchTaskList  bool
+	failDeleteTaskList bool
+	failInsertTask     bool
+	failListTasks      bool
+	failPatchTask      bool
+	failMoveTask       bool
+	failDeleteTask     bool
+}
+
+func NewFakeGoogleTasks(t *testing.T) *FakeGoogleTasks {
+	googleTasks := &FakeGoogleTasks{
+		t:         t,
+		taskLists: map[string]*tasks.TaskList{},
+		tasks:     map[string][]*tasks.Task{},
+	}
+
+	return googleTasks
+}
+
+func (f *FakeGoogleTasks) RoundTrip(req *http.Request) (*http.Response, error) {
+	if matches := taskListRegex.FindStringSubmatch(req.URL.Path); matches != nil {
+		taskListID := matches[1]
+
+		switch req.Method {
+		case http.MethodPost:
+			return f.InsertTaskList(req.Body)
+		case http.MethodGet:
+			return f.ListTaskLists()
+		case http.MethodPatch:
+			return f.PatchTaskList(taskListID, req.Body)
+		case http.MethodDelete:
+			return f.DeleteTaskList(taskListID)
+		}
+	}
+
+	if matches := taskRegex.FindStringSubmatch(req.URL.Path); matches != nil {
+		taskListID := matches[1]
+		taskID := matches[2]
+
+		switch req.Method {
+		case http.MethodPost:
+			if taskID == "" {
+				return f.InsertTask(taskListID, req.Body)
+			}
+
+			return f.MoveTask(taskListID, taskID, req)
+		case http.MethodGet:
+			return f.ListTasks(taskListID)
+		case http.MethodPatch:
+			return f.PatchTask(taskListID, taskID, req.Body)
+		case http.MethodDelete:
+			return f.DeleteTask(taskListID, taskID)
+		}
+	}
+
+	resp := &http.Response{
+		StatusCode: http.StatusNotFound,
+		Body:       io.NopCloser(bytes.NewBufferString("Not Found: " + req.URL.Path)),
+		Header:     make(http.Header),
+	}
+
+	return resp, nil
+}
+
+func (f *FakeGoogleTasks) InsertTaskList(reqBody io.Reader) (*http.Response, error) {
+	if f.failInsertTaskList {
+		resp := &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
+			Header:     make(http.Header),
+		}
+
+		return resp, nil
+	}
+
+	body, err := io.ReadAll(reqBody)
+	if err != nil {
+		f.t.Fatalf("failed to read request body: %v", err)
+	}
+
+	var taskList tasks.TaskList
+	if err = json.Unmarshal(body, &taskList); err != nil {
+		f.t.Fatalf("failed to unmarshal request body: %v", err)
+	}
+
+	taskList.Id = fmt.Sprintf("generated-list-%d", len(f.taskLists)+1)
+	f.taskLists[taskList.Id] = &taskList
+
+	respBody, err := json.Marshal(&taskList)
+	if err != nil {
+		f.t.Fatalf("failed to marshal response: %v", err)
+	}
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(respBody)),
+		Header:     make(http.Header),
+	}
+
+	return resp, nil
+}
+
+func (f *FakeGoogleTasks) ListTaskLists() (*http.Response, error) {
+	if f.failListTaskLists {
+		resp := &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
+			Header:     make(http.Header),
+		}
+
+		return resp, nil
+	}
+
+	taskLists := &tasks.TaskLists{
+		Items: slices.Collect(maps.Values(f.taskLists)),
+	}
+
+	body, err := json.Marshal(taskLists)
+	if err != nil {
+		f.t.Fatalf("failed to marshal tasklists: %v", err)
+	}
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(body)),
+		Header:     make(http.Header),
+	}
+
+	return resp, nil
+}
+
+func (f *FakeGoogleTasks) PatchTaskList(taskListID string, reqBody io.Reader) (*http.Response, error) {
+	if f.failPatchTaskList {
+		resp := &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
+			Header:     make(http.Header),
+		}
+
+		return resp, nil
+	}
+
+	body, err := io.ReadAll(reqBody)
+	if err != nil {
+		f.t.Fatalf("failed to read request body: %v", err)
+	}
+
+	taskList, ok := f.taskLists[taskListID]
+	if !ok {
+		resp := &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
+			Header:     make(http.Header),
+		}
+
+		return resp, nil
+	}
+
+	if err = json.Unmarshal(body, &taskList); err != nil {
+		f.t.Fatalf("failed to unmarshal request body: %v", err)
+	}
+
+	respBody, err := json.Marshal(&taskList)
+	if err != nil {
+		f.t.Fatalf("failed to marshal response: %v", err)
+	}
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(respBody)),
+		Header:     make(http.Header),
+	}
+
+	return resp, nil
+}
+
+func (f *FakeGoogleTasks) DeleteTaskList(taskListID string) (*http.Response, error) {
+	if f.failDeleteTaskList {
+		resp := &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
+			Header:     make(http.Header),
+		}
+
+		return resp, nil
+	}
+
+	delete(f.taskLists, taskListID)
+	delete(f.tasks, taskListID)
+
+	resp := &http.Response{
+		StatusCode: http.StatusNoContent,
+		Body:       io.NopCloser(bytes.NewBufferString("")),
+		Header:     make(http.Header),
+	}
+
+	return resp, nil
+}
+
+func (f *FakeGoogleTasks) InsertTask(taskListID string, reqBody io.Reader) (*http.Response, error) {
+	if f.failInsertTask {
+		resp := &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
+			Header:     make(http.Header),
+		}
+
+		return resp, nil
+	}
+
+	body, err := io.ReadAll(reqBody)
+	if err != nil {
+		f.t.Fatalf("failed to read request body: %v", err)
+	}
+
+	var task tasks.Task
+	if err = json.Unmarshal(body, &task); err != nil {
+		f.t.Fatalf("failed to unmarshal request body: %v", err)
+	}
+
+	task.Id = fmt.Sprintf("generated-task-%d", len(f.taskLists)+1)
+	f.tasks[taskListID] = append(f.tasks[taskListID], &task)
+
+	respBody, err := json.Marshal(&task)
+	if err != nil {
+		f.t.Fatalf("failed to marshal response: %v", err)
+	}
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(respBody)),
+		Header:     make(http.Header),
+	}
+
+	return resp, nil
+}
+
+func (f *FakeGoogleTasks) ListTasks(taskListID string) (*http.Response, error) {
+	if f.failListTasks {
+		resp := &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
+			Header:     make(http.Header),
+		}
+
+		return resp, nil
+	}
+
+	taskItems := &tasks.Tasks{
+		Items: f.tasks[taskListID],
+	}
+
+	body, err := json.Marshal(taskItems)
+	if err != nil {
+		f.t.Fatalf("failed to marshal tasks: %v", err)
+	}
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(body)),
+		Header:     make(http.Header),
+	}
+
+	return resp, nil
+}
+
+func (f *FakeGoogleTasks) PatchTask(taskListID, taskID string, reqBody io.Reader) (*http.Response, error) {
+	if f.failPatchTask {
+		resp := &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
+			Header:     make(http.Header),
+		}
+
+		return resp, nil
+	}
+
+	body, err := io.ReadAll(reqBody)
+	if err != nil {
+		f.t.Fatalf("failed to read request body: %v", err)
+	}
+
+	idx := slices.IndexFunc(f.tasks[taskListID], func(t *tasks.Task) bool {
+		return t.Id == taskID
+	})
+
+	if idx == -1 {
+		resp := &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
+			Header:     make(http.Header),
+		}
+
+		return resp, nil
+	}
+
+	task := f.tasks[taskListID][idx]
+	if err = json.Unmarshal(body, &task); err != nil {
+		f.t.Fatalf("failed to unmarshal request body: %v", err)
+	}
+
+	if bytes.Contains(body, []byte(`"notes":null`)) {
+		task.Notes = ""
+	}
+
+	if bytes.Contains(body, []byte(`"due":null`)) {
+		task.Due = ""
+	}
+
+	respBody, err := json.Marshal(&task)
+	if err != nil {
+		f.t.Fatalf("failed to marshal response: %v", err)
+	}
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(respBody)),
+		Header:     make(http.Header),
+	}
+
+	return resp, nil
+}
+
+func (f *FakeGoogleTasks) MoveTask(taskListID, taskID string, req *http.Request) (*http.Response, error) {
+	if f.failMoveTask {
+		resp := &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
+			Header:     make(http.Header),
+		}
+
+		return resp, nil
+	}
+
+	q := req.URL.Query()
+	destTaskListID := q.Get("destinationTasklist")
+	prevTaskID := q.Get("previous")
+	if destTaskListID == "" {
+		destTaskListID = taskListID
+	}
+
+	idx := slices.IndexFunc(f.tasks[taskListID], func(t *tasks.Task) bool {
+		return t.Id == taskID
+	})
+
+	if idx == -1 {
+		resp := &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
+			Header:     make(http.Header),
+		}
+
+		return resp, nil
+	}
+
+	task := f.tasks[taskListID][idx]
+	f.tasks[taskListID] = slices.Delete(f.tasks[taskListID], idx, idx+1)
+
+	prevTaskIdx := slices.IndexFunc(f.tasks[destTaskListID], func(t *tasks.Task) bool {
+		return t.Id == prevTaskID
+	})
+
+	f.tasks[destTaskListID] = slices.Insert(f.tasks[destTaskListID], prevTaskIdx+1, task)
+
+	resp := &http.Response{
+		StatusCode: http.StatusNoContent,
+		Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
+		Header:     make(http.Header),
+	}
+
+	return resp, nil
+}
+
+func (f *FakeGoogleTasks) DeleteTask(taskListID, taskID string) (*http.Response, error) {
+	if f.failDeleteTask {
+		resp := &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
+			Header:     make(http.Header),
+		}
+
+		return resp, nil
+	}
+
+	f.tasks[taskListID] = slices.DeleteFunc(f.tasks[taskListID], func(t *tasks.Task) bool {
+		return t.Id == taskID
+	})
+
+	resp := &http.Response{
+		StatusCode: http.StatusNoContent,
+		Body:       io.NopCloser(bytes.NewBufferString("")),
+		Header:     make(http.Header),
+	}
+
+	return resp, nil
 }
 
 func TestGetKey(t *testing.T) {
@@ -66,7 +479,7 @@ func TestCreateList(t *testing.T) {
 	tests := []struct {
 		name           string
 		list           *model.List
-		handler        func(req *http.Request) *http.Response
+		setupFake      func(fake *FakeGoogleTasks)
 		wantErr        bool
 		wantExternalID string
 	}{
@@ -76,42 +489,9 @@ func TestCreateList(t *testing.T) {
 				Name:     "  New List  \n",
 				Modified: time.Now(),
 			},
-			handler: func(req *http.Request) *http.Response {
-				if req.Method != http.MethodPost {
-					resp := &http.Response{
-						StatusCode: http.StatusMethodNotAllowed,
-						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				if req.URL.Path != "/tasks/v1/users/@me/lists" {
-					resp := &http.Response{
-						StatusCode: http.StatusNotFound,
-						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"id": "new-list-id",
-							"title": "New List"
-						}
-					`)),
-					Header: make(http.Header),
-				}
-
-				return resp
-			},
+			setupFake:      func(fake *FakeGoogleTasks) {},
 			wantErr:        false,
-			wantExternalID: "new-list-id",
+			wantExternalID: "generated-list-1",
 		},
 		{
 			name: "invalid status for new list",
@@ -120,20 +500,16 @@ func TestCreateList(t *testing.T) {
 				Status:   model.StatusDeleted,
 				Modified: time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				return nil
-			},
-			wantErr: true,
+			setupFake: func(fake *FakeGoogleTasks) {},
+			wantErr:   true,
 		},
 		{
 			name: "invalid list (validation failed)",
 			list: &model.List{
 				Name: "",
 			},
-			handler: func(_ *http.Request) *http.Response {
-				return nil
-			},
-			wantErr: true,
+			setupFake: func(fake *FakeGoogleTasks) {},
+			wantErr:   true,
 		},
 		{
 			name: "api error",
@@ -141,18 +517,8 @@ func TestCreateList(t *testing.T) {
 				Name:     "Fail List",
 				Modified: time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusInternalServerError,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"error": "internal"
-						}
-					`)),
-					Header: make(http.Header),
-				}
-
-				return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.failInsertTaskList = true
 			},
 			wantErr: true,
 		},
@@ -162,12 +528,10 @@ func TestCreateList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			fakeTasks := NewFakeGoogleTasks(t)
+			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
-				Transport: &mockTransport{
-					roundTripFunc: func(req *http.Request) (*http.Response, error) {
-						return tt.handler(req), nil
-					},
-				},
+				Transport: fakeTasks,
 			}
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
@@ -199,60 +563,26 @@ func TestListLists(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		handler   func(req *http.Request) *http.Response
+		setupFake func(fake *FakeGoogleTasks)
 		wantLists []model.List
 		wantErr   bool
 	}{
 		{
 			name: "success with items",
-			handler: func(req *http.Request) *http.Response {
-				if req.URL.Path == "/tasks/v1/users/@me/lists" {
-					resp := &http.Response{
-						StatusCode: http.StatusOK,
-						Body: io.NopCloser(bytes.NewBufferString(`
-							{
-								"items": [
-									{
-										"id": "L1",
-										"title": "Inbox",
-										"updated": "2024-01-01T12:00:00Z"
-									}
-								]
-							}
-						`)),
-						Header: make(http.Header),
-					}
-
-					return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.taskLists["L1"] = &tasks.TaskList{
+					Id:      "L1",
+					Title:   "Inbox",
+					Updated: "2024-01-01T12:00:00Z",
 				}
 
-				if req.URL.Path == "/tasks/v1/lists/L1/tasks" {
-					resp := &http.Response{
-						StatusCode: http.StatusOK,
-						Body: io.NopCloser(bytes.NewBufferString(`
-							{
-								"items": [
-									{
-										"id": "T1",
-										"title": "Task 1",
-										"position": "0001"
-									}
-								]
-							}
-						`)),
-						Header: make(http.Header),
-					}
-
-					return resp
+				fake.tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "T1",
+						Title:    "Task 1",
+						Position: "0001",
+					},
 				}
-
-				resp := &http.Response{
-					StatusCode: http.StatusNotFound,
-					Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
-					Header:     make(http.Header),
-				}
-
-				return resp
 			},
 			wantLists: []model.List{
 				{
@@ -275,55 +605,22 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "tasklists list failure",
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusInternalServerError,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"error": "internal"
-						}
-					`)),
-					Header: make(http.Header),
-				}
-
-				return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.failListTaskLists = true
 			},
 			wantLists: nil,
 			wantErr:   true,
 		},
 		{
 			name: "list items failure",
-			handler: func(req *http.Request) *http.Response {
-				if req.URL.Path == "/tasks/v1/users/@me/lists" {
-					resp := &http.Response{
-						StatusCode: http.StatusOK,
-						Body: io.NopCloser(bytes.NewBufferString(`
-							{
-								"items": [
-									{
-										"id":"L1",
-										"title":"Inbox"
-									}
-								]
-							}
-						`)),
-						Header: make(http.Header),
-					}
-
-					return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.taskLists["L1"] = &tasks.TaskList{
+					Id:      "L1",
+					Title:   "Inbox",
+					Updated: "2024-01-01T12:00:00Z",
 				}
 
-				resp := &http.Response{
-					StatusCode: http.StatusInternalServerError,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"error": "internal"
-						}
-					`)),
-					Header: make(http.Header),
-				}
-
-				return resp
+				fake.failListTasks = true
 			},
 			wantLists: nil,
 			wantErr:   true,
@@ -334,12 +631,10 @@ func TestListLists(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			fakeTasks := NewFakeGoogleTasks(t)
+			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
-				Transport: &mockTransport{
-					roundTripFunc: func(req *http.Request) (*http.Response, error) {
-						return tt.handler(req), nil
-					},
-				},
+				Transport: fakeTasks,
 			}
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
@@ -375,10 +670,87 @@ func TestUpdateList(t *testing.T) {
 	tests := []struct {
 		name         string
 		list         *model.List
-		currentItems []*model.Item
-		handler      func(req *http.Request) *http.Response
+		currentList  *model.List
+		setupFake    func(fake *FakeGoogleTasks)
+		wantTaskList *tasks.TaskList
+		wantTasks    []*tasks.Task
 		wantErr      bool
 	}{
+		{
+			name: "success (no updates needed)",
+			list: &model.List{
+				Name:       "Same List",
+				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
+				Items: []*model.Item{
+					{
+						Title:          "Task 1",
+						Status:         model.StatusDone,
+						ExternalID:     stringPtr("A"),
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						Title:          "Task 2",
+						Status:         model.StatusDone,
+						ExternalID:     stringPtr("B"),
+						ExternalListID: stringPtr("L1"),
+					},
+				},
+			},
+			currentList: &model.List{
+				Name: "Same List",
+				Items: []*model.Item{
+					{
+						Title:          "Task 2",
+						Status:         model.StatusDone,
+						ExternalID:     stringPtr("B"),
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						Title:          "Task 1",
+						Status:         model.StatusDone,
+						ExternalID:     stringPtr("A"),
+						ExternalListID: stringPtr("L1"),
+					},
+				},
+			},
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.taskLists["L1"] = &tasks.TaskList{
+					Id:    "L1",
+					Title: "Same List",
+				}
+
+				fake.tasks["L1"] = []*tasks.Task{
+					{
+						Id:     "B",
+						Title:  "Task 2",
+						Status: "completed",
+					},
+					{
+						Id:     "A",
+						Title:  "Task 1",
+						Status: "completed",
+					},
+				}
+			},
+			wantTaskList: &tasks.TaskList{
+				Id:    "L1",
+				Title: "Same List",
+			},
+			wantTasks: []*tasks.Task{
+				{
+					Id:     "B",
+					Title:  "Task 2",
+					Status: "completed",
+				},
+				{
+					Id:     "A",
+					Title:  "Task 1",
+					Status: "completed",
+				},
+			},
+			wantErr: false,
+		},
 		{
 			name: "success (rename only)",
 			list: &model.List{
@@ -386,51 +758,18 @@ func TestUpdateList(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 				Modified:   time.Now(),
 			},
-			currentItems: nil,
-			handler: func(req *http.Request) *http.Response {
-				if req.Method != http.MethodPatch {
-					resp := &http.Response{
-						StatusCode: http.StatusMethodNotAllowed,
-						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
-						Header:     make(http.Header),
-					}
-
-					return resp
+			currentList: &model.List{
+				Name: "Target List",
+			},
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.taskLists["L1"] = &tasks.TaskList{
+					Id:    "L1",
+					Title: "Target List",
 				}
-
-				if req.URL.Path != "/tasks/v1/users/@me/lists/L1" {
-					resp := &http.Response{
-						StatusCode: http.StatusNotFound,
-						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				body, _ := io.ReadAll(req.Body)
-				if !bytes.Contains(body, []byte(`"title":"Updated List"`)) {
-					resp := &http.Response{
-						StatusCode: http.StatusBadRequest,
-						Body:       io.NopCloser(bytes.NewBufferString("Bad Title")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"id": "L1",
-							"title": "Updated List"
-						}
-					`)),
-					Header: make(http.Header),
-				}
-
-				return resp
+			},
+			wantTaskList: &tasks.TaskList{
+				Id:    "L1",
+				Title: "Updated List",
 			},
 			wantErr: false,
 		},
@@ -455,55 +794,121 @@ func TestUpdateList(t *testing.T) {
 					},
 				},
 			},
-			currentItems: []*model.Item{
-				{ExternalID: stringPtr("B")},
-				{ExternalID: stringPtr("C")},
-				{ExternalID: stringPtr("A")},
+			currentList: &model.List{
+				Name: "My List",
+				Items: []*model.Item{
+					{ExternalID: stringPtr("B")},
+					{ExternalID: stringPtr("C")},
+					{ExternalID: stringPtr("A")},
+				},
 			},
-			handler: func(req *http.Request) *http.Response {
-				if req.Method == http.MethodPatch && req.URL.Path == "/tasks/v1/users/@me/lists/L1" {
-					resp := &http.Response{
-						StatusCode: http.StatusOK,
-						Body: io.NopCloser(bytes.NewBufferString(`
-							{
-								"id": "L1",
-								"title": "My List"
-							}
-						`)),
-						Header: make(http.Header),
-					}
-
-					return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.taskLists["L1"] = &tasks.TaskList{
+					Id:    "L1",
+					Title: "My List",
 				}
 
-				if req.Method == http.MethodPost && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
-					if req.URL.Query().Get("previous") == "" {
-						resp := &http.Response{
-							StatusCode: http.StatusOK,
-							Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
-							Header:     make(http.Header),
-						}
-
-						return resp
-					}
-
-					resp := &http.Response{
-						StatusCode: http.StatusBadRequest,
-						Body:       io.NopCloser(bytes.NewBufferString("Wrong Previous")),
-						Header:     make(http.Header),
-					}
-
-					return resp
+				fake.tasks["L1"] = []*tasks.Task{
+					{Id: "B"},
+					{Id: "C"},
+					{Id: "A"},
+				}
+			},
+			wantTaskList: &tasks.TaskList{
+				Id:    "L1",
+				Title: "My List",
+			},
+			wantTasks: []*tasks.Task{
+				{Id: "A"},
+				{Id: "B"},
+				{Id: "C"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "success (completed items ignored during reorder)",
+			list: &model.List{
+				Name:       "Same List",
+				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
+				Items: []*model.Item{
+					{
+						Title:          "Task B",
+						Status:         model.StatusInProgress,
+						ExternalID:     stringPtr("B"),
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						Title:          "Task A",
+						Status:         model.StatusInProgress,
+						ExternalID:     stringPtr("A"),
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						Title:          "Task D",
+						Status:         model.StatusDone,
+						ExternalID:     stringPtr("D"),
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						Title:          "Task C",
+						Status:         model.StatusDone,
+						ExternalID:     stringPtr("C"),
+						ExternalListID: stringPtr("L1"),
+					},
+				},
+			},
+			currentList: &model.List{
+				Name: "Same List",
+				Items: []*model.Item{
+					{
+						Title:          "Task A",
+						Status:         model.StatusInProgress,
+						ExternalID:     stringPtr("A"),
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						Title:          "Task B",
+						Status:         model.StatusInProgress,
+						ExternalID:     stringPtr("B"),
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						Title:          "Task C",
+						Status:         model.StatusDone,
+						ExternalID:     stringPtr("C"),
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						Title:          "Task D",
+						Status:         model.StatusDone,
+						ExternalID:     stringPtr("D"),
+						ExternalListID: stringPtr("L1"),
+					},
+				},
+			},
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.taskLists["L1"] = &tasks.TaskList{
+					Id:    "L1",
+					Title: "Same List",
 				}
 
-				respBody := "Unexpected Request: " + req.URL.String()
-				resp := &http.Response{
-					StatusCode: http.StatusBadRequest,
-					Body:       io.NopCloser(bytes.NewBufferString(respBody)),
-					Header:     make(http.Header),
+				fake.tasks["L1"] = []*tasks.Task{
+					{Id: "A"},
+					{Id: "B"},
+					{Id: "C"},
+					{Id: "D"},
 				}
-
-				return resp
+			},
+			wantTaskList: &tasks.TaskList{
+				Id:    "L1",
+				Title: "Same List",
+			},
+			wantTasks: []*tasks.Task{
+				{Id: "B"},
+				{Id: "A"},
+				{Id: "C"},
+				{Id: "D"},
 			},
 			wantErr: false,
 		},
@@ -520,46 +925,33 @@ func TestUpdateList(t *testing.T) {
 					},
 				},
 			},
-			currentItems: []*model.Item{},
-			handler: func(req *http.Request) *http.Response {
-				if req.Method == http.MethodPatch && req.URL.Path == "/tasks/v1/users/@me/lists/L2" {
-					resp := &http.Response{
-						StatusCode: http.StatusOK,
-						Body: io.NopCloser(bytes.NewBufferString(`
-							{
-								"id": "L2",
-								"title": "Target List"
-							}
-						`)),
-					}
-
-					return resp
+			currentList: &model.List{
+				Name:  "Target List",
+				Items: []*model.Item{},
+			},
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.taskLists["L1"] = &tasks.TaskList{
+					Id:    "L1",
+					Title: "Source List",
 				}
 
-				if req.Method == http.MethodPost && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
-					if req.URL.Query().Get("destinationTasklist") == "L2" {
-						resp := &http.Response{
-							StatusCode: http.StatusOK,
-							Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
-						}
-
-						return resp
-					}
-
-					resp := &http.Response{
-						StatusCode: http.StatusBadRequest,
-						Body:       io.NopCloser(bytes.NewBufferString("Wrong Destination")),
-					}
-
-					return resp
+				fake.taskLists["L2"] = &tasks.TaskList{
+					Id:    "L2",
+					Title: "Target List",
 				}
 
-				resp := &http.Response{
-					StatusCode: http.StatusBadRequest,
-					Body:       io.NopCloser(bytes.NewBufferString("Unexpected Request")),
+				fake.tasks["L1"] = []*tasks.Task{
+					{Id: "A"},
 				}
 
-				return resp
+				fake.tasks["L2"] = []*tasks.Task{}
+			},
+			wantTaskList: &tasks.TaskList{
+				Id:    "L2",
+				Title: "Target List",
+			},
+			wantTasks: []*tasks.Task{
+				{Id: "A"},
 			},
 			wantErr: false,
 		},
@@ -580,49 +972,25 @@ func TestUpdateList(t *testing.T) {
 					},
 				},
 			},
-			currentItems: []*model.Item{
-				{ExternalID: stringPtr("B")},
+			currentList: &model.List{
+				Name: "Target List",
+				Items: []*model.Item{
+					{ExternalID: stringPtr("B")},
+				},
 			},
-			handler: func(req *http.Request) *http.Response {
-				if req.Method == http.MethodPatch && req.URL.Path == "/tasks/v1/users/@me/lists/L2" {
-					resp := &http.Response{
-						StatusCode: http.StatusOK,
-						Body: io.NopCloser(bytes.NewBufferString(`
-							{
-								"id": "L2",
-								"title": "Target List"
-							}
-						`)),
-					}
-
-					return resp
-				}
-
-				if req.Method == http.MethodPost && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
-					q := req.URL.Query()
-					if q.Get("destinationTasklist") == "L2" && q.Get("previous") == "B" {
-						resp := &http.Response{
-							StatusCode: http.StatusOK,
-							Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
-						}
-
-						return resp
-					}
-
-					resp := &http.Response{
-						StatusCode: http.StatusBadRequest,
-						Body:       io.NopCloser(bytes.NewBufferString("Wrong Params")),
-					}
-
-					return resp
-				}
-
-				resp := &http.Response{
-					StatusCode: http.StatusBadRequest,
-					Body:       io.NopCloser(bytes.NewBufferString("Unexpected Request")),
-				}
-
-				return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.taskLists["L1"] = &tasks.TaskList{Id: "L1", Title: "Source List"}
+				fake.taskLists["L2"] = &tasks.TaskList{Id: "L2", Title: "Target List"}
+				fake.tasks["L1"] = []*tasks.Task{{Id: "A"}}
+				fake.tasks["L2"] = []*tasks.Task{{Id: "B"}}
+			},
+			wantTaskList: &tasks.TaskList{
+				Id:    "L2",
+				Title: "Target List",
+			},
+			wantTasks: []*tasks.Task{
+				{Id: "B"},
+				{Id: "A"},
 			},
 			wantErr: false,
 		},
@@ -632,10 +1000,8 @@ func TestUpdateList(t *testing.T) {
 				Name:     "Update List",
 				Modified: time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				return nil
-			},
-			wantErr: true,
+			setupFake: func(fake *FakeGoogleTasks) {},
+			wantErr:   true,
 		},
 		{
 			name: "invalid list (validation failed)",
@@ -643,10 +1009,8 @@ func TestUpdateList(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 				Name:       "",
 			},
-			handler: func(_ *http.Request) *http.Response {
-				return nil
-			},
-			wantErr: true,
+			setupFake: func(fake *FakeGoogleTasks) {},
+			wantErr:   true,
 		},
 		{
 			name: "update failure",
@@ -655,14 +1019,11 @@ func TestUpdateList(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 				Modified:   time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusInternalServerError,
-					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
-					Header:     make(http.Header),
-				}
-
-				return resp
+			currentList: &model.List{
+				Name: "Target List",
+			},
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.failPatchTaskList = true
 			},
 			wantErr: true,
 		},
@@ -683,42 +1044,15 @@ func TestUpdateList(t *testing.T) {
 					},
 				},
 			},
-			currentItems: []*model.Item{
-				{ExternalID: stringPtr("B")},
-				{ExternalID: stringPtr("A")},
+			currentList: &model.List{
+				Name: "My List",
+				Items: []*model.Item{
+					{ExternalID: stringPtr("B")},
+					{ExternalID: stringPtr("A")},
+				},
 			},
-			handler: func(req *http.Request) *http.Response {
-				if req.Method == http.MethodPatch && req.URL.Path == "/tasks/v1/users/@me/lists/L1" {
-					resp := &http.Response{
-						StatusCode: http.StatusOK,
-						Body: io.NopCloser(bytes.NewBufferString(`
-							{
-								"id": "L1",
-								"title": "My List"
-							}
-						`)),
-						Header: make(http.Header),
-					}
-
-					return resp
-				}
-
-				if req.Method == http.MethodPost && req.URL.Path == "/tasks/v1/lists/L1/tasks/A/move" {
-					resp := &http.Response{
-						StatusCode: http.StatusInternalServerError,
-						Body:       io.NopCloser(bytes.NewBufferString(`{"error": "move failed"}`)),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				resp := &http.Response{
-					StatusCode: http.StatusBadRequest,
-					Body:       io.NopCloser(bytes.NewBufferString("Unexpected Request")),
-				}
-
-				return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.failMoveTask = true
 			},
 			wantErr: true,
 		},
@@ -728,12 +1062,10 @@ func TestUpdateList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			fakeTasks := NewFakeGoogleTasks(t)
+			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
-				Transport: &mockTransport{
-					roundTripFunc: func(req *http.Request) (*http.Response, error) {
-						return tt.handler(req), nil
-					},
-				},
+				Transport: fakeTasks,
 			}
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
@@ -741,10 +1073,26 @@ func TestUpdateList(t *testing.T) {
 			logger := slog.New(slog.DiscardHandler)
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
-			err := tasksClient.UpdateList(context.Background(), tt.list, tt.currentItems)
+			err := tasksClient.UpdateList(context.Background(), tt.list, tt.currentList)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateList() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.wantErr {
+				return
+			}
+
+			gotTaskList := fakeTasks.taskLists[*tt.list.ExternalID]
+
+			if diff := cmp.Diff(tt.wantTaskList, gotTaskList); diff != "" {
+				t.Errorf("UpdateList() taskList mismatch (-want +got):\n%s", diff)
+			}
+
+			gotTasks := fakeTasks.tasks[*tt.list.ExternalID]
+
+			if diff := cmp.Diff(tt.wantTasks, gotTasks); diff != "" {
+				t.Errorf("UpdateList() tasks mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -754,44 +1102,18 @@ func TestDeleteList(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		list    *model.List
-		handler func(req *http.Request) *http.Response
-		wantErr bool
+		name      string
+		list      *model.List
+		setupFake func(fake *FakeGoogleTasks)
+		wantErr   bool
 	}{
 		{
 			name: "success",
 			list: &model.List{
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
-				if req.Method != http.MethodDelete {
-					resp := &http.Response{
-						StatusCode: http.StatusMethodNotAllowed,
-						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				if req.URL.Path != "/tasks/v1/users/@me/lists/L1" {
-					resp := &http.Response{
-						StatusCode: http.StatusNotFound,
-						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				resp := &http.Response{
-					StatusCode: http.StatusNoContent,
-					Body:       io.NopCloser(bytes.NewBufferString("")),
-					Header:     make(http.Header),
-				}
-
-				return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.taskLists["L1"] = &tasks.TaskList{Id: "L1"}
 			},
 			wantErr: false,
 		},
@@ -800,24 +1122,16 @@ func TestDeleteList(t *testing.T) {
 			list: &model.List{
 				Name: "Delete List",
 			},
-			handler: func(_ *http.Request) *http.Response {
-				return nil
-			},
-			wantErr: true,
+			setupFake: func(fake *FakeGoogleTasks) {},
+			wantErr:   true,
 		},
 		{
 			name: "api error",
 			list: &model.List{
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusInternalServerError,
-					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
-					Header:     make(http.Header),
-				}
-
-				return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.failDeleteTaskList = true
 			},
 			wantErr: true,
 		},
@@ -827,12 +1141,10 @@ func TestDeleteList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			fakeTasks := NewFakeGoogleTasks(t)
+			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
-				Transport: &mockTransport{
-					roundTripFunc: func(req *http.Request) (*http.Response, error) {
-						return tt.handler(req), nil
-					},
-				},
+				Transport: fakeTasks,
 			}
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
@@ -857,7 +1169,7 @@ func TestCreateItem(t *testing.T) {
 		listID         string
 		item           *model.Item
 		previousItemID string
-		handler        func(req *http.Request) *http.Response
+		setupFake      func(fake *FakeGoogleTasks)
 		wantErr        bool
 		wantExternalID string
 	}{
@@ -869,58 +1181,9 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			handler: func(req *http.Request) *http.Response {
-				if req.Method != http.MethodPost {
-					resp := &http.Response{
-						StatusCode: http.StatusMethodNotAllowed,
-						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				if req.URL.Path != "/tasks/v1/lists/L1/tasks" {
-					resp := &http.Response{
-						StatusCode: http.StatusNotFound,
-						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				body, _ := io.ReadAll(req.Body)
-				if !bytes.Contains(body, []byte(`"title":"Simple"`)) {
-					resp := &http.Response{
-						StatusCode: http.StatusBadRequest,
-						Body:       io.NopCloser(bytes.NewBufferString("Bad Title")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				if !bytes.Contains(body, []byte(`"status":"needsAction"`)) {
-					resp := &http.Response{
-						StatusCode: http.StatusBadRequest,
-						Body:       io.NopCloser(bytes.NewBufferString("Bad Status")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "T1"}`)),
-					Header:     make(http.Header),
-				}
-
-				return resp
-			},
+			setupFake:      func(fake *FakeGoogleTasks) {},
 			wantErr:        false,
-			wantExternalID: "T1",
+			wantExternalID: "generated-task-1",
 		},
 		{
 			name:   "invalid item (validation failed)",
@@ -928,10 +1191,8 @@ func TestCreateItem(t *testing.T) {
 			item: &model.Item{
 				Title: "",
 			},
-			handler: func(_ *http.Request) *http.Response {
-				return nil
-			},
-			wantErr: true,
+			setupFake: func(fake *FakeGoogleTasks) {},
+			wantErr:   true,
 		},
 		{
 			name:   "completed item",
@@ -942,28 +1203,9 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			handler: func(req *http.Request) *http.Response {
-				body, _ := io.ReadAll(req.Body)
-				if !bytes.Contains(body, []byte(`"status":"completed"`)) {
-					resp := &http.Response{
-						StatusCode: http.StatusBadRequest,
-						Body:       io.NopCloser(bytes.NewBufferString("Bad Status")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "T1"}`)),
-					Header:     make(http.Header),
-				}
-
-				return resp
-			},
+			setupFake:      func(fake *FakeGoogleTasks) {},
 			wantErr:        false,
-			wantExternalID: "T1",
+			wantExternalID: "generated-task-1",
 		},
 		{
 			name:   "snoozed item",
@@ -974,28 +1216,9 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			handler: func(req *http.Request) *http.Response {
-				body, _ := io.ReadAll(req.Body)
-				if !bytes.Contains(body, []byte(`"due":"2024-01-01T00:00:00Z"`)) {
-					resp := &http.Response{
-						StatusCode: http.StatusBadRequest,
-						Body:       io.NopCloser(bytes.NewBufferString("Bad Due Date")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "T1"}`)),
-					Header:     make(http.Header),
-				}
-
-				return resp
-			},
+			setupFake:      func(fake *FakeGoogleTasks) {},
 			wantErr:        false,
-			wantExternalID: "T1",
+			wantExternalID: "generated-task-1",
 		},
 		{
 			name:   "item with previous",
@@ -1006,27 +1229,9 @@ func TestCreateItem(t *testing.T) {
 				Modified:       time.Now(),
 			},
 			previousItemID: "P1",
-			handler: func(req *http.Request) *http.Response {
-				if req.URL.Query().Get("previous") != "P1" {
-					resp := &http.Response{
-						StatusCode: http.StatusBadRequest,
-						Body:       io.NopCloser(bytes.NewBufferString("Bad Previous")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(bytes.NewBufferString(`{"id": "T1"}`)),
-					Header:     make(http.Header),
-				}
-
-				return resp
-			},
+			setupFake:      func(fake *FakeGoogleTasks) {},
 			wantErr:        false,
-			wantExternalID: "T1",
+			wantExternalID: "generated-task-1",
 		},
 		{
 			name:   "cannot create deleted item",
@@ -1038,10 +1243,8 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				return nil
-			},
-			wantErr: true,
+			setupFake: func(fake *FakeGoogleTasks) {},
+			wantErr:   true,
 		},
 		{
 			name:   "missing external list id",
@@ -1051,10 +1254,8 @@ func TestCreateItem(t *testing.T) {
 				Title:    "Fail",
 				Modified: time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				return nil
-			},
-			wantErr: true,
+			setupFake: func(fake *FakeGoogleTasks) {},
+			wantErr:   true,
 		},
 		{
 			name:   "api error",
@@ -1065,14 +1266,8 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusInternalServerError,
-					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
-					Header:     make(http.Header),
-				}
-
-				return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.failInsertTask = true
 			},
 			wantErr: true,
 		},
@@ -1082,12 +1277,10 @@ func TestCreateItem(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			fakeTasks := NewFakeGoogleTasks(t)
+			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
-				Transport: &mockTransport{
-					roundTripFunc: func(req *http.Request) (*http.Response, error) {
-						return tt.handler(req), nil
-					},
-				},
+				Transport: fakeTasks,
 			}
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
@@ -1552,11 +1745,12 @@ func TestUpdateItem(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		listID  string
-		item    *model.Item
-		handler func(req *http.Request) *http.Response
-		wantErr bool
+		name      string
+		listID    string
+		item      *model.Item
+		setupFake func(fake *FakeGoogleTasks)
+		wantTask  *tasks.Task
+		wantErr   bool
 	}{
 		{
 			name:   "simple item",
@@ -1569,50 +1763,20 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			handler: func(req *http.Request) *http.Response {
-				if req.Method != http.MethodPatch {
-					resp := &http.Response{
-						StatusCode: http.StatusMethodNotAllowed,
-						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
-						Header:     make(http.Header),
-					}
-
-					return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.tasks["L1"] = []*tasks.Task{
+					{
+						Id:    "T1",
+						Title: "Old Title",
+					},
 				}
-
-				if req.URL.Path != "/tasks/v1/lists/L1/tasks/T1" {
-					resp := &http.Response{
-						StatusCode: http.StatusNotFound,
-						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				body, _ := io.ReadAll(req.Body)
-				if !bytes.Contains(body, []byte(`"title":"Updated Task"`)) {
-					resp := &http.Response{
-						StatusCode: http.StatusBadRequest,
-						Body:       io.NopCloser(bytes.NewBufferString("Bad Title")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"id": "T1",
-							"title": "Updated Task"
-						}
-					`)),
-					Header: make(http.Header),
-				}
-
-				return resp
+			},
+			wantTask: &tasks.Task{
+				Id:     "T1",
+				Title:  "Updated Task",
+				Notes:  "Has desc",
+				Due:    "2024-01-01T00:00:00Z",
+				Status: "needsAction",
 			},
 			wantErr: false,
 		},
@@ -1628,30 +1792,20 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			handler: func(req *http.Request) *http.Response {
-				body, _ := io.ReadAll(req.Body)
-				if !bytes.Contains(body, []byte(`"status":"completed"`)) {
-					resp := &http.Response{
-						StatusCode: http.StatusBadRequest,
-						Body:       io.NopCloser(bytes.NewBufferString("Bad Status")),
-						Header:     make(http.Header),
-					}
-
-					return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.tasks["L1"] = []*tasks.Task{
+					{
+						Id:     "T1",
+						Status: "needsAction",
+					},
 				}
-
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"id": "T1",
-							"status": "completed"
-						}
-					`)),
-					Header: make(http.Header),
-				}
-
-				return resp
+			},
+			wantTask: &tasks.Task{
+				Id:     "T1",
+				Title:  "Task",
+				Notes:  "Has desc",
+				Due:    "2024-01-01T00:00:00Z",
+				Status: "completed",
 			},
 			wantErr: false,
 		},
@@ -1666,39 +1820,17 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			handler: func(req *http.Request) *http.Response {
-				body, _ := io.ReadAll(req.Body)
-				if !bytes.Contains(body, []byte(`"due":"2024-01-01T00:00:00Z"`)) {
-					resp := &http.Response{
-						StatusCode: http.StatusBadRequest,
-						Body:       io.NopCloser(bytes.NewBufferString("Bad Due Date")),
-						Header:     make(http.Header),
-					}
-
-					return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.tasks["L1"] = []*tasks.Task{
+					{Id: "T1"},
 				}
-
-				if bytes.Contains(body, []byte(`"due":null`)) {
-					resp := &http.Response{
-						StatusCode: http.StatusBadRequest,
-						Body:       io.NopCloser(bytes.NewBufferString("Unexpected null Due")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"id": "T1"
-						}
-					`)),
-					Header: make(http.Header),
-				}
-
-				return resp
+			},
+			wantTask: &tasks.Task{
+				Id:     "T1",
+				Title:  "Task",
+				Notes:  "Has desc",
+				Due:    "2024-01-01T00:00:00Z",
+				Status: "needsAction",
 			},
 			wantErr: false,
 		},
@@ -1713,40 +1845,21 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			handler: func(req *http.Request) *http.Response {
-				body, _ := io.ReadAll(req.Body)
-
-				if !bytes.Contains(body, []byte(`"notes":null`)) {
-					resp := &http.Response{
-						StatusCode: http.StatusBadRequest,
-						Body:       io.NopCloser(bytes.NewBufferString("Missing null Notes")),
-						Header:     make(http.Header),
-					}
-
-					return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.tasks["L1"] = []*tasks.Task{
+					{
+						Id:    "T1",
+						Due:   "2024-01-01",
+						Notes: "Old note",
+					},
 				}
-
-				if !bytes.Contains(body, []byte(`"due":null`)) {
-					resp := &http.Response{
-						StatusCode: http.StatusBadRequest,
-						Body:       io.NopCloser(bytes.NewBufferString("Missing null Due")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"id": "T1"
-						}
-					`)),
-					Header: make(http.Header),
-				}
-
-				return resp
+			},
+			wantTask: &tasks.Task{
+				Id:     "T1",
+				Title:  "Task",
+				Due:    "",
+				Notes:  "",
+				Status: "needsAction",
 			},
 			wantErr: false,
 		},
@@ -1755,10 +1868,8 @@ func TestUpdateItem(t *testing.T) {
 			item: &model.Item{
 				Title: "",
 			},
-			handler: func(_ *http.Request) *http.Response {
-				return nil
-			},
-			wantErr: true,
+			setupFake: func(fake *FakeGoogleTasks) {},
+			wantErr:   true,
 		},
 		{
 			name: "missing external identifiers",
@@ -1767,10 +1878,8 @@ func TestUpdateItem(t *testing.T) {
 				Title:    "Update Task",
 				Modified: time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				return nil
-			},
-			wantErr: true,
+			setupFake: func(fake *FakeGoogleTasks) {},
+			wantErr:   true,
 		},
 		{
 			name: "api error",
@@ -1783,18 +1892,8 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusInternalServerError,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"error": "internal"
-						}
-					`)),
-					Header: make(http.Header),
-				}
-
-				return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.failPatchTask = true
 			},
 			wantErr: true,
 		},
@@ -1804,12 +1903,10 @@ func TestUpdateItem(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			fakeTasks := NewFakeGoogleTasks(t)
+			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
-				Transport: &mockTransport{
-					roundTripFunc: func(req *http.Request) (*http.Response, error) {
-						return tt.handler(req), nil
-					},
-				},
+				Transport: fakeTasks,
 			}
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
@@ -1822,6 +1919,24 @@ func TestUpdateItem(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateItem() error = %v, wantErr %v", err, tt.wantErr)
 			}
+
+			if tt.wantErr {
+				return
+			}
+
+			idx := slices.IndexFunc(fakeTasks.tasks[tt.listID], func(t *tasks.Task) bool {
+				return t.Id == *tt.item.ExternalID
+			})
+
+			if idx == -1 {
+				t.Fatalf("expected to find task %s in fake server, but it was missing", *tt.item.ExternalID)
+			}
+
+			gotTask := fakeTasks.tasks[tt.listID][idx]
+
+			if diff := cmp.Diff(tt.wantTask, gotTask); diff != "" {
+				t.Errorf("Updated item mismatch (-want +got):\n%s", diff)
+			}
 		})
 	}
 }
@@ -1830,10 +1945,10 @@ func TestDeleteItem(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		item    *model.Item
-		handler func(req *http.Request) *http.Response
-		wantErr bool
+		name      string
+		item      *model.Item
+		setupFake func(fake *FakeGoogleTasks)
+		wantErr   bool
 	}{
 		{
 			name: "success",
@@ -1841,34 +1956,8 @@ func TestDeleteItem(t *testing.T) {
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
 			},
-			handler: func(req *http.Request) *http.Response {
-				if req.Method != http.MethodDelete {
-					resp := &http.Response{
-						StatusCode: http.StatusMethodNotAllowed,
-						Body:       io.NopCloser(bytes.NewBufferString("Method Not Allowed")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				if req.URL.Path != "/tasks/v1/lists/L1/tasks/T1" {
-					resp := &http.Response{
-						StatusCode: http.StatusNotFound,
-						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
-						Header:     make(http.Header),
-					}
-
-					return resp
-				}
-
-				resp := &http.Response{
-					StatusCode: http.StatusNoContent,
-					Body:       io.NopCloser(bytes.NewBufferString("")),
-					Header:     make(http.Header),
-				}
-
-				return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.tasks["L1"] = []*tasks.Task{{Id: "T1"}}
 			},
 			wantErr: false,
 		},
@@ -1878,10 +1967,8 @@ func TestDeleteItem(t *testing.T) {
 				ListID: "list-1",
 				Title:  "Delete Task",
 			},
-			handler: func(_ *http.Request) *http.Response {
-				return nil
-			},
-			wantErr: true,
+			setupFake: func(fake *FakeGoogleTasks) {},
+			wantErr:   true,
 		},
 		{
 			name: "api error",
@@ -1889,14 +1976,8 @@ func TestDeleteItem(t *testing.T) {
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusInternalServerError,
-					Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
-					Header:     make(http.Header),
-				}
-
-				return resp
+			setupFake: func(fake *FakeGoogleTasks) {
+				fake.failDeleteTask = true
 			},
 			wantErr: true,
 		},
@@ -1906,12 +1987,10 @@ func TestDeleteItem(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			fakeTasks := NewFakeGoogleTasks(t)
+			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
-				Transport: &mockTransport{
-					roundTripFunc: func(req *http.Request) (*http.Response, error) {
-						return tt.handler(req), nil
-					},
-				},
+				Transport: fakeTasks,
 			}
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
