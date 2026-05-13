@@ -81,6 +81,16 @@ func TestClient_CreateList(t *testing.T) {
 				Name:     "Next Actions",
 				Status:   model.StatusOpen,
 				Modified: modified,
+				Items: []*model.Item{
+					{
+						Title:  "Task 1",
+						Status: model.StatusNotStarted,
+					},
+					{
+						Title:  "Task 2",
+						Status: model.StatusNotStarted,
+					},
+				},
 			},
 			want: []model.List{
 				{
@@ -407,10 +417,124 @@ func TestClient_UpdateList(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "success (some items already in position)",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "update_success_mixed.md")
+				content := "# Inbox {{list-1}}\n* [ ] Task 1 {{item-1}}\n* [ ] Task 2 {{item-2}}\n\n# Other List {{list-2}}\n* [ ] Task 3 {{item-3}}\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
+				if err := os.Chtimes(path, modified, modified); err != nil {
+					t.Fatalf("failed to change file times: %v", err)
+				}
+
+				return path
+			},
+			list: &model.List{
+				ID:       "list-1",
+				Name:     "Renamed Inbox",
+				Position: 0,
+				Status:   model.StatusOpen,
+				Modified: modified,
+				Items: []*model.Item{
+					{
+						ID:       "item-1", // Skips (matches index 0)
+						ListID:   "list-1",
+						Title:    "Task 1",
+						Position: 0,
+						Status:   model.StatusNotStarted,
+						Modified: modified,
+					},
+					{
+						ID:       "item-3", // Relocated from somewhere else
+						ListID:   "list-2", // Source ListID
+						Title:    "Task 3",
+						Position: 1,
+						Status:   model.StatusNotStarted,
+						Modified: modified,
+					},
+					{
+						ID:       "item-2", // Reordered to bottom
+						ListID:   "list-1",
+						Title:    "Task 2",
+						Position: 2,
+						Status:   model.StatusNotStarted,
+						Modified: modified,
+					},
+				},
+			},
+			currentList: &model.List{
+				Name: "Inbox",
+				Items: []*model.Item{
+					{
+						ID:       "item-1",
+						ListID:   "list-1",
+						Title:    "Task 1",
+						Position: 0,
+						Status:   model.StatusNotStarted,
+						Modified: modified,
+					},
+					{
+						ID:       "item-2",
+						ListID:   "list-1",
+						Title:    "Task 2",
+						Position: 1,
+						Status:   model.StatusNotStarted,
+						Modified: modified,
+					},
+				},
+			},
+			want: []model.List{
+				{
+					ID:       "list-1",
+					Name:     "Renamed Inbox",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items: []*model.Item{
+						{
+							ID:       "item-1",
+							ListID:   "list-1",
+							Title:    "Task 1",
+							Position: 0,
+							Status:   model.StatusNotStarted,
+							Modified: modified,
+						},
+						{
+							ID:       "item-3",
+							ListID:   "list-1",
+							Title:    "Task 3",
+							Position: 1,
+							Status:   model.StatusNotStarted,
+							Modified: modified,
+						},
+						{
+							ID:       "item-2",
+							ListID:   "list-1",
+							Title:    "Task 2",
+							Position: 2,
+							Status:   model.StatusNotStarted,
+							Modified: modified,
+						},
+					},
+				},
+				{
+					ID:       "list-2",
+					Name:     "Other List",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "success (reorder and relocate items)",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "update_success_reorder.md")
-				content := "# Inbox {{list-1}}\n* [ ] Task 1 {{item-1}}\n* [ ] Task 2 {{item-2}}\n"
+				content := "# Inbox {{list-1}}\n* [ ] Task 1 {{item-1}}\n* [ ] Task 2 {{item-2}}\n\n# Other List {{list-2}}\n* [ ] Task 3 {{item-3}}\n"
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
 				}
@@ -438,7 +562,7 @@ func TestClient_UpdateList(t *testing.T) {
 					},
 					{
 						ID:       "item-3", // Relocated from somewhere else
-						ListID:   "list-1",
+						ListID:   "list-2", // Source ListID
 						Title:    "Task 3",
 						Position: 1,
 						Status:   model.StatusNotStarted,
@@ -490,6 +614,14 @@ func TestClient_UpdateList(t *testing.T) {
 							Modified: modified,
 						},
 					},
+				},
+				{
+					ID:       "list-2",
+					Name:     "Other List",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
 				},
 			},
 			wantErr: false,
@@ -572,6 +704,94 @@ func TestClient_UpdateList(t *testing.T) {
 				Name:     "Valid Name",
 				Status:   model.StatusOpen,
 				Modified: modified,
+			},
+			wantErr: true,
+		},
+		{
+			name: "error: source list not found for move",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "source_list_not_found.md")
+				content := "# Inbox {{list-1}}\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+				if err := os.Chtimes(path, modified, modified); err != nil {
+					t.Fatalf("failed to change file times: %v", err)
+				}
+				return path
+			},
+			list: &model.List{
+				ID:       "list-1",
+				Name:     "Inbox",
+				Position: 0,
+				Status:   model.StatusOpen,
+				Modified: modified,
+				Items: []*model.Item{
+					{
+						ID:       "item-1",
+						ListID:   "list-2", // Does not exist in file
+						Title:    "Task 1",
+						Position: 0,
+						Status:   model.StatusNotStarted,
+						Modified: modified,
+					},
+				},
+			},
+			currentList: &model.List{
+				Name: "Inbox",
+			},
+			wantErr: true,
+		},
+		{
+			name: "error: item not found in source list",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "item_not_found.md")
+				content := "# Inbox {{list-1}}\n* [ ] Task 1 {{item-1}}\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+				if err := os.Chtimes(path, modified, modified); err != nil {
+					t.Fatalf("failed to change file times: %v", err)
+				}
+				return path
+			},
+			list: &model.List{
+				ID:       "list-1",
+				Name:     "Inbox",
+				Position: 0,
+				Status:   model.StatusOpen,
+				Modified: modified,
+				Items: []*model.Item{
+					{
+						ID:       "item-2", // Does not exist in file
+						ListID:   "list-1",
+						Title:    "Task 2",
+						Position: 0,
+						Status:   model.StatusNotStarted,
+						Modified: modified,
+					},
+					{
+						ID:       "item-1",
+						ListID:   "list-1",
+						Title:    "Task 1",
+						Position: 1,
+						Status:   model.StatusNotStarted,
+						Modified: modified,
+					},
+				},
+			},
+			currentList: &model.List{
+				Name: "Inbox",
+				Items: []*model.Item{
+					{
+						ID:       "item-1",
+						ListID:   "list-1",
+						Title:    "Task 1",
+						Position: 0,
+						Status:   model.StatusNotStarted,
+						Modified: modified,
+					},
+				},
 			},
 			wantErr: true,
 		},
@@ -1397,24 +1617,7 @@ func TestClient_DeleteItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			want: []model.List{
-				{
-					ID:       "list-1",
-					Name:     "Inbox",
-					Position: 0,
-					Status:   model.StatusOpen,
-					Items: []*model.Item{
-						{
-							ID:       "item-1",
-							ListID:   "list-1",
-							Title:    "Task 1",
-							Position: 0,
-							Status:   model.StatusNotStarted,
-						},
-					},
-				},
-			},
-			wantErr: false,
+			wantErr: true,
 		},
 		{
 			name: "write file error",

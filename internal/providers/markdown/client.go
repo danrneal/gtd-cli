@@ -58,7 +58,10 @@ func (c *Client) CreateList(ctx context.Context, list *model.List) error {
 		return err
 	}
 
-	lists = append(lists, *list)
+	newList := *list
+	newList.Items = nil
+	lists = append(lists, newList)
+
 	c.logger.InfoContext(ctx, "Markdown: Creating list", "id", list.ID, "name", list.Name)
 	err = c.writeFile(lists)
 
@@ -95,7 +98,16 @@ func (c *Client) UpdateList(_ context.Context, list, currentList *model.List) er
 		return fmt.Errorf("failed to update list: list %q not found", list.ID)
 	}
 
-	lists[idx] = *list
+	lists[idx].ID = list.ID
+	lists[idx].Name = list.Name
+	itemsToMove := calculateItemsToMove(list, currentList.Items)
+	for _, item := range itemsToMove {
+		err = c.moveItem(lists, item, idx)
+		if err != nil {
+			return err
+		}
+	}
+
 	err = c.writeFile(lists)
 
 	return err
@@ -218,6 +230,36 @@ func (c *Client) UpdateItem(ctx context.Context, item *model.Item) error {
 	return err
 }
 
+// moveItem safely extracts an item from its source list (if it exists)
+// and inserts it into the specified destination list at the correct position.
+func (c *Client) moveItem(lists []model.List, item *model.Item, destinationListIdx int) error {
+	sourceListIdx := slices.IndexFunc(lists, func(l model.List) bool {
+		return l.ID == item.ListID
+	})
+
+	if sourceListIdx == -1 {
+		return fmt.Errorf("source list %q not found for move", item.ListID)
+	}
+
+	sourceList := lists[sourceListIdx]
+	itemIdx := slices.IndexFunc(sourceList.Items, func(i *model.Item) bool {
+		return i.ID == item.ID
+	})
+
+	if itemIdx == -1 {
+		return fmt.Errorf("item %q not found in source list for move", item.ID)
+	}
+
+	sourceList.Items = slices.Delete(sourceList.Items, itemIdx, itemIdx+1)
+	lists[sourceListIdx] = sourceList
+
+	destinationList := lists[destinationListIdx]
+	destinationList.Items = slices.Insert(destinationList.Items, item.Position, item)
+	lists[destinationListIdx] = destinationList
+
+	return nil
+}
+
 // DeleteItem removes an item from the markdown file.
 func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
 	if item.ID == "" || item.ListID == "" {
@@ -244,7 +286,7 @@ func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
 	})
 
 	if itemIdx == -1 {
-		return nil
+		return fmt.Errorf("failed to delete item: item %q not found", item.ID)
 	}
 
 	list.Items = slices.Delete(list.Items, itemIdx, itemIdx+1)
@@ -326,4 +368,17 @@ func (c *Client) writeFile(lists []model.List) error {
 	c.lastModTime = stat.ModTime()
 
 	return nil
+}
+
+func calculateItemsToMove(list *model.List, currentItems []*model.Item) []*model.Item {
+	var itemsToMove []*model.Item
+	for i, item := range list.Items {
+		if i < len(currentItems) && item.ID == currentItems[i].ID {
+			continue
+		}
+
+		itemsToMove = append(itemsToMove, item)
+	}
+
+	return itemsToMove
 }
