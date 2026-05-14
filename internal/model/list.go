@@ -122,9 +122,13 @@ func (l *List) sortItems() {
 	}
 
 	slices.SortStableFunc(l.Items, func(a, b *Item) int {
+		if diff := statusRank[a.Status] - statusRank[b.Status]; diff != 0 {
+			return diff
+		}
+
 		switch l.Name {
 		case ListWaitingFor:
-			return a.Created.Compare(b.Created)
+			return b.Created.Compare(a.Created)
 		case ListSnoozed:
 			if a.Snoozed == nil && b.Snoozed == nil {
 				return 0
@@ -140,7 +144,7 @@ func (l *List) sortItems() {
 
 			return a.Snoozed.Compare(*b.Snoozed)
 		default:
-			return statusRank[a.Status] - statusRank[b.Status]
+			return 0
 		}
 	})
 
