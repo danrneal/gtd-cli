@@ -174,6 +174,27 @@ func TestClient_CreateList(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
+		{
+			name: "success (bootstraps missing file)",
+			setup: func(t *testing.T) string {
+				return filepath.Join(t.TempDir(), "missing.md")
+			},
+			list: &model.List{
+				Name:     "Next Actions",
+				Status:   model.StatusOpen,
+				Modified: modified,
+			},
+			want: []model.List{
+				{
+					Name:     "Next Actions",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -225,7 +246,8 @@ func TestClient_ListLists(t *testing.T) {
 			name: "success",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "list_success.md")
-				content := "# Inbox\n* [ ] Task 1\n"
+				content := "# Inbox\n" +
+					"* [ ] Task 1\n"
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
 				}
@@ -364,7 +386,8 @@ func TestClient_UpdateList(t *testing.T) {
 			name: "success (rename only)",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "update_success_rename.md")
-				content := "# Inbox {{list-1}}\n* [ ] Task 1 {{item-1}}\n"
+				content := "# Inbox {{list-1}}\n" +
+					"* [ ] Task 1 {{item-1}}\n"
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
 				}
@@ -420,7 +443,11 @@ func TestClient_UpdateList(t *testing.T) {
 			name: "success (some items already in position)",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "update_success_mixed.md")
-				content := "# Inbox {{list-1}}\n* [ ] Task 1 {{item-1}}\n* [ ] Task 2 {{item-2}}\n\n# Other List {{list-2}}\n* [ ] Task 3 {{item-3}}\n"
+				content := "# Inbox {{list-1}}\n" +
+					"* [ ] Task 1 {{item-1}}\n" +
+					"* [ ] Task 2 {{item-2}}\n\n" +
+					"# Other List {{list-2}}\n" +
+					"* [ ] Task 3 {{item-3}}\n"
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
 				}
@@ -534,7 +561,11 @@ func TestClient_UpdateList(t *testing.T) {
 			name: "success (reorder and relocate items)",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "update_success_reorder.md")
-				content := "# Inbox {{list-1}}\n* [ ] Task 1 {{item-1}}\n* [ ] Task 2 {{item-2}}\n\n# Other List {{list-2}}\n* [ ] Task 3 {{item-3}}\n"
+				content := "# Inbox {{list-1}}\n" +
+					"* [ ] Task 1 {{item-1}}\n" +
+					"* [ ] Task 2 {{item-2}}\n\n" +
+					"# Other List {{list-2}}\n" +
+					"* [ ] Task 3 {{item-3}}\n"
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
 				}
@@ -715,9 +746,11 @@ func TestClient_UpdateList(t *testing.T) {
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
 				}
+
 				if err := os.Chtimes(path, modified, modified); err != nil {
 					t.Fatalf("failed to change file times: %v", err)
 				}
+
 				return path
 			},
 			list: &model.List{
@@ -746,13 +779,16 @@ func TestClient_UpdateList(t *testing.T) {
 			name: "error: item not found in source list",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "item_not_found.md")
-				content := "# Inbox {{list-1}}\n* [ ] Task 1 {{item-1}}\n"
+				content := "# Inbox {{list-1}}\n" +
+					"* [ ] Task 1 {{item-1}}\n"
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
 				}
+
 				if err := os.Chtimes(path, modified, modified); err != nil {
 					t.Fatalf("failed to change file times: %v", err)
 				}
+
 				return path
 			},
 			list: &model.List{
@@ -848,7 +884,10 @@ func TestClient_DeleteList(t *testing.T) {
 			name: "success",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "delete_success.md")
-				content := "# Inbox {{list-1}}\n* [ ] Task 1\n\n# Old Project {{list-2}}\n* [ ] Task 2\n"
+				content := "# Inbox {{list-1}}\n" +
+					"* [ ] Task 1\n\n" +
+					"# Old Project {{list-2}}\n" +
+					"* [ ] Task 2\n"
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
 				}
@@ -998,7 +1037,8 @@ func TestClient_CreateItem(t *testing.T) {
 			name: "success (insert at top - no previous item)",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "create_success_top.md")
-				content := "# Inbox {{list-1}}\n* [ ] Task 2 {{item-2}}\n"
+				content := "# Inbox {{list-1}}\n" +
+					"* [ ] Task 2 {{item-2}}\n"
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
 				}
@@ -1048,7 +1088,8 @@ func TestClient_CreateItem(t *testing.T) {
 			name: "success (insert after previous item)",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "create_success_after.md")
-				content := "# Inbox {{list-1}}\n* [ ] Task 1 {{item-1}}\n"
+				content := "# Inbox {{list-1}}\n" +
+					"* [ ] Task 1 {{item-1}}\n"
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
 				}
@@ -1203,6 +1244,18 @@ func TestClient_CreateItem(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "success (bootstraps missing file)",
+			setup: func(t *testing.T) string {
+				return filepath.Join(t.TempDir(), "missing_item.md")
+			},
+			item: &model.Item{
+				Title:    "New Item",
+				ListID:   "list-1",
+				Modified: modified,
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1300,7 +1353,8 @@ func TestClient_UpdateItem(t *testing.T) {
 			name: "success",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "update_success.md")
-				content := "# Inbox {{list-1}}\n* [ ] Task 1 {{item-1}}\n"
+				content := "# Inbox {{list-1}}\n" +
+					"* [ ] Task 1 {{item-1}}\n"
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
 				}
@@ -1506,7 +1560,9 @@ func TestClient_DeleteItem(t *testing.T) {
 			name: "success",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "delete_success.md")
-				content := "# Inbox {{list-1}}\n* [ ] Task 1 {{item-1}}\n* [ ] Task 2 {{item-2}}\n"
+				content := "# Inbox {{list-1}}\n" +
+					"* [ ] Task 1 {{item-1}}\n" +
+					"* [ ] Task 2 {{item-2}}\n"
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
 				}
@@ -1689,7 +1745,8 @@ func TestClient_readFile(t *testing.T) {
 			name: "valid file",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "valid.md")
-				content := "# Inbox (1)\n* [ ] Task 1\n\n"
+				content := "# Inbox (1)\n" +
+					"* [ ] Task 1\n\n"
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
 				}
@@ -1723,7 +1780,8 @@ func TestClient_readFile(t *testing.T) {
 			name: "self heals bad formatting",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "bad_format.md")
-				content := "# Inbox (99) {{list-1}}\n* [ ] Task 1\n"
+				content := "# Inbox (99) {{list-1}}\n" +
+					"* [ ] Task 1\n"
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
 				}
@@ -1761,6 +1819,7 @@ func TestClient_readFile(t *testing.T) {
 				return path
 			},
 			wantLists: nil,
+			wantErr:   true,
 		},
 		{
 			name: "failed to open markdown file",
@@ -1779,7 +1838,8 @@ func TestClient_readFile(t *testing.T) {
 			name: "failed to self-heal markdown file",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "unwritable.md")
-				content := "# Inbox (99) {{list-1}}\n* [ ] Task 1\n"
+				content := "# Inbox (99) {{list-1}}\n" +
+					"* [ ] Task 1\n"
 				if err := os.WriteFile(path, []byte(content), 0o400); err != nil {
 					t.Fatalf("failed to create unreadable file: %v", err)
 				}

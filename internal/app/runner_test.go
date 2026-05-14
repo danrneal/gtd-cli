@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"testing"
@@ -270,7 +271,69 @@ func TestRun(t *testing.T) {
 			},
 		},
 		{
-			name: "push failure sets retry flag and recovers on next event",
+			name: "missing provider aborts pull and schedules recreation (push)",
+			setup: func(_, _ *FakeWatcher) (*FakeProvider, *FakeProvider, *FakeProvider) {
+				store := NewFakeProvider("store", []model.List{
+					{
+						ID:         "store-list-1",
+						Name:       "Inbox",
+						Status:     model.StatusOpen,
+						ExternalID: stringPtr("external-list-1"),
+						Modified:   modified,
+						Items:      []*model.Item{},
+					},
+				})
+
+				tasks := NewFakeProvider("external", []model.List{
+					{
+						Name:       "Inbox",
+						Status:     model.StatusOpen,
+						ExternalID: stringPtr("external-list-1"),
+						Modified:   modified,
+						Items:      []*model.Item{},
+					},
+				})
+
+				md := NewFakeProvider("generic", []model.List{})
+				md.errNextRead = fs.ErrNotExist
+
+				return store, md, tasks
+			},
+			triggerEvent: func(mdWatcher, _ *FakeWatcher) {
+				mdWatcher.Trigger(nil)
+			},
+			wantStore: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "Inbox",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Modified:   modified,
+					Items:      []*model.Item{},
+				},
+			},
+			wantTasks: []model.List{
+				{
+					Name:       "Inbox",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Modified:   modified,
+					Items:      []*model.Item{},
+				},
+			},
+			wantMd: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "Inbox",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Modified:   modified,
+					Items:      []*model.Item{},
+				},
+			},
+		},
+		{
+			name: "pull failure blocks subsequent push and recovers on next event",
 			setup: func(_, _ *FakeWatcher) (*FakeProvider, *FakeProvider, *FakeProvider) {
 				store := NewFakeProvider("store", []model.List{})
 				md := NewFakeProvider("generic", []model.List{
@@ -290,6 +353,54 @@ func TestRun(t *testing.T) {
 				mdWatcher.Trigger(nil)
 				time.Sleep(5 * time.Millisecond)
 				mdWatcher.Trigger(nil)
+			},
+			wantStore: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "New List",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantMd: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "New List",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+			wantTasks: []model.List{
+				{
+					Name:       "New List",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+			},
+		},
+		{
+			name: "push mutation failure sets retry flag and recovers on next event",
+			setup: func(_, _ *FakeWatcher) (*FakeProvider, *FakeProvider, *FakeProvider) {
+				store := NewFakeProvider("store", []model.List{})
+				md := NewFakeProvider("generic", []model.List{
+					{
+						Name:     "New List",
+						Modified: modified,
+						Items:    []*model.Item{},
+					},
+				})
+
+				tasks := NewFakeProvider("external", []model.List{})
+				tasks.errNextWrite = errors.New("transient api error")
+
+				return store, md, tasks
+			},
+			triggerEvent: func(_, tasksWatcher *FakeWatcher) {
+				tasksWatcher.Trigger(nil)
+				time.Sleep(5 * time.Millisecond)
+				tasksWatcher.Trigger(nil)
 			},
 			wantStore: []model.List{
 				{

@@ -17,11 +17,12 @@ import (
 
 // FakeProvider is a mock implementation of the Provider and RemoteProvider interfaces for testing purposes.
 type FakeProvider struct {
-	Name        string
-	Lists       []model.List
-	ListCounter int
-	ItemCounter int
-	errNextRead error
+	Name         string
+	Lists        []model.List
+	ListCounter  int
+	ItemCounter  int
+	errNextRead  error
+	errNextWrite error
 }
 
 func NewFakeProvider(name string, lists []model.List) *FakeProvider {
@@ -80,6 +81,13 @@ func (f *FakeProvider) GetKey(resource model.Resource) string {
 }
 
 func (f *FakeProvider) CreateList(_ context.Context, list *model.List) error {
+	if f.errNextWrite != nil {
+		err := f.errNextWrite
+		f.errNextWrite = nil
+
+		return err
+	}
+
 	list.Clean()
 	if err := list.Validate(); err != nil {
 		return err
@@ -144,6 +152,13 @@ func (f *FakeProvider) ListLists(_ context.Context) ([]model.List, error) {
 }
 
 func (f *FakeProvider) UpdateList(_ context.Context, updatedList, _ *model.List) error {
+	if f.errNextWrite != nil {
+		err := f.errNextWrite
+		f.errNextWrite = nil
+
+		return err
+	}
+
 	updatedList.Clean()
 	if err := updatedList.Validate(); err != nil {
 		return err
@@ -234,6 +249,13 @@ func (f *FakeProvider) UpdateList(_ context.Context, updatedList, _ *model.List)
 }
 
 func (f *FakeProvider) DeleteList(_ context.Context, deletedList *model.List) error {
+	if f.errNextWrite != nil {
+		err := f.errNextWrite
+		f.errNextWrite = nil
+
+		return err
+	}
+
 	idx := slices.IndexFunc(f.Lists, func(list model.List) bool {
 		return isMatch(&list, deletedList)
 	})
@@ -248,6 +270,13 @@ func (f *FakeProvider) DeleteList(_ context.Context, deletedList *model.List) er
 }
 
 func (f *FakeProvider) CreateItem(_ context.Context, item *model.Item, prevItemID string) error {
+	if f.errNextWrite != nil {
+		err := f.errNextWrite
+		f.errNextWrite = nil
+
+		return err
+	}
+
 	item.Clean()
 	if err := item.Validate(); err != nil {
 		return err
@@ -296,6 +325,13 @@ func (f *FakeProvider) CreateItem(_ context.Context, item *model.Item, prevItemI
 }
 
 func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem *model.Item) error {
+	if f.errNextWrite != nil {
+		err := f.errNextWrite
+		f.errNextWrite = nil
+
+		return err
+	}
+
 	updatedItem.Clean()
 	if err := updatedItem.Validate(); err != nil {
 		return err
@@ -370,6 +406,13 @@ func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem *model.Item) er
 }
 
 func (f *FakeProvider) DeleteItem(_ context.Context, deletedItem *model.Item) error {
+	if f.errNextWrite != nil {
+		err := f.errNextWrite
+		f.errNextWrite = nil
+
+		return err
+	}
+
 	for i, list := range f.Lists {
 		idx := slices.IndexFunc(list.Items, func(item *model.Item) bool {
 			return isMatch(item, deletedItem)

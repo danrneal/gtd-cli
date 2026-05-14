@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"time"
 )
@@ -139,6 +140,14 @@ func (r *Runner) pull(ctx context.Context, target *SyncTarget, syncStart time.Ti
 	r.logger.InfoContext(ctx, fmt.Sprintf("---> Pulling from %s", target.Name))
 	pulled, err := target.Syncer.Pull(ctx, syncStart)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			r.logger.InfoContext(ctx, "Provider missing, scheduling recreation", "syncTarget", target.Name)
+			target.needsPullRetry = false
+			target.needsPushRetry = true
+
+			return false
+		}
+
 		r.logger.ErrorContext(ctx, "Failed to pull", "syncTarget", target.Name, "err", err)
 		target.needsPullRetry = true
 

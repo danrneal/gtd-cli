@@ -2,7 +2,9 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"slices"
 	"time"
 
@@ -51,7 +53,16 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider, syncStart ti
 
 	dstState, err := s.buildProviderState(ctx, dst)
 	if err != nil {
-		return false, err
+		if !errors.Is(err, fs.ErrNotExist) {
+			return false, err
+		}
+
+		dstState = &providerState{
+			provider: dst,
+			lists:    []model.List{},
+			listsMap: make(map[string]*model.List),
+			itemsMap: make(map[string]*model.Item),
+		}
 	}
 
 	ss := &syncSession{

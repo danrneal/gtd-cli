@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"slices"
@@ -54,7 +55,7 @@ func (c *Client) CreateList(ctx context.Context, list *model.List) error {
 	}
 
 	lists, err := c.readFile()
-	if err != nil {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
 
@@ -156,7 +157,7 @@ func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemI
 	}
 
 	lists, err := c.readFile()
-	if err != nil {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
 
@@ -304,7 +305,7 @@ func (c *Client) readFile() ([]model.List, error) {
 	stat, err := os.Stat(c.filepath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return nil, fmt.Errorf("markdown file not found: %w", err)
 		}
 
 		return nil, fmt.Errorf("failed to stat markdown file: %w", err)
