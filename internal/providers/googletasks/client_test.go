@@ -1385,7 +1385,84 @@ func TestListItems(t *testing.T) {
 							"items": [
 								{
 									"id": "t1",
+									"title": "Alice - Send Mail",
+									"position": "0001"
+								}
+							]
+						}
+					`)),
+					Header: make(http.Header),
+				}
+
+				return resp
+			},
+			wantItems: []*model.Item{
+				{
+					ListID:         "1",
+					Title:          "Send Mail",
+					WaitingOn:      stringPtr("Alice"),
+					Status:         model.StatusNotStarted,
+					ExternalID:     stringPtr("t1"),
+					ExternalListID: stringPtr("L1"),
+				},
+			},
+		},
+		{
+			name: "waiting for parsing with created date",
+			list: &model.List{
+				ID:         "1",
+				Name:       "Waiting For",
+				ExternalID: stringPtr("L1"),
+			},
+			handler: func(_ *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: http.StatusOK,
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"items": [
+								{
+									"id": "t1",
 									"title": "Alice - Send Mail - Jan 23",
+									"position": "0001"
+								}
+							]
+						}
+					`)),
+					Header: make(http.Header),
+				}
+
+				return resp
+			},
+			wantItems: []*model.Item{
+				{
+					ListID:         "1",
+					Title:          "Send Mail",
+					WaitingOn:      stringPtr("Alice"),
+					Status:         model.StatusNotStarted,
+					ExternalID:     stringPtr("t1"),
+					ExternalListID: stringPtr("L1"),
+					Created: rfc3339ToDate(
+						"0000-01-23T00:00:00Z",
+					),
+				},
+			},
+		},
+		{
+			name: "waiting for parsing with invalid created date",
+			list: &model.List{
+				ID:         "1",
+				Name:       "Waiting For",
+				ExternalID: stringPtr("L1"),
+			},
+			handler: func(_ *http.Request) *http.Response {
+				resp := &http.Response{
+					StatusCode: http.StatusOK,
+					Body: io.NopCloser(bytes.NewBufferString(`
+						{
+							"items": [
+								{
+									"id": "t1",
+									"title": "Alice - Send Mail - Jan 42",
 									"position": "0001"
 								}
 							]

@@ -31,16 +31,16 @@ func TestParse(t *testing.T) {
 		{
 			name: "file with no lists",
 			reader: strings.NewReader(`
-This is just a file with some random text.
-But no headers at all.
-`),
+				This is just a file with some random text.
+				But no headers at all.
+			`),
 			want: nil,
 		},
 		{
 			name: "basic list with no items",
 			reader: strings.NewReader(`
-# Inbox
-`),
+				# Inbox
+			`),
 			want: []model.List{
 				{
 					Name:     "Inbox",
@@ -54,10 +54,10 @@ But no headers at all.
 		{
 			name: "multiple lists",
 			reader: strings.NewReader(`
-# List One
+				# List One
 
-# List Two
-`),
+				# List Two
+			`),
 			want: []model.List{
 				{
 					Name:     "List One",
@@ -78,9 +78,9 @@ But no headers at all.
 		{
 			name: "basic list with item",
 			reader: strings.NewReader(`
-# Inbox
-* [ ] A simple task
-`),
+				# Inbox
+				* [ ] A simple task
+			`),
 			want: []model.List{
 				{
 					Name:     "Inbox",
@@ -102,11 +102,11 @@ But no headers at all.
 		{
 			name: "multiline descriptions",
 			reader: strings.NewReader(`
-# Notes
-* [ ] Task with description
-First line of description.
-Second line.
-`),
+				# Notes
+				* [ ] Task with description
+				First line of description.
+				Second line.
+			`),
 			want: []model.List{
 				{
 					Name:     "Notes",
@@ -128,12 +128,12 @@ Second line.
 		{
 			name: "multiple lists with items",
 			reader: strings.NewReader(`
-# List One
-* [ ] Item One A
+				# List One
+				* [ ] Item One A
 
-# List Two
-* [ ] Item Two A
-`),
+				# List Two
+				* [ ] Item Two A
+			`),
 			want: []model.List{
 				{
 					Name:     "List One",
@@ -170,10 +170,10 @@ Second line.
 		{
 			name: "items ignored if no preceding list",
 			reader: strings.NewReader(`
-* [ ] Stray item
-# Inbox
-* [ ] Valid item
-`),
+				* [ ] Stray item
+				# Inbox
+				* [ ] Valid item
+			`),
 			want: []model.List{
 				{
 					Name:     "Inbox",
@@ -195,11 +195,11 @@ Second line.
 		{
 			name: "list with external ID, count suffix, and multiple items",
 			reader: strings.NewReader(`
-## Inbox (3) {{list-123}}
-* [ ] First task
-* [ ] Second task
-* [ ] Third task
-`),
+				## Inbox (3) {{list-123}}
+				* [ ] First task
+				* [ ] Second task
+				* [ ] Third task
+			`),
 			want: []model.List{
 				{
 					ID:       "list-123",
@@ -236,13 +236,13 @@ Second line.
 		{
 			name: "item statuses and strikethrough",
 			reader: strings.NewReader(`
-# Statuses
-* [ ] Not started
-- [-] In progress
-- [~] In progress custom
-* [x] ~Done lowercase~
-* [X] ~~Done uppercase~~
-`),
+				# Statuses
+				* [ ] Not started
+				- [-] In progress
+				- [~] In progress custom
+				* [x] ~Done lowercase~
+				* [X] ~~Done uppercase~~
+			`),
 			want: []model.List{
 				{
 					Name:     "Statuses",
@@ -287,9 +287,9 @@ Second line.
 		{
 			name: "item metadata parsing",
 			reader: strings.NewReader(`
-# Action {{list-1}}
-* [ ] Complex task +proj-123 due:2024-01-02 snoozed:2024-01-01 #tag1 #tag2 {{item-456}}
-`),
+				# Action {{list-1}}
+				* [ ] Complex task +proj-123 due:2024-01-02 snoozed:2024-01-01 #tag1 #tag2 {{item-456}}
+			`),
 			want: []model.List{
 				{
 					ID:       "list-1",
@@ -318,9 +318,9 @@ Second line.
 		{
 			name: "metadata syntax ignoring standalone plus symbol",
 			reader: strings.NewReader(`
-# Normal
-* [ ] A + B
-`),
+				# Normal
+				* [ ] A + B
+			`),
 			want: []model.List{
 				{
 					Name:     "Normal",
@@ -342,9 +342,9 @@ Second line.
 		{
 			name: "metadata syntax ignoring standalone hash symbol",
 			reader: strings.NewReader(`
-# Normal
-* [ ] C # D
-`),
+				# Normal
+				* [ ] C # D
+			`),
 			want: []model.List{
 				{
 					Name:     "Normal",
@@ -366,9 +366,9 @@ Second line.
 		{
 			name: "invalid snoozed date ignores prefix and appends to title",
 			reader: strings.NewReader(`
-# Errors
-* [ ] Bad snoozed snoozed:tomorrow
-`),
+				# Errors
+				* [ ] Bad snoozed snoozed:tomorrow
+			`),
 			want: []model.List{
 				{
 					Name:     "Errors",
@@ -390,9 +390,9 @@ Second line.
 		{
 			name: "invalid due date ignores prefix and appends to title",
 			reader: strings.NewReader(`
-# Errors
-* [ ] Bad due due:ASAP
-`),
+				# Errors
+				* [ ] Bad due due:ASAP
+			`),
 			want: []model.List{
 				{
 					Name:     "Errors",
@@ -414,10 +414,10 @@ Second line.
 		{
 			name: "waiting for list special behavior",
 			reader: strings.NewReader(`
-# Waiting For
-* [ ] Alice - Send report
-* [ ] Bob - Review PR
-`),
+				# Waiting For
+				* [ ] Alice - Send report
+				* [ ] Bob - Review PR
+			`),
 			want: []model.List{
 				{
 					Name:     "Waiting For",
@@ -431,6 +431,7 @@ Second line.
 							Position:  0,
 							Status:    model.StatusNotStarted,
 							Modified:  modified,
+							Created:   modified,
 						},
 						{
 							Title:     "Review PR",
@@ -438,6 +439,7 @@ Second line.
 							Position:  1,
 							Status:    model.StatusNotStarted,
 							Modified:  modified,
+							Created:   modified,
 						},
 					},
 				},
@@ -446,9 +448,9 @@ Second line.
 		{
 			name: "waiting for list ignores item without hyphen separator",
 			reader: strings.NewReader(`
-# Waiting For
-* [ ] Just a task
-`),
+				# Waiting For
+				* [ ] Just a task
+			`),
 			want: []model.List{
 				{
 					Name:     "Waiting For",
@@ -470,9 +472,9 @@ Second line.
 		{
 			name: "waiting for item with incorrectly formatted date",
 			reader: strings.NewReader(`
-# Waiting For
-* [ ] Bob - Review PR - Urgent
-`),
+				# Waiting For
+				* [ ] Bob - Review PR - Urgent
+			`),
 			want: []model.List{
 				{
 					Name:     "Waiting For",
@@ -486,6 +488,7 @@ Second line.
 							Status:    model.StatusNotStarted,
 							WaitingOn: stringPtr("Bob"),
 							Modified:  modified,
+							Created:   modified,
 						},
 					},
 				},
@@ -494,9 +497,9 @@ Second line.
 		{
 			name: "waiting for item with creation date",
 			reader: strings.NewReader(`
-# Waiting For
-* [ ] Alice - Send budget report - May 15
-`),
+				# Waiting For
+				* [ ] Alice - Send budget report - May 15
+			`),
 			want: []model.List{
 				{
 					Name:     "Waiting For",

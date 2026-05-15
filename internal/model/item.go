@@ -122,6 +122,10 @@ func (i *Item) Equal(other *Item) bool {
 		return false
 	}
 
+	if (i.WaitingOn != nil || other.WaitingOn != nil) && i.Created.Format("Jan _2") != other.Created.Format("Jan _2") {
+		return false
+	}
+
 	return true
 }
 

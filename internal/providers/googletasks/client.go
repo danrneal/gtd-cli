@@ -421,15 +421,22 @@ func renderTitle(item *model.Item) string {
 // delegates to parseTitle for the rest of the metadata.
 func parseWaitingForTitle(title string) *model.Item {
 	var waitingOn string
-	titleParts := strings.Split(title, " - ")
-	if len(titleParts) > 1 {
-		waitingOn = strings.TrimSpace(titleParts[0])
-		title = titleParts[1]
+	parts := strings.Split(title, " - ")
+	if len(parts) > 1 {
+		waitingOn = strings.TrimSpace(parts[0])
+		title = parts[1]
 	}
 
 	item := parseTitle(title)
 	if waitingOn != "" {
 		item.WaitingOn = &waitingOn
+	}
+
+	if parts[len(parts)-1] != title {
+		createdStr := strings.TrimSpace(parts[len(parts)-1])
+		if created, err := time.Parse("Jan 2", createdStr); err == nil {
+			item.Created = created
+		}
 	}
 
 	return item
