@@ -222,7 +222,8 @@ func (ss *syncSession) syncListUpdate(ctx context.Context, srcList *model.List) 
 	updated := false
 	listKey := ss.getKey(srcList)
 	dstList := ss.dstState.listsMap[listKey]
-	if srcList.Modified.After(dstList.Modified) && !srcList.Equal(dstList) {
+
+	if (srcList.Modified.After(dstList.Modified) && !srcList.Equal(dstList)) || srcList.Position != dstList.Position {
 		if err := ss.updateList(ctx, srcList, dstList); err != nil {
 			return updated, err
 		}

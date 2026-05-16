@@ -45,7 +45,10 @@ func NewFakeProvider(name string, lists []model.List) *FakeProvider {
 			list.Status = model.StatusOpen
 		}
 
-		list.Position = i
+		if list.Position == 0 {
+			list.Position = i
+		}
+
 		for j, item := range list.Items {
 			provider.ItemCounter++
 
@@ -2720,6 +2723,156 @@ func TestOneWaySync(t *testing.T) {
 				{
 					ID:         "store-list-1",
 					Name:       "L1 Updated",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "update list reorder (push)",
+			src: NewFakeProvider("store", []model.List{
+				{
+					Name:     "L1",
+					Position: 1,
+					Modified: baseTime,
+				},
+			}),
+			dst: NewFakeProvider("generic", []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Position: 0,
+					Modified: baseTime.Add(1),
+				},
+			}),
+			wantSrcLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Items:    []*model.Item{},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Items:    []*model.Item{},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "update list reorder (pull)",
+			src: NewFakeProvider("generic", []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Position: 1,
+					Modified: baseTime,
+				},
+			}),
+			dst: NewFakeProvider("store", []model.List{
+				{
+					Name:     "L1",
+					Position: 0,
+					Modified: baseTime.Add(1),
+				},
+			}),
+			wantSrcLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Items:    []*model.Item{},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Items:    []*model.Item{},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "update list reorder external (push)",
+			src: NewFakeProvider("store", []model.List{
+				{
+					Name:       "L1",
+					Position:   1,
+					ExternalID: stringPtr("external-list-1"),
+					Modified:   baseTime,
+				},
+			}),
+			dst: NewFakeProvider("external", []model.List{
+				{
+					Name:     "L1",
+					Position: 0,
+					Modified: baseTime.Add(1),
+				},
+			}),
+			wantSrcLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "L1",
+					Position:   1,
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					Name:       "L1",
+					Position:   1,
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "update list reorder external (pull)",
+			src: NewFakeProvider("external", []model.List{
+				{
+					Name:     "L1",
+					Position: 1,
+					Modified: baseTime,
+				},
+			}),
+			dst: NewFakeProvider("store", []model.List{
+				{
+					Name:       "L1",
+					Position:   0,
+					ExternalID: stringPtr("external-list-1"),
+					Modified:   baseTime.Add(1),
+				},
+			}),
+			wantSrcLists: []model.List{
+				{
+					Name:       "L1",
+					Position:   1,
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "L1",
+					Position:   1,
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
 					Items:      []*model.Item{},

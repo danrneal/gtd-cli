@@ -89,10 +89,6 @@ func (l *List) Equal(other *List) bool {
 		return false
 	}
 
-	if l.Position != other.Position {
-		return false
-	}
-
 	if len(l.Items) != len(other.Items) {
 		return false
 	}

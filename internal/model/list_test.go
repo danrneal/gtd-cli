@@ -399,18 +399,6 @@ func TestList_Equal(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "different positions",
-			list: baseList,
-			other: &List{
-				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
-				Name:       "Inbox",
-				Status:     StatusOpen,
-				Position:   1,
-			},
-			want: false,
-		},
-		{
 			name: "equal lists with nil pointers",
 			list: &List{
 				ID:         "1",
