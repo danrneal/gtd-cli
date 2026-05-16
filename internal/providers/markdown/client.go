@@ -101,6 +101,19 @@ func (c *Client) UpdateList(_ context.Context, list, currentList *model.List) er
 
 	lists[idx].ID = list.ID
 	lists[idx].Name = list.Name
+
+	if idx != list.Position {
+		if list.Position >= len(lists) {
+			list.Position = len(lists) - 1
+		}
+
+		listToMove := lists[idx]
+		lists = slices.Delete(lists, idx, idx+1)
+		lists = slices.Insert(lists, list.Position, listToMove)
+
+		idx = list.Position
+	}
+
 	itemsToMove := calculateItemsToMove(list, currentList.Items)
 	for _, item := range itemsToMove {
 		err = c.moveItem(lists, item, idx)

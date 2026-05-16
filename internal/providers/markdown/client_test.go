@@ -327,6 +327,108 @@ func TestClient_UpdateList(t *testing.T) {
 		wantErr     bool
 	}{
 		{
+			name: "success (reorder list)",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "update_success_reorder_list.md")
+				content := "# List A {{list-1}}\n\n# List B {{list-2}}\n\n# List C {{list-3}}\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
+				if err := os.Chtimes(path, modified, modified); err != nil {
+					t.Fatalf("failed to change file times: %v", err)
+				}
+
+				return path
+			},
+			list: &model.List{
+				ID:       "list-1",
+				Name:     "List A",
+				Position: 2,
+				Status:   model.StatusOpen,
+				Modified: modified,
+				Items:    []*model.Item{},
+			},
+			currentList: &model.List{
+				Name:  "List A",
+				Items: []*model.Item{},
+			},
+			want: []model.List{
+				{
+					ID:       "list-2",
+					Name:     "List B",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "list-3",
+					Name:     "List C",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "list-1",
+					Name:     "List A",
+					Position: 2,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "success (reorder list out of bounds)",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "update_success_reorder_list_oob.md")
+				content := "# List A {{list-1}}\n\n# List B {{list-2}}\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
+				if err := os.Chtimes(path, modified, modified); err != nil {
+					t.Fatalf("failed to change file times: %v", err)
+				}
+
+				return path
+			},
+			list: &model.List{
+				ID:       "list-1",
+				Name:     "List A",
+				Position: 5,
+				Status:   model.StatusOpen,
+				Modified: modified,
+				Items:    []*model.Item{},
+			},
+			currentList: &model.List{
+				Name:  "List A",
+				Items: []*model.Item{},
+			},
+			want: []model.List{
+				{
+					ID:       "list-2",
+					Name:     "List B",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "list-1",
+					Name:     "List A",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "success (backfill fallback)",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "update_success_backfill.md")
