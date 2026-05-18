@@ -1,15 +1,9 @@
 package googletasks
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"io"
 	"log/slog"
-	"maps"
 	"net/http"
-	"regexp"
 	"slices"
 	"testing"
 	"time"
@@ -19,424 +13,8 @@ import (
 	"google.golang.org/api/tasks/v1"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
+	"github.com/danrneal/gtd.nvim/internal/providers/googletasks/googletaskstest"
 )
-
-var (
-	taskListRegex = regexp.MustCompile(`^/tasks/v1/users/@me/lists(?:/([^/]+))?$`)
-	taskRegex     = regexp.MustCompile(`^/tasks/v1/lists/([^/]+)/tasks(?:/([^/]+)(?:/move)?)?$`)
-)
-
-// mockTransport implements [http.RoundTripper] to mock API responses.
-type mockTransport struct {
-	roundTripFunc func(req *http.Request) (*http.Response, error)
-}
-
-func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	return m.roundTripFunc(req)
-}
-
-type FakeGoogleTasks struct {
-	t                  *testing.T
-	taskLists          map[string]*tasks.TaskList
-	tasks              map[string][]*tasks.Task
-	failInsertTaskList bool
-	failListTaskLists  bool
-	failPatchTaskList  bool
-	failDeleteTaskList bool
-	failInsertTask     bool
-	failListTasks      bool
-	failPatchTask      bool
-	failMoveTask       bool
-	failDeleteTask     bool
-}
-
-func NewFakeGoogleTasks(t *testing.T) *FakeGoogleTasks {
-	googleTasks := &FakeGoogleTasks{
-		t:         t,
-		taskLists: map[string]*tasks.TaskList{},
-		tasks:     map[string][]*tasks.Task{},
-	}
-
-	return googleTasks
-}
-
-func (f *FakeGoogleTasks) RoundTrip(req *http.Request) (*http.Response, error) {
-	if matches := taskListRegex.FindStringSubmatch(req.URL.Path); matches != nil {
-		taskListID := matches[1]
-
-		switch req.Method {
-		case http.MethodPost:
-			return f.InsertTaskList(req.Body)
-		case http.MethodGet:
-			return f.ListTaskLists()
-		case http.MethodPatch:
-			return f.PatchTaskList(taskListID, req.Body)
-		case http.MethodDelete:
-			return f.DeleteTaskList(taskListID)
-		}
-	}
-
-	if matches := taskRegex.FindStringSubmatch(req.URL.Path); matches != nil {
-		taskListID := matches[1]
-		taskID := matches[2]
-
-		switch req.Method {
-		case http.MethodPost:
-			if taskID == "" {
-				return f.InsertTask(taskListID, req.Body)
-			}
-
-			return f.MoveTask(taskListID, taskID, req)
-		case http.MethodGet:
-			return f.ListTasks(taskListID)
-		case http.MethodPatch:
-			return f.PatchTask(taskListID, taskID, req.Body)
-		case http.MethodDelete:
-			return f.DeleteTask(taskListID, taskID)
-		}
-	}
-
-	resp := &http.Response{
-		StatusCode: http.StatusNotFound,
-		Body:       io.NopCloser(bytes.NewBufferString("Not Found: " + req.URL.Path)),
-		Header:     make(http.Header),
-	}
-
-	return resp, nil
-}
-
-func (f *FakeGoogleTasks) InsertTaskList(reqBody io.Reader) (*http.Response, error) {
-	if f.failInsertTaskList {
-		resp := &http.Response{
-			StatusCode: http.StatusInternalServerError,
-			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
-			Header:     make(http.Header),
-		}
-
-		return resp, nil
-	}
-
-	body, err := io.ReadAll(reqBody)
-	if err != nil {
-		f.t.Fatalf("failed to read request body: %v", err)
-	}
-
-	var taskList tasks.TaskList
-	if err = json.Unmarshal(body, &taskList); err != nil {
-		f.t.Fatalf("failed to unmarshal request body: %v", err)
-	}
-
-	taskList.Id = fmt.Sprintf("generated-list-%d", len(f.taskLists)+1)
-	f.taskLists[taskList.Id] = &taskList
-
-	respBody, err := json.Marshal(&taskList)
-	if err != nil {
-		f.t.Fatalf("failed to marshal response: %v", err)
-	}
-
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(bytes.NewReader(respBody)),
-		Header:     make(http.Header),
-	}
-
-	return resp, nil
-}
-
-func (f *FakeGoogleTasks) ListTaskLists() (*http.Response, error) {
-	if f.failListTaskLists {
-		resp := &http.Response{
-			StatusCode: http.StatusInternalServerError,
-			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
-			Header:     make(http.Header),
-		}
-
-		return resp, nil
-	}
-
-	taskLists := &tasks.TaskLists{
-		Items: slices.Collect(maps.Values(f.taskLists)),
-	}
-
-	body, err := json.Marshal(taskLists)
-	if err != nil {
-		f.t.Fatalf("failed to marshal tasklists: %v", err)
-	}
-
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(bytes.NewReader(body)),
-		Header:     make(http.Header),
-	}
-
-	return resp, nil
-}
-
-func (f *FakeGoogleTasks) PatchTaskList(taskListID string, reqBody io.Reader) (*http.Response, error) {
-	if f.failPatchTaskList {
-		resp := &http.Response{
-			StatusCode: http.StatusInternalServerError,
-			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
-			Header:     make(http.Header),
-		}
-
-		return resp, nil
-	}
-
-	body, err := io.ReadAll(reqBody)
-	if err != nil {
-		f.t.Fatalf("failed to read request body: %v", err)
-	}
-
-	taskList, ok := f.taskLists[taskListID]
-	if !ok {
-		resp := &http.Response{
-			StatusCode: http.StatusNotFound,
-			Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
-			Header:     make(http.Header),
-		}
-
-		return resp, nil
-	}
-
-	if err = json.Unmarshal(body, &taskList); err != nil {
-		f.t.Fatalf("failed to unmarshal request body: %v", err)
-	}
-
-	respBody, err := json.Marshal(&taskList)
-	if err != nil {
-		f.t.Fatalf("failed to marshal response: %v", err)
-	}
-
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(bytes.NewReader(respBody)),
-		Header:     make(http.Header),
-	}
-
-	return resp, nil
-}
-
-func (f *FakeGoogleTasks) DeleteTaskList(taskListID string) (*http.Response, error) {
-	if f.failDeleteTaskList {
-		resp := &http.Response{
-			StatusCode: http.StatusInternalServerError,
-			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
-			Header:     make(http.Header),
-		}
-
-		return resp, nil
-	}
-
-	delete(f.taskLists, taskListID)
-	delete(f.tasks, taskListID)
-
-	resp := &http.Response{
-		StatusCode: http.StatusNoContent,
-		Body:       io.NopCloser(bytes.NewBufferString("")),
-		Header:     make(http.Header),
-	}
-
-	return resp, nil
-}
-
-func (f *FakeGoogleTasks) InsertTask(taskListID string, reqBody io.Reader) (*http.Response, error) {
-	if f.failInsertTask {
-		resp := &http.Response{
-			StatusCode: http.StatusInternalServerError,
-			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
-			Header:     make(http.Header),
-		}
-
-		return resp, nil
-	}
-
-	body, err := io.ReadAll(reqBody)
-	if err != nil {
-		f.t.Fatalf("failed to read request body: %v", err)
-	}
-
-	var task tasks.Task
-	if err = json.Unmarshal(body, &task); err != nil {
-		f.t.Fatalf("failed to unmarshal request body: %v", err)
-	}
-
-	task.Id = fmt.Sprintf("generated-task-%d", len(f.taskLists)+1)
-	f.tasks[taskListID] = append(f.tasks[taskListID], &task)
-
-	respBody, err := json.Marshal(&task)
-	if err != nil {
-		f.t.Fatalf("failed to marshal response: %v", err)
-	}
-
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(bytes.NewReader(respBody)),
-		Header:     make(http.Header),
-	}
-
-	return resp, nil
-}
-
-func (f *FakeGoogleTasks) ListTasks(taskListID string) (*http.Response, error) {
-	if f.failListTasks {
-		resp := &http.Response{
-			StatusCode: http.StatusInternalServerError,
-			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
-			Header:     make(http.Header),
-		}
-
-		return resp, nil
-	}
-
-	taskItems := &tasks.Tasks{
-		Items: f.tasks[taskListID],
-	}
-
-	body, err := json.Marshal(taskItems)
-	if err != nil {
-		f.t.Fatalf("failed to marshal tasks: %v", err)
-	}
-
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(bytes.NewReader(body)),
-		Header:     make(http.Header),
-	}
-
-	return resp, nil
-}
-
-func (f *FakeGoogleTasks) PatchTask(taskListID, taskID string, reqBody io.Reader) (*http.Response, error) {
-	if f.failPatchTask {
-		resp := &http.Response{
-			StatusCode: http.StatusInternalServerError,
-			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
-			Header:     make(http.Header),
-		}
-
-		return resp, nil
-	}
-
-	body, err := io.ReadAll(reqBody)
-	if err != nil {
-		f.t.Fatalf("failed to read request body: %v", err)
-	}
-
-	idx := slices.IndexFunc(f.tasks[taskListID], func(t *tasks.Task) bool {
-		return t.Id == taskID
-	})
-
-	if idx == -1 {
-		resp := &http.Response{
-			StatusCode: http.StatusNotFound,
-			Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
-			Header:     make(http.Header),
-		}
-
-		return resp, nil
-	}
-
-	task := f.tasks[taskListID][idx]
-	if err = json.Unmarshal(body, &task); err != nil {
-		f.t.Fatalf("failed to unmarshal request body: %v", err)
-	}
-
-	if bytes.Contains(body, []byte(`"notes":null`)) {
-		task.Notes = ""
-	}
-
-	if bytes.Contains(body, []byte(`"due":null`)) {
-		task.Due = ""
-	}
-
-	respBody, err := json.Marshal(&task)
-	if err != nil {
-		f.t.Fatalf("failed to marshal response: %v", err)
-	}
-
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(bytes.NewReader(respBody)),
-		Header:     make(http.Header),
-	}
-
-	return resp, nil
-}
-
-func (f *FakeGoogleTasks) MoveTask(taskListID, taskID string, req *http.Request) (*http.Response, error) {
-	if f.failMoveTask {
-		resp := &http.Response{
-			StatusCode: http.StatusInternalServerError,
-			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
-			Header:     make(http.Header),
-		}
-
-		return resp, nil
-	}
-
-	q := req.URL.Query()
-	destTaskListID := q.Get("destinationTasklist")
-	prevTaskID := q.Get("previous")
-	if destTaskListID == "" {
-		destTaskListID = taskListID
-	}
-
-	idx := slices.IndexFunc(f.tasks[taskListID], func(t *tasks.Task) bool {
-		return t.Id == taskID
-	})
-
-	if idx == -1 {
-		resp := &http.Response{
-			StatusCode: http.StatusNotFound,
-			Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
-			Header:     make(http.Header),
-		}
-
-		return resp, nil
-	}
-
-	task := f.tasks[taskListID][idx]
-	f.tasks[taskListID] = slices.Delete(f.tasks[taskListID], idx, idx+1)
-
-	prevTaskIdx := slices.IndexFunc(f.tasks[destTaskListID], func(t *tasks.Task) bool {
-		return t.Id == prevTaskID
-	})
-
-	f.tasks[destTaskListID] = slices.Insert(f.tasks[destTaskListID], prevTaskIdx+1, task)
-
-	resp := &http.Response{
-		StatusCode: http.StatusNoContent,
-		Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
-		Header:     make(http.Header),
-	}
-
-	return resp, nil
-}
-
-func (f *FakeGoogleTasks) DeleteTask(taskListID, taskID string) (*http.Response, error) {
-	if f.failDeleteTask {
-		resp := &http.Response{
-			StatusCode: http.StatusInternalServerError,
-			Body:       io.NopCloser(bytes.NewBufferString(`{"error": "internal"}`)),
-			Header:     make(http.Header),
-		}
-
-		return resp, nil
-	}
-
-	f.tasks[taskListID] = slices.DeleteFunc(f.tasks[taskListID], func(t *tasks.Task) bool {
-		return t.Id == taskID
-	})
-
-	resp := &http.Response{
-		StatusCode: http.StatusNoContent,
-		Body:       io.NopCloser(bytes.NewBufferString("")),
-		Header:     make(http.Header),
-	}
-
-	return resp, nil
-}
 
 func TestGetKey(t *testing.T) {
 	t.Parallel()
@@ -479,7 +57,7 @@ func TestCreateList(t *testing.T) {
 	tests := []struct {
 		name           string
 		list           *model.List
-		setupFake      func(fake *FakeGoogleTasks)
+		setupFake      func(fake *googletaskstest.FakeGoogleTasks)
 		wantErr        bool
 		wantExternalID string
 	}{
@@ -489,7 +67,7 @@ func TestCreateList(t *testing.T) {
 				Name:     "  New List  \n",
 				Modified: time.Now(),
 			},
-			setupFake:      func(fake *FakeGoogleTasks) {},
+			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:        false,
 			wantExternalID: "generated-list-1",
 		},
@@ -500,7 +78,7 @@ func TestCreateList(t *testing.T) {
 				Status:   model.StatusDeleted,
 				Modified: time.Now(),
 			},
-			setupFake: func(fake *FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:   true,
 		},
 		{
@@ -508,7 +86,7 @@ func TestCreateList(t *testing.T) {
 			list: &model.List{
 				Name: "",
 			},
-			setupFake: func(fake *FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:   true,
 		},
 		{
@@ -517,8 +95,8 @@ func TestCreateList(t *testing.T) {
 				Name:     "Fail List",
 				Modified: time.Now(),
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.failInsertTaskList = true
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.FailInsertTaskList = true
 			},
 			wantErr: true,
 		},
@@ -528,7 +106,7 @@ func TestCreateList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeTasks := NewFakeGoogleTasks(t)
+			fakeTasks := googletaskstest.NewFakeGoogleTasks(t)
 			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
 				Transport: fakeTasks,
@@ -563,20 +141,20 @@ func TestListLists(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		setupFake func(fake *FakeGoogleTasks)
+		setupFake func(fake *googletaskstest.FakeGoogleTasks)
 		wantLists []model.List
 		wantErr   bool
 	}{
 		{
 			name: "success with items",
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.taskLists["L1"] = &tasks.TaskList{
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists["L1"] = &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Inbox",
 					Updated: "2024-01-01T12:00:00Z",
 				}
 
-				fake.tasks["L1"] = []*tasks.Task{
+				fake.Tasks["L1"] = []*tasks.Task{
 					{
 						Id:       "T1",
 						Title:    "Task 1",
@@ -605,22 +183,22 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "tasklists list failure",
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.failListTaskLists = true
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.FailListTaskLists = true
 			},
 			wantLists: nil,
 			wantErr:   true,
 		},
 		{
 			name: "list items failure",
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.taskLists["L1"] = &tasks.TaskList{
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists["L1"] = &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Inbox",
 					Updated: "2024-01-01T12:00:00Z",
 				}
 
-				fake.failListTasks = true
+				fake.FailListTasks = true
 			},
 			wantLists: nil,
 			wantErr:   true,
@@ -631,7 +209,7 @@ func TestListLists(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeTasks := NewFakeGoogleTasks(t)
+			fakeTasks := googletaskstest.NewFakeGoogleTasks(t)
 			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
 				Transport: fakeTasks,
@@ -671,7 +249,7 @@ func TestUpdateList(t *testing.T) {
 		name         string
 		list         *model.List
 		currentList  *model.List
-		setupFake    func(fake *FakeGoogleTasks)
+		setupFake    func(fake *googletaskstest.FakeGoogleTasks)
 		wantTaskList *tasks.TaskList
 		wantTasks    []*tasks.Task
 		wantErr      bool
@@ -714,13 +292,13 @@ func TestUpdateList(t *testing.T) {
 					},
 				},
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.taskLists["L1"] = &tasks.TaskList{
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists["L1"] = &tasks.TaskList{
 					Id:    "L1",
 					Title: "Same List",
 				}
 
-				fake.tasks["L1"] = []*tasks.Task{
+				fake.Tasks["L1"] = []*tasks.Task{
 					{
 						Id:     "B",
 						Title:  "Task 2",
@@ -761,8 +339,8 @@ func TestUpdateList(t *testing.T) {
 			currentList: &model.List{
 				Name: "Target List",
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.taskLists["L1"] = &tasks.TaskList{
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists["L1"] = &tasks.TaskList{
 					Id:    "L1",
 					Title: "Target List",
 				}
@@ -802,13 +380,13 @@ func TestUpdateList(t *testing.T) {
 					{ExternalID: stringPtr("A")},
 				},
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.taskLists["L1"] = &tasks.TaskList{
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists["L1"] = &tasks.TaskList{
 					Id:    "L1",
 					Title: "My List",
 				}
 
-				fake.tasks["L1"] = []*tasks.Task{
+				fake.Tasks["L1"] = []*tasks.Task{
 					{Id: "B"},
 					{Id: "C"},
 					{Id: "A"},
@@ -887,13 +465,13 @@ func TestUpdateList(t *testing.T) {
 					},
 				},
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.taskLists["L1"] = &tasks.TaskList{
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists["L1"] = &tasks.TaskList{
 					Id:    "L1",
 					Title: "Same List",
 				}
 
-				fake.tasks["L1"] = []*tasks.Task{
+				fake.Tasks["L1"] = []*tasks.Task{
 					{Id: "A"},
 					{Id: "B"},
 					{Id: "C"},
@@ -929,22 +507,22 @@ func TestUpdateList(t *testing.T) {
 				Name:  "Target List",
 				Items: []*model.Item{},
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.taskLists["L1"] = &tasks.TaskList{
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists["L1"] = &tasks.TaskList{
 					Id:    "L1",
 					Title: "Source List",
 				}
 
-				fake.taskLists["L2"] = &tasks.TaskList{
+				fake.TaskLists["L2"] = &tasks.TaskList{
 					Id:    "L2",
 					Title: "Target List",
 				}
 
-				fake.tasks["L1"] = []*tasks.Task{
+				fake.Tasks["L1"] = []*tasks.Task{
 					{Id: "A"},
 				}
 
-				fake.tasks["L2"] = []*tasks.Task{}
+				fake.Tasks["L2"] = []*tasks.Task{}
 			},
 			wantTaskList: &tasks.TaskList{
 				Id:    "L2",
@@ -978,11 +556,11 @@ func TestUpdateList(t *testing.T) {
 					{ExternalID: stringPtr("B")},
 				},
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.taskLists["L1"] = &tasks.TaskList{Id: "L1", Title: "Source List"}
-				fake.taskLists["L2"] = &tasks.TaskList{Id: "L2", Title: "Target List"}
-				fake.tasks["L1"] = []*tasks.Task{{Id: "A"}}
-				fake.tasks["L2"] = []*tasks.Task{{Id: "B"}}
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists["L1"] = &tasks.TaskList{Id: "L1", Title: "Source List"}
+				fake.TaskLists["L2"] = &tasks.TaskList{Id: "L2", Title: "Target List"}
+				fake.Tasks["L1"] = []*tasks.Task{{Id: "A"}}
+				fake.Tasks["L2"] = []*tasks.Task{{Id: "B"}}
 			},
 			wantTaskList: &tasks.TaskList{
 				Id:    "L2",
@@ -1000,7 +578,7 @@ func TestUpdateList(t *testing.T) {
 				Name:     "Update List",
 				Modified: time.Now(),
 			},
-			setupFake: func(fake *FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:   true,
 		},
 		{
@@ -1009,7 +587,7 @@ func TestUpdateList(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 				Name:       "",
 			},
-			setupFake: func(fake *FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:   true,
 		},
 		{
@@ -1022,8 +600,8 @@ func TestUpdateList(t *testing.T) {
 			currentList: &model.List{
 				Name: "Target List",
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.failPatchTaskList = true
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.FailPatchTaskList = true
 			},
 			wantErr: true,
 		},
@@ -1051,8 +629,8 @@ func TestUpdateList(t *testing.T) {
 					{ExternalID: stringPtr("A")},
 				},
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.failMoveTask = true
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.FailMoveTask = true
 			},
 			wantErr: true,
 		},
@@ -1062,7 +640,7 @@ func TestUpdateList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeTasks := NewFakeGoogleTasks(t)
+			fakeTasks := googletaskstest.NewFakeGoogleTasks(t)
 			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
 				Transport: fakeTasks,
@@ -1083,13 +661,13 @@ func TestUpdateList(t *testing.T) {
 				return
 			}
 
-			gotTaskList := fakeTasks.taskLists[*tt.list.ExternalID]
+			gotTaskList := fakeTasks.TaskLists[*tt.list.ExternalID]
 
 			if diff := cmp.Diff(tt.wantTaskList, gotTaskList); diff != "" {
 				t.Errorf("UpdateList() taskList mismatch (-want +got):\n%s", diff)
 			}
 
-			gotTasks := fakeTasks.tasks[*tt.list.ExternalID]
+			gotTasks := fakeTasks.Tasks[*tt.list.ExternalID]
 
 			if diff := cmp.Diff(tt.wantTasks, gotTasks); diff != "" {
 				t.Errorf("UpdateList() tasks mismatch (-want +got):\n%s", diff)
@@ -1104,7 +682,7 @@ func TestDeleteList(t *testing.T) {
 	tests := []struct {
 		name      string
 		list      *model.List
-		setupFake func(fake *FakeGoogleTasks)
+		setupFake func(fake *googletaskstest.FakeGoogleTasks)
 		wantErr   bool
 	}{
 		{
@@ -1112,8 +690,8 @@ func TestDeleteList(t *testing.T) {
 			list: &model.List{
 				ExternalID: stringPtr("L1"),
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.taskLists["L1"] = &tasks.TaskList{Id: "L1"}
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists["L1"] = &tasks.TaskList{Id: "L1"}
 			},
 			wantErr: false,
 		},
@@ -1122,7 +700,7 @@ func TestDeleteList(t *testing.T) {
 			list: &model.List{
 				Name: "Delete List",
 			},
-			setupFake: func(fake *FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:   true,
 		},
 		{
@@ -1130,8 +708,8 @@ func TestDeleteList(t *testing.T) {
 			list: &model.List{
 				ExternalID: stringPtr("L1"),
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.failDeleteTaskList = true
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.FailDeleteTaskList = true
 			},
 			wantErr: true,
 		},
@@ -1141,7 +719,7 @@ func TestDeleteList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeTasks := NewFakeGoogleTasks(t)
+			fakeTasks := googletaskstest.NewFakeGoogleTasks(t)
 			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
 				Transport: fakeTasks,
@@ -1169,7 +747,7 @@ func TestCreateItem(t *testing.T) {
 		listID         string
 		item           *model.Item
 		previousItemID string
-		setupFake      func(fake *FakeGoogleTasks)
+		setupFake      func(fake *googletaskstest.FakeGoogleTasks)
 		wantErr        bool
 		wantExternalID string
 	}{
@@ -1181,7 +759,7 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake:      func(fake *FakeGoogleTasks) {},
+			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:        false,
 			wantExternalID: "generated-task-1",
 		},
@@ -1191,7 +769,7 @@ func TestCreateItem(t *testing.T) {
 			item: &model.Item{
 				Title: "",
 			},
-			setupFake: func(fake *FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:   true,
 		},
 		{
@@ -1203,7 +781,7 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake:      func(fake *FakeGoogleTasks) {},
+			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:        false,
 			wantExternalID: "generated-task-1",
 		},
@@ -1216,7 +794,7 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake:      func(fake *FakeGoogleTasks) {},
+			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:        false,
 			wantExternalID: "generated-task-1",
 		},
@@ -1229,7 +807,7 @@ func TestCreateItem(t *testing.T) {
 				Modified:       time.Now(),
 			},
 			previousItemID: "P1",
-			setupFake:      func(fake *FakeGoogleTasks) {},
+			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:        false,
 			wantExternalID: "generated-task-1",
 		},
@@ -1243,7 +821,7 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:   true,
 		},
 		{
@@ -1254,7 +832,7 @@ func TestCreateItem(t *testing.T) {
 				Title:    "Fail",
 				Modified: time.Now(),
 			},
-			setupFake: func(fake *FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:   true,
 		},
 		{
@@ -1266,8 +844,8 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.failInsertTask = true
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.FailInsertTask = true
 			},
 			wantErr: true,
 		},
@@ -1277,7 +855,7 @@ func TestCreateItem(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeTasks := NewFakeGoogleTasks(t)
+			fakeTasks := googletaskstest.NewFakeGoogleTasks(t)
 			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
 				Transport: fakeTasks,
@@ -1313,7 +891,7 @@ func TestListItems(t *testing.T) {
 	tests := []struct {
 		name      string
 		list      *model.List
-		handler   func(req *http.Request) *http.Response
+		setupFake func(fake *googletaskstest.FakeGoogleTasks)
 		wantItems []*model.Item
 		wantErr   bool
 	}{
@@ -1325,31 +903,21 @@ func TestListItems(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 				Modified:   time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"items": [
-								{
-									"id": "t2",
-									"title": "Task 2",
-									"position": "0002",
-									"status": "needsAction"
-								},
-								{
-									"id": "t1",
-									"title": "Task 1",
-									"position": "0001",
-									"status": "needsAction"
-								}
-							]
-						}
-					`)),
-					Header: make(http.Header),
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t2",
+						Title:    "Task 2",
+						Position: "0002",
+						Status:   "needsAction",
+					},
+					{
+						Id:       "t1",
+						Title:    "Task 1",
+						Position: "0001",
+						Status:   "needsAction",
+					},
 				}
-
-				return resp
 			},
 			wantItems: []*model.Item{
 				{
@@ -1377,24 +945,14 @@ func TestListItems(t *testing.T) {
 				Name:       "Waiting For",
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"items": [
-								{
-									"id": "t1",
-									"title": "Alice - Send Mail",
-									"position": "0001"
-								}
-							]
-						}
-					`)),
-					Header: make(http.Header),
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Alice - Send Mail",
+						Position: "0001",
+					},
 				}
-
-				return resp
 			},
 			wantItems: []*model.Item{
 				{
@@ -1414,24 +972,14 @@ func TestListItems(t *testing.T) {
 				Name:       "Waiting For",
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"items": [
-								{
-									"id": "t1",
-									"title": "Alice - Send Mail - Jan 23",
-									"position": "0001"
-								}
-							]
-						}
-					`)),
-					Header: make(http.Header),
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Alice - Send Mail - Jan 23",
+						Position: "0001",
+					},
 				}
-
-				return resp
 			},
 			wantItems: []*model.Item{
 				{
@@ -1454,24 +1002,14 @@ func TestListItems(t *testing.T) {
 				Name:       "Waiting For",
 				ExternalID: stringPtr("L1"),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"items": [
-								{
-									"id": "t1",
-									"title": "Alice - Send Mail - Jan 42",
-									"position": "0001"
-								}
-							]
-						}
-					`)),
-					Header: make(http.Header),
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Alice - Send Mail - Jan 42",
+						Position: "0001",
+					},
 				}
-
-				return resp
 			},
 			wantItems: []*model.Item{
 				{
@@ -1492,24 +1030,14 @@ func TestListItems(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 				Modified:   time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"items": [
-								{
-									"id": "t1",
-									"title": "Task +ProjectA",
-									"position": "0001"
-								}
-							]
-						}
-					`)),
-					Header: make(http.Header),
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task +ProjectA",
+						Position: "0001",
+					},
 				}
-
-				return resp
 			},
 			wantItems: []*model.Item{
 				{
@@ -1530,24 +1058,14 @@ func TestListItems(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 				Modified:   time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"items": [
-								{
-									"id": "t1",
-									"title": "Task due:2024-01-01",
-									"position": "0001"
-								}
-							]
-						}
-					`)),
-					Header: make(http.Header),
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task due:2024-01-01",
+						Position: "0001",
+					},
 				}
-
-				return resp
 			},
 			wantItems: []*model.Item{
 				{
@@ -1568,24 +1086,14 @@ func TestListItems(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 				Modified:   time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"items": [
-								{
-									"id": "t1",
-									"title": "Task #tag1 #tag2",
-									"position": "0001"
-								}
-							]
-						}
-					`)),
-					Header: make(http.Header),
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task #tag1 #tag2",
+						Position: "0001",
+					},
 				}
-
-				return resp
 			},
 			wantItems: []*model.Item{
 				{
@@ -1606,25 +1114,15 @@ func TestListItems(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 				Modified:   time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"items": [
-								{
-									"id": "t1",
-									"title": "Task",
-									"status": "completed",
-									"position": "0001"
-								}
-							]
-						}
-					`)),
-					Header: make(http.Header),
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task",
+						Status:   "completed",
+						Position: "0001",
+					},
 				}
-
-				return resp
 			},
 			wantItems: []*model.Item{
 				{
@@ -1644,25 +1142,15 @@ func TestListItems(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 				Modified:   time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"items": [
-								{
-									"id": "t1",
-									"title": "Task",
-									"notes": "My notes",
-									"position": "0001"
-								}
-							]
-						}
-					`)),
-					Header: make(http.Header),
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task",
+						Notes:    "My notes",
+						Position: "0001",
+					},
 				}
-
-				return resp
 			},
 			wantItems: []*model.Item{
 				{
@@ -1683,25 +1171,15 @@ func TestListItems(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 				Modified:   time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"items": [
-								{
-									"id": "t1",
-									"title": "Task",
-									"due": "2024-01-01T00:00:00Z",
-									"position": "0001"
-								}
-							]
-						}
-					`)),
-					Header: make(http.Header),
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task",
+						Due:      "2024-01-01T00:00:00Z",
+						Position: "0001",
+					},
 				}
-
-				return resp
 			},
 			wantItems: []*model.Item{
 				{
@@ -1722,25 +1200,15 @@ func TestListItems(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 				Modified:   time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"items": [
-								{
-									"id": "t1",
-									"title": "Task",
-									"updated": "2024-01-01T12:00:00Z",
-									"position": "0001"
-								}
-							]
-						}
-					`)),
-					Header: make(http.Header),
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task",
+						Updated:  "2024-01-01T12:00:00Z",
+						Position: "0001",
+					},
 				}
-
-				return resp
 			},
 			wantItems: []*model.Item{
 				{
@@ -1761,18 +1229,8 @@ func TestListItems(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 				Modified:   time.Now(),
 			},
-			handler: func(_ *http.Request) *http.Response {
-				resp := &http.Response{
-					StatusCode: http.StatusInternalServerError,
-					Body: io.NopCloser(bytes.NewBufferString(`
-						{
-							"error": "internal"
-						}
-					`)),
-					Header: make(http.Header),
-				}
-
-				return resp
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.FailListTasks = true
 			},
 			wantItems: nil,
 			wantErr:   true,
@@ -1783,12 +1241,10 @@ func TestListItems(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			fakeTasks := googletaskstest.NewFakeGoogleTasks(t)
+			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
-				Transport: &mockTransport{
-					roundTripFunc: func(req *http.Request) (*http.Response, error) {
-						return tt.handler(req), nil
-					},
-				},
+				Transport: fakeTasks,
 			}
 
 			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
@@ -1825,7 +1281,7 @@ func TestUpdateItem(t *testing.T) {
 		name      string
 		listID    string
 		item      *model.Item
-		setupFake func(fake *FakeGoogleTasks)
+		setupFake func(fake *googletaskstest.FakeGoogleTasks)
 		wantTask  *tasks.Task
 		wantErr   bool
 	}{
@@ -1840,8 +1296,8 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.tasks["L1"] = []*tasks.Task{
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
 					{
 						Id:    "T1",
 						Title: "Old Title",
@@ -1869,8 +1325,8 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.tasks["L1"] = []*tasks.Task{
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
 					{
 						Id:     "T1",
 						Status: "needsAction",
@@ -1897,8 +1353,8 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.tasks["L1"] = []*tasks.Task{
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
 					{Id: "T1"},
 				}
 			},
@@ -1922,8 +1378,8 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.tasks["L1"] = []*tasks.Task{
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
 					{
 						Id:    "T1",
 						Due:   "2024-01-01",
@@ -1945,7 +1401,7 @@ func TestUpdateItem(t *testing.T) {
 			item: &model.Item{
 				Title: "",
 			},
-			setupFake: func(fake *FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:   true,
 		},
 		{
@@ -1955,7 +1411,7 @@ func TestUpdateItem(t *testing.T) {
 				Title:    "Update Task",
 				Modified: time.Now(),
 			},
-			setupFake: func(fake *FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:   true,
 		},
 		{
@@ -1969,8 +1425,8 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.failPatchTask = true
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.FailPatchTask = true
 			},
 			wantErr: true,
 		},
@@ -1980,7 +1436,7 @@ func TestUpdateItem(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeTasks := NewFakeGoogleTasks(t)
+			fakeTasks := googletaskstest.NewFakeGoogleTasks(t)
 			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
 				Transport: fakeTasks,
@@ -2001,7 +1457,7 @@ func TestUpdateItem(t *testing.T) {
 				return
 			}
 
-			idx := slices.IndexFunc(fakeTasks.tasks[tt.listID], func(t *tasks.Task) bool {
+			idx := slices.IndexFunc(fakeTasks.Tasks[tt.listID], func(t *tasks.Task) bool {
 				return t.Id == *tt.item.ExternalID
 			})
 
@@ -2009,7 +1465,7 @@ func TestUpdateItem(t *testing.T) {
 				t.Fatalf("expected to find task %s in fake server, but it was missing", *tt.item.ExternalID)
 			}
 
-			gotTask := fakeTasks.tasks[tt.listID][idx]
+			gotTask := fakeTasks.Tasks[tt.listID][idx]
 
 			if diff := cmp.Diff(tt.wantTask, gotTask); diff != "" {
 				t.Errorf("Updated item mismatch (-want +got):\n%s", diff)
@@ -2024,7 +1480,7 @@ func TestDeleteItem(t *testing.T) {
 	tests := []struct {
 		name      string
 		item      *model.Item
-		setupFake func(fake *FakeGoogleTasks)
+		setupFake func(fake *googletaskstest.FakeGoogleTasks)
 		wantErr   bool
 	}{
 		{
@@ -2033,8 +1489,8 @@ func TestDeleteItem(t *testing.T) {
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.tasks["L1"] = []*tasks.Task{{Id: "T1"}}
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{{Id: "T1"}}
 			},
 			wantErr: false,
 		},
@@ -2044,7 +1500,7 @@ func TestDeleteItem(t *testing.T) {
 				ListID: "list-1",
 				Title:  "Delete Task",
 			},
-			setupFake: func(fake *FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:   true,
 		},
 		{
@@ -2053,8 +1509,8 @@ func TestDeleteItem(t *testing.T) {
 				ExternalID:     stringPtr("T1"),
 				ExternalListID: stringPtr("L1"),
 			},
-			setupFake: func(fake *FakeGoogleTasks) {
-				fake.failDeleteTask = true
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.FailDeleteTask = true
 			},
 			wantErr: true,
 		},
@@ -2064,7 +1520,7 @@ func TestDeleteItem(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeTasks := NewFakeGoogleTasks(t)
+			fakeTasks := googletaskstest.NewFakeGoogleTasks(t)
 			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
 				Transport: fakeTasks,
