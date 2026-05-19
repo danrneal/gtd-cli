@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net/http"
+	"path/filepath"
 	"slices"
 	"sort"
 	"testing"
@@ -11,8 +14,15 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	_ "github.com/mattn/go-sqlite3"
+	"google.golang.org/api/option"
+	"google.golang.org/api/tasks/v1"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
+	"github.com/danrneal/gtd.nvim/internal/providers/googletasks"
+	"github.com/danrneal/gtd.nvim/internal/providers/googletasks/googletaskstest"
+	"github.com/danrneal/gtd.nvim/internal/providers/markdown"
+	"github.com/danrneal/gtd.nvim/internal/providers/sqlite"
 )
 
 // FakeProvider is a mock implementation of the Provider and RemoteProvider interfaces for testing purposes.
@@ -468,6 +478,103 @@ func isParent(list *model.List, item *model.Item) bool {
 	}
 
 	return false
+}
+
+func setupTestSQLite(t *testing.T, lists []model.List) Provider {
+	logger := slog.New(slog.DiscardHandler)
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+
+	listCounter := 1
+	listIDGeneratorOpt := sqlite.WithListIDGenerator(func() string {
+		id := fmt.Sprintf("store-list-%d", listCounter)
+		listCounter++
+
+		return id
+	})
+
+	itemCounter := 1
+	itemIDGeneratorOpt := sqlite.WithItemIDGenerator(func() string {
+		id := fmt.Sprintf("store-item-%d", itemCounter)
+		itemCounter++
+
+		return id
+	})
+
+	opts := []sqlite.StoreOption{listIDGeneratorOpt, itemIDGeneratorOpt}
+
+	store, err := sqlite.NewStore(context.Background(), dbPath, logger, opts...)
+	if err != nil {
+		t.Fatalf("failed to init sqlite: %v", err)
+	}
+
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
+
+	for _, list := range lists {
+		if err := store.CreateList(context.Background(), &list); err != nil {
+			t.Fatalf("failed to create list: %v", err)
+		}
+
+		for _, item := range list.Items {
+			item.ListID = list.ID
+			if err := store.CreateItem(context.Background(), item, ""); err != nil {
+				t.Fatalf("failed to create item: %v", err)
+			}
+		}
+	}
+
+	return store
+}
+
+func setupTestMarkdown(t *testing.T, lists []model.List) RemoteProvider {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "gtd.md")
+	logger := slog.New(slog.DiscardHandler)
+	client := markdown.NewClient(path, logger)
+
+	for _, list := range lists {
+		if err := client.CreateList(context.Background(), &list); err != nil {
+			t.Fatalf("failed to create list: %v", err)
+		}
+
+		for _, item := range list.Items {
+			if err := client.CreateItem(context.Background(), item, ""); err != nil {
+				t.Fatalf("failed to create item: %v", err)
+			}
+		}
+	}
+
+	return client
+}
+
+func setupTestGoogleTasks(t *testing.T, lists []model.List) RemoteProvider {
+	fakeGoogleTasks := googletaskstest.NewFakeGoogleTasks(t)
+	mockHTTPClient := &http.Client{
+		Transport: fakeGoogleTasks,
+	}
+
+	tasksService, err := tasks.NewService(context.Background(), option.WithHTTPClient(mockHTTPClient))
+	if err != nil {
+		t.Fatalf("failed to create tasks service: %v", err)
+	}
+
+	logger := slog.New(slog.DiscardHandler)
+	client := googletasks.NewClient(tasksService, 30*time.Second, logger)
+
+	for _, list := range lists {
+		if err := client.CreateList(context.Background(), &list); err != nil {
+			t.Fatalf("failed to create list: %v", err)
+		}
+
+		for _, item := range list.Items {
+			if err := client.CreateItem(context.Background(), item, ""); err != nil {
+				t.Fatalf("failed to create item: %v", err)
+			}
+		}
+	}
+
+	return client
 }
 
 func TestOneWaySync(t *testing.T) {
@@ -5394,6 +5501,7 @@ func TestOneWaySync(t *testing.T) {
 			}
 
 			opts := []cmp.Option{
+				cmpopts.EquateEmpty(),
 				cmpopts.IgnoreFields(model.List{}, "Modified"),
 				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/api/option"
 	"google.golang.org/api/tasks/v1"
 
@@ -69,7 +70,7 @@ func TestCreateList(t *testing.T) {
 			},
 			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:        false,
-			wantExternalID: "generated-list-1",
+			wantExternalID: "external-list-1",
 		},
 		{
 			name: "invalid status for new list",
@@ -663,7 +664,10 @@ func TestUpdateList(t *testing.T) {
 
 			gotTaskList := fakeTasks.TaskLists[*tt.list.ExternalID]
 
-			if diff := cmp.Diff(tt.wantTaskList, gotTaskList); diff != "" {
+			opts := []cmp.Option{
+				cmpopts.IgnoreFields(tasks.TaskList{}, "Updated"),
+			}
+			if diff := cmp.Diff(tt.wantTaskList, gotTaskList, opts...); diff != "" {
 				t.Errorf("UpdateList() taskList mismatch (-want +got):\n%s", diff)
 			}
 
@@ -761,7 +765,7 @@ func TestCreateItem(t *testing.T) {
 			},
 			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:        false,
-			wantExternalID: "generated-task-1",
+			wantExternalID: "external-task-1",
 		},
 		{
 			name:   "invalid item (validation failed)",
@@ -783,7 +787,7 @@ func TestCreateItem(t *testing.T) {
 			},
 			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:        false,
-			wantExternalID: "generated-task-1",
+			wantExternalID: "external-task-1",
 		},
 		{
 			name:   "snoozed item",
@@ -796,7 +800,7 @@ func TestCreateItem(t *testing.T) {
 			},
 			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:        false,
-			wantExternalID: "generated-task-1",
+			wantExternalID: "external-task-1",
 		},
 		{
 			name:   "item with previous",
@@ -809,7 +813,7 @@ func TestCreateItem(t *testing.T) {
 			previousItemID: "P1",
 			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:        false,
-			wantExternalID: "generated-task-1",
+			wantExternalID: "external-task-1",
 		},
 		{
 			name:   "cannot create deleted item",
@@ -1467,7 +1471,10 @@ func TestUpdateItem(t *testing.T) {
 
 			gotTask := fakeTasks.Tasks[tt.listID][idx]
 
-			if diff := cmp.Diff(tt.wantTask, gotTask); diff != "" {
+			opts := []cmp.Option{
+				cmpopts.IgnoreFields(tasks.Task{}, "Updated"),
+			}
+			if diff := cmp.Diff(tt.wantTask, gotTask, opts...); diff != "" {
 				t.Errorf("Updated item mismatch (-want +got):\n%s", diff)
 			}
 		})

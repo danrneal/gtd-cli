@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"slices"
 	"testing"
+	"time"
 
 	"google.golang.org/api/tasks/v1"
 )
@@ -110,7 +111,8 @@ func (f *FakeGoogleTasks) InsertTaskList(reqBody io.Reader) (*http.Response, err
 		f.t.Fatalf("failed to unmarshal request body: %v", err)
 	}
 
-	taskList.Id = fmt.Sprintf("generated-list-%d", len(f.TaskLists)+1)
+	taskList.Id = fmt.Sprintf("external-list-%d", len(f.TaskLists)+1)
+	taskList.Updated = time.Now().Format(time.RFC3339)
 	f.TaskLists[taskList.Id] = &taskList
 
 	respBody, err := json.Marshal(&taskList)
@@ -187,6 +189,8 @@ func (f *FakeGoogleTasks) PatchTaskList(taskListID string, reqBody io.Reader) (*
 		f.t.Fatalf("failed to unmarshal request body: %v", err)
 	}
 
+	taskList.Updated = time.Now().Format(time.RFC3339)
+
 	respBody, err := json.Marshal(&taskList)
 	if err != nil {
 		f.t.Fatalf("failed to marshal response: %v", err)
@@ -245,7 +249,8 @@ func (f *FakeGoogleTasks) InsertTask(taskListID string, reqBody io.Reader) (*htt
 		f.t.Fatalf("failed to unmarshal request body: %v", err)
 	}
 
-	task.Id = fmt.Sprintf("generated-task-%d", len(f.TaskLists)+1)
+	task.Id = fmt.Sprintf("external-task-%d", len(f.TaskLists)+1)
+	task.Updated = time.Now().Format(time.RFC3339)
 	f.Tasks[taskListID] = append(f.Tasks[taskListID], &task)
 
 	respBody, err := json.Marshal(&task)
@@ -333,6 +338,8 @@ func (f *FakeGoogleTasks) PatchTask(taskListID, taskID string, reqBody io.Reader
 	if bytes.Contains(body, []byte(`"due":null`)) {
 		task.Due = ""
 	}
+
+	task.Updated = time.Now().Format(time.RFC3339)
 
 	respBody, err := json.Marshal(&task)
 	if err != nil {

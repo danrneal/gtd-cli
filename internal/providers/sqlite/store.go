@@ -17,13 +17,38 @@ import (
 
 // Store manages the SQLite database connection and executes queries.
 type Store struct {
-	db     *sql.DB
-	logger *slog.Logger
+	db             *sql.DB
+	generateListID func() string
+	generateItemID func() string
+	logger         *slog.Logger
+}
+
+// StoreOption defines a functional option for configuring a Store.
+type StoreOption func(*Store)
+
+// WithListIDGenerator overrides the default List ID generation function.
+// This is primarily used for deterministic testing.
+func WithListIDGenerator(fn func() string) StoreOption {
+	listIDGeneratorOpt := func(s *Store) {
+		s.generateListID = fn
+	}
+
+	return listIDGeneratorOpt
+}
+
+// WithItemIDGenerator overrides the default Item ID generation function.
+// This is primarily used for deterministic testing.
+func WithItemIDGenerator(fn func() string) StoreOption {
+	itemIDGeneratorOpt := func(s *Store) {
+		s.generateItemID = fn
+	}
+
+	return itemIDGeneratorOpt
 }
 
 // NewStore initializes a new SQLite store.
 // It opens the database at dbPath, ensures it is accessible, and creates the necessary schema.
-func NewStore(ctx context.Context, dbPath string, logger *slog.Logger) (*Store, error) {
+func NewStore(ctx context.Context, dbPath string, logger *slog.Logger, opts ...StoreOption) (*Store, error) {
 	dataSourceName := fmt.Sprintf("%s?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", dbPath)
 	db, err := sql.Open("sqlite3", dataSourceName)
 	if err != nil {
@@ -35,13 +60,23 @@ func NewStore(ctx context.Context, dbPath string, logger *slog.Logger) (*Store, 
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
+	generateID := func() string {
+		return uuid.NewString()[:8]
+	}
+
 	store := &Store{
-		db:     db,
-		logger: logger,
+		db:             db,
+		generateListID: generateID,
+		generateItemID: generateID,
+		logger:         logger,
 	}
 	if err := store.createTables(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
+	}
+
+	for _, opt := range opts {
+		opt(store)
 	}
 
 	return store, nil
@@ -107,7 +142,7 @@ func (s *Store) CreateList(ctx context.Context, list *model.List) error {
 	}
 
 	if list.ID == "" {
-		list.ID = uuid.NewString()[:8]
+		list.ID = s.generateListID()
 	}
 
 	query := `
@@ -358,7 +393,7 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 	}
 
 	if item.ID == "" {
-		item.ID = uuid.NewString()[:8]
+		item.ID = s.generateItemID()
 	}
 
 	query := `
