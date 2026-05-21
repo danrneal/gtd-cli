@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"maps"
 	"net/http"
 	"regexp"
 	"slices"
@@ -22,8 +21,9 @@ var (
 
 type FakeGoogleTasks struct {
 	t                  *testing.T
-	TaskLists          map[string]*tasks.TaskList
+	TaskLists          []*tasks.TaskList
 	Tasks              map[string][]*tasks.Task
+	taskCounter        int
 	FailInsertTaskList bool
 	FailListTaskLists  bool
 	FailPatchTaskList  bool
@@ -38,7 +38,7 @@ type FakeGoogleTasks struct {
 func NewFakeGoogleTasks(t *testing.T) *FakeGoogleTasks {
 	googleTasks := &FakeGoogleTasks{
 		t:         t,
-		TaskLists: map[string]*tasks.TaskList{},
+		TaskLists: []*tasks.TaskList{},
 		Tasks:     map[string][]*tasks.Task{},
 	}
 
@@ -113,7 +113,7 @@ func (f *FakeGoogleTasks) InsertTaskList(reqBody io.Reader) (*http.Response, err
 
 	taskList.Id = fmt.Sprintf("external-list-%d", len(f.TaskLists)+1)
 	taskList.Updated = time.Now().Format(time.RFC3339)
-	f.TaskLists[taskList.Id] = &taskList
+	f.TaskLists = append(f.TaskLists, &taskList)
 
 	respBody, err := json.Marshal(&taskList)
 	if err != nil {
@@ -141,7 +141,7 @@ func (f *FakeGoogleTasks) ListTaskLists() (*http.Response, error) {
 	}
 
 	taskLists := &tasks.TaskLists{
-		Items: slices.Collect(maps.Values(f.TaskLists)),
+		Items: f.TaskLists,
 	}
 
 	body, err := json.Marshal(taskLists)
@@ -174,8 +174,11 @@ func (f *FakeGoogleTasks) PatchTaskList(taskListID string, reqBody io.Reader) (*
 		f.t.Fatalf("failed to read request body: %v", err)
 	}
 
-	taskList, ok := f.TaskLists[taskListID]
-	if !ok {
+	idx := slices.IndexFunc(f.TaskLists, func(t *tasks.TaskList) bool {
+		return t.Id == taskListID
+	})
+
+	if idx == -1 {
 		resp := &http.Response{
 			StatusCode: http.StatusNotFound,
 			Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
@@ -185,6 +188,7 @@ func (f *FakeGoogleTasks) PatchTaskList(taskListID string, reqBody io.Reader) (*
 		return resp, nil
 	}
 
+	taskList := f.TaskLists[idx]
 	if err = json.Unmarshal(body, &taskList); err != nil {
 		f.t.Fatalf("failed to unmarshal request body: %v", err)
 	}
@@ -216,7 +220,10 @@ func (f *FakeGoogleTasks) DeleteTaskList(taskListID string) (*http.Response, err
 		return resp, nil
 	}
 
-	delete(f.TaskLists, taskListID)
+	f.TaskLists = slices.DeleteFunc(f.TaskLists, func(t *tasks.TaskList) bool {
+		return t.Id == taskListID
+	})
+
 	delete(f.Tasks, taskListID)
 
 	resp := &http.Response{
@@ -249,7 +256,8 @@ func (f *FakeGoogleTasks) InsertTask(taskListID string, reqBody io.Reader) (*htt
 		f.t.Fatalf("failed to unmarshal request body: %v", err)
 	}
 
-	task.Id = fmt.Sprintf("external-task-%d", len(f.TaskLists)+1)
+	f.taskCounter++
+	task.Id = fmt.Sprintf("external-task-%d", f.taskCounter)
 	task.Updated = time.Now().Format(time.RFC3339)
 	f.Tasks[taskListID] = append(f.Tasks[taskListID], &task)
 

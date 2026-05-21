@@ -149,11 +149,11 @@ func TestListLists(t *testing.T) {
 		{
 			name: "success with items",
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.TaskLists["L1"] = &tasks.TaskList{
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Inbox",
 					Updated: "2024-01-01T12:00:00Z",
-				}
+				})
 
 				fake.Tasks["L1"] = []*tasks.Task{
 					{
@@ -193,11 +193,11 @@ func TestListLists(t *testing.T) {
 		{
 			name: "list items failure",
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.TaskLists["L1"] = &tasks.TaskList{
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Inbox",
 					Updated: "2024-01-01T12:00:00Z",
-				}
+				})
 
 				fake.FailListTasks = true
 			},
@@ -294,10 +294,10 @@ func TestUpdateList(t *testing.T) {
 				},
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.TaskLists["L1"] = &tasks.TaskList{
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:    "L1",
 					Title: "Same List",
-				}
+				})
 
 				fake.Tasks["L1"] = []*tasks.Task{
 					{
@@ -341,10 +341,10 @@ func TestUpdateList(t *testing.T) {
 				Name: "Target List",
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.TaskLists["L1"] = &tasks.TaskList{
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:    "L1",
 					Title: "Target List",
-				}
+				})
 			},
 			wantTaskList: &tasks.TaskList{
 				Id:    "L1",
@@ -382,10 +382,10 @@ func TestUpdateList(t *testing.T) {
 				},
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.TaskLists["L1"] = &tasks.TaskList{
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:    "L1",
 					Title: "My List",
-				}
+				})
 
 				fake.Tasks["L1"] = []*tasks.Task{
 					{Id: "B"},
@@ -467,10 +467,10 @@ func TestUpdateList(t *testing.T) {
 				},
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.TaskLists["L1"] = &tasks.TaskList{
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:    "L1",
 					Title: "Same List",
-				}
+				})
 
 				fake.Tasks["L1"] = []*tasks.Task{
 					{Id: "A"},
@@ -509,15 +509,16 @@ func TestUpdateList(t *testing.T) {
 				Items: []*model.Item{},
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.TaskLists["L1"] = &tasks.TaskList{
-					Id:    "L1",
-					Title: "Source List",
-				}
-
-				fake.TaskLists["L2"] = &tasks.TaskList{
-					Id:    "L2",
-					Title: "Target List",
-				}
+				fake.TaskLists = append(fake.TaskLists,
+					&tasks.TaskList{
+						Id:    "L1",
+						Title: "Source List",
+					},
+					&tasks.TaskList{
+						Id:    "L2",
+						Title: "Target List",
+					},
+				)
 
 				fake.Tasks["L1"] = []*tasks.Task{
 					{Id: "A"},
@@ -558,8 +559,17 @@ func TestUpdateList(t *testing.T) {
 				},
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.TaskLists["L1"] = &tasks.TaskList{Id: "L1", Title: "Source List"}
-				fake.TaskLists["L2"] = &tasks.TaskList{Id: "L2", Title: "Target List"}
+				fake.TaskLists = append(fake.TaskLists,
+					&tasks.TaskList{
+						Id:    "L1",
+						Title: "Source List",
+					},
+					&tasks.TaskList{
+						Id:    "L2",
+						Title: "Target List",
+					},
+				)
+
 				fake.Tasks["L1"] = []*tasks.Task{{Id: "A"}}
 				fake.Tasks["L2"] = []*tasks.Task{{Id: "B"}}
 			},
@@ -635,6 +645,90 @@ func TestUpdateList(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "success (skips done item with nil external list ID)",
+			list: &model.List{
+				Name:       "Same List",
+				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
+				Items: []*model.Item{
+					{
+						Title:          "Task 1",
+						Status:         model.StatusDone,
+						ExternalID:     stringPtr("A"),
+						ExternalListID: nil,
+					},
+				},
+			},
+			currentList: &model.List{
+				Name:  "Same List",
+				Items: []*model.Item{},
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
+					Id:    "L1",
+					Title: "Same List",
+				})
+
+				fake.Tasks["L1"] = []*tasks.Task{
+					{Id: "A"},
+				}
+			},
+			wantTaskList: &tasks.TaskList{
+				Id:    "L1",
+				Title: "Same List",
+			},
+			wantTasks: []*tasks.Task{
+				{Id: "A"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "success (moves done item to new list)",
+			list: &model.List{
+				Name:       "Target List",
+				ExternalID: stringPtr("L2"),
+				Modified:   time.Now(),
+				Items: []*model.Item{
+					{
+						Title:          "Task 1",
+						Status:         model.StatusDone,
+						ExternalID:     stringPtr("A"),
+						ExternalListID: stringPtr("L1"),
+					},
+				},
+			},
+			currentList: &model.List{
+				Name:  "Target List",
+				Items: []*model.Item{},
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists = append(fake.TaskLists,
+					&tasks.TaskList{
+						Id:    "L1",
+						Title: "Source List",
+					},
+					&tasks.TaskList{
+						Id:    "L2",
+						Title: "Target List",
+					},
+				)
+
+				fake.Tasks["L1"] = []*tasks.Task{
+					{Id: "A"},
+				}
+
+				fake.Tasks["L2"] = []*tasks.Task{}
+			},
+			wantTaskList: &tasks.TaskList{
+				Id:    "L2",
+				Title: "Target List",
+			},
+			wantTasks: []*tasks.Task{
+				{Id: "A"},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -662,7 +756,15 @@ func TestUpdateList(t *testing.T) {
 				return
 			}
 
-			gotTaskList := fakeTasks.TaskLists[*tt.list.ExternalID]
+			idx := slices.IndexFunc(fakeTasks.TaskLists, func(t *tasks.TaskList) bool {
+				return t.Id == *tt.list.ExternalID
+			})
+
+			if idx == -1 {
+				t.Fatalf("UpdateList() taskList not found in fakeTasks: %s", *tt.list.ExternalID)
+			}
+
+			gotTaskList := fakeTasks.TaskLists[idx]
 
 			opts := []cmp.Option{
 				cmpopts.IgnoreFields(tasks.TaskList{}, "Updated"),
@@ -695,7 +797,7 @@ func TestDeleteList(t *testing.T) {
 				ExternalID: stringPtr("L1"),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.TaskLists["L1"] = &tasks.TaskList{Id: "L1"}
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{Id: "L1"})
 			},
 			wantErr: false,
 		},
