@@ -259,7 +259,7 @@ func (c *Client) listItems(ctx context.Context, list *model.List) ([]*model.Item
 		if task.Status == statusCompleted {
 			item.Status = model.StatusDone
 		} else {
-			item.Status = model.StatusNotStarted
+			item.Status = model.StatusOpen
 		}
 
 		item.Description = task.Notes

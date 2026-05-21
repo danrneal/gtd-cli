@@ -331,19 +331,6 @@ func (ss *syncSession) createItem(ctx context.Context, item *model.Item, prevIte
 	return nil
 }
 
-// updateItem updates an existing item in the destination provider, taking care to preserve specific status transitions.
-func (ss *syncSession) updateItem(ctx context.Context, srcItem, dstItem *model.Item) error {
-	if srcItem.Status == model.StatusNotStarted && dstItem.Status == model.StatusInProgress {
-		srcItem.Status = model.StatusInProgress
-	}
-
-	if err := ss.dstState.provider.UpdateItem(ctx, srcItem); err != nil {
-		return fmt.Errorf("failed to update item %q in destination: %w", srcItem.Title, err)
-	}
-
-	return nil
-}
-
 // updateList updates an existing list in the destination provider, maintaining its position and metadata.
 func (ss *syncSession) updateList(ctx context.Context, list, dstList *model.List) error {
 	syncList := *list
@@ -356,11 +343,13 @@ func (ss *syncSession) updateList(ctx context.Context, list, dstList *model.List
 		listItem := *item
 
 		itemKey := ss.getKey(item)
-		if dstItem, ok := ss.dstState.itemsMap[itemKey]; ok {
-			listItem.ListID = dstItem.ListID
-			listItem.ExternalListID = dstItem.ExternalListID
+		dstItem := ss.dstState.itemsMap[itemKey]
+		listItem.ListID = dstItem.ListID
+		listItem.ExternalListID = dstItem.ExternalListID
 
-			if listItem.Status == model.StatusNotStarted && dstItem.Status == model.StatusInProgress {
+		if listItem.Status == model.StatusOpen {
+			listItem.Status = model.StatusNotStarted
+			if dstItem.Status == model.StatusInProgress {
 				listItem.Status = model.StatusInProgress
 			}
 		}
@@ -371,6 +360,22 @@ func (ss *syncSession) updateList(ctx context.Context, list, dstList *model.List
 	syncList.Items = listItems
 	if err := ss.dstState.provider.UpdateList(ctx, &syncList, dstList); err != nil {
 		return fmt.Errorf("failed to update list %q in destination: %w", syncList.Name, err)
+	}
+
+	return nil
+}
+
+// updateItem updates an existing item in the destination provider, taking care to preserve specific status transitions.
+func (ss *syncSession) updateItem(ctx context.Context, srcItem, dstItem *model.Item) error {
+	if srcItem.Status == model.StatusOpen {
+		srcItem.Status = model.StatusNotStarted
+		if dstItem.Status == model.StatusInProgress {
+			srcItem.Status = model.StatusInProgress
+		}
+	}
+
+	if err := ss.dstState.provider.UpdateItem(ctx, srcItem); err != nil {
+		return fmt.Errorf("failed to update item %q in destination: %w", srcItem.Title, err)
 	}
 
 	return nil
