@@ -2,11 +2,13 @@ package app
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	"go.uber.org/goleak"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
+	"github.com/danrneal/gtd.nvim/internal/providers/sqlite"
 )
 
 // FakeWatcher is a mock implementation of the Watcher interface for testing purposes.
@@ -583,6 +586,110 @@ func TestMain(m *testing.M) {
 	goleak.VerifyTestMain(m)
 }
 
+func setupTestSQLite(t *testing.T, lists []model.List) Provider {
+	logger := slog.New(slog.DiscardHandler)
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+
+	listCounter := 1
+	listIDGeneratorOpt := sqlite.WithListIDGenerator(func() string {
+		id := fmt.Sprintf("store-list-%d", listCounter)
+		listCounter++
+
+		return id
+	})
+
+	itemCounter := 1
+	itemIDGeneratorOpt := sqlite.WithItemIDGenerator(func() string {
+		id := fmt.Sprintf("store-item-%d", itemCounter)
+		itemCounter++
+
+		return id
+	})
+
+	opts := []sqlite.StoreOption{listIDGeneratorOpt, itemIDGeneratorOpt}
+
+	store, err := sqlite.NewStore(context.Background(), dbPath, logger, opts...)
+	if err != nil {
+		t.Fatalf("failed to init sqlite: %v", err)
+	}
+
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
+
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		t.Fatalf("failed to open direct db connection for overrides: %v", err)
+	}
+
+	defer db.Close()
+
+	for _, list := range lists {
+		listStatus := list.Status
+		if listStatus == model.StatusDeleted {
+			list.Status = model.StatusOpen
+		}
+
+		if err := store.CreateList(context.Background(), &list); err != nil {
+			t.Fatalf("failed to create list: %v", err)
+		}
+
+		if listStatus == model.StatusDeleted {
+			list.Status = listStatus
+			if err := store.UpdateList(context.Background(), &list, &list); err != nil {
+				t.Fatalf("failed to update list to deleted: %v", err)
+			}
+		}
+
+		if !list.Modified.IsZero() {
+			_, err := db.ExecContext(
+				context.Background(),
+				"UPDATE lists SET modified = ? WHERE id = ?",
+				list.Modified,
+				list.ID,
+			)
+			if err != nil {
+				t.Fatalf("failed to override list modified time: %v", err)
+			}
+		}
+
+		for _, item := range list.Items {
+			item.ListID = list.ID
+			itemStatus := item.Status
+			if itemStatus == model.StatusDeleted {
+				item.Status = model.StatusNotStarted
+			}
+
+			if err := store.CreateItem(context.Background(), item, ""); err != nil {
+				t.Fatalf("failed to create item: %v", err)
+			}
+
+			if itemStatus == model.StatusDeleted {
+				item.Status = itemStatus
+				if err := store.UpdateItem(context.Background(), item); err != nil {
+					t.Fatalf("failed to update item to deleted: %v", err)
+				}
+			}
+
+			if item.Modified.IsZero() {
+				continue
+			}
+
+			_, err := db.ExecContext(
+				context.Background(),
+				"UPDATE items SET modified = ? WHERE id = ?",
+				item.Modified,
+				item.ID,
+			)
+			if err != nil {
+				t.Fatalf("failed to override item modified time: %v", err)
+			}
+		}
+	}
+
+	return store
+}
+
 func assertEventually(t *testing.T, timeout time.Duration, verify func() error) {
 	t.Helper()
 
@@ -598,4 +705,8 @@ func assertEventually(t *testing.T, timeout time.Duration, verify func() error) 
 	}
 
 	t.Fatalf("assertEventually timed out after %v. Last error: %v", timeout, lastErr)
+}
+
+func stringPtr(s string) *string {
+	return &s
 }
