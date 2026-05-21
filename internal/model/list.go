@@ -89,12 +89,22 @@ func (l *List) Equal(other *List) bool {
 		return false
 	}
 
-	if len(l.Items) != len(other.Items) {
+	items := slices.Clone(l.Items)
+	items = slices.DeleteFunc(items, func(i *Item) bool {
+		return i.Status == StatusDeleted
+	})
+
+	otherItems := slices.Clone(other.Items)
+	otherItems = slices.DeleteFunc(otherItems, func(i *Item) bool {
+		return i.Status == StatusDeleted
+	})
+
+	if len(items) != len(otherItems) {
 		return false
 	}
 
-	for i, item := range l.Items {
-		otherItem := other.Items[i]
+	for i, item := range items {
+		otherItem := otherItems[i]
 
 		if item.ID != "" && otherItem.ID != "" && item.ID != otherItem.ID {
 			return false

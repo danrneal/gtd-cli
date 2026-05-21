@@ -497,6 +497,80 @@ func TestList_Equal(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			name: "equal when list has deleted items",
+			list: &List{
+				ID:         "1",
+				ExternalID: stringPtr("ext-1"),
+				Name:       "Inbox",
+				Status:     StatusOpen,
+				Position:   0,
+				Items: []*Item{
+					{
+						ID:     "item-1",
+						Title:  "Active",
+						Status: StatusNotStarted,
+					},
+					{
+						ID:     "item-2",
+						Title:  "Deleted",
+						Status: StatusDeleted,
+					},
+				},
+			},
+			other: &List{
+				ID:         "1",
+				ExternalID: stringPtr("ext-1"),
+				Name:       "Inbox",
+				Status:     StatusOpen,
+				Position:   0,
+				Items: []*Item{
+					{
+						ID:     "item-1",
+						Title:  "Active",
+						Status: StatusNotStarted,
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "equal when other has deleted items",
+			list: &List{
+				ID:         "1",
+				ExternalID: stringPtr("ext-1"),
+				Name:       "Inbox",
+				Status:     StatusOpen,
+				Position:   0,
+				Items: []*Item{
+					{
+						ID:     "item-1",
+						Title:  "Active",
+						Status: StatusNotStarted,
+					},
+				},
+			},
+			other: &List{
+				ID:         "1",
+				ExternalID: stringPtr("ext-1"),
+				Name:       "Inbox",
+				Status:     StatusOpen,
+				Position:   0,
+				Items: []*Item{
+					{
+						ID:     "item-1",
+						Title:  "Active",
+						Status: StatusNotStarted,
+					},
+					{
+						ID:     "item-3",
+						Title:  "Also Deleted",
+						Status: StatusDeleted,
+					},
+				},
+			},
+			want: true,
+		},
 	}
 
 	for _, tt := range tests {
