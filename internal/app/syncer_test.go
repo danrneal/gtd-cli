@@ -2,13 +2,13 @@ package app
 
 import (
 	"context"
-	"errors"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"path/filepath"
 	"slices"
-	"sort"
 	"testing"
 	"time"
 
@@ -24,461 +24,6 @@ import (
 	"github.com/danrneal/gtd.nvim/internal/providers/markdown"
 	"github.com/danrneal/gtd.nvim/internal/providers/sqlite"
 )
-
-// FakeProvider is a mock implementation of the Provider and RemoteProvider interfaces for testing purposes.
-type FakeProvider struct {
-	Name         string
-	Lists        []model.List
-	ListCounter  int
-	ItemCounter  int
-	errNextRead  error
-	errNextWrite error
-}
-
-func NewFakeProvider(name string, lists []model.List) *FakeProvider {
-	provider := &FakeProvider{
-		Name:  name,
-		Lists: []model.List{},
-	}
-
-	for i, list := range lists {
-		provider.ListCounter++
-
-		listID := fmt.Sprintf("%s-list-%d", name, provider.ListCounter)
-		if list.ID == "" && name == "store" {
-			list.ID = listID
-		} else if list.ExternalID == nil && name == "external" {
-			list.ExternalID = &listID
-		}
-
-		if list.Status == "" {
-			list.Status = model.StatusOpen
-		}
-
-		if list.Position == 0 {
-			list.Position = i
-		}
-
-		for j, item := range list.Items {
-			provider.ItemCounter++
-
-			itemID := fmt.Sprintf("%s-item-%d", name, provider.ItemCounter)
-			if item.ID == "" && name == "store" {
-				item.ID = itemID
-			} else if item.ExternalID == nil && name == "external" {
-				item.ExternalID = &itemID
-			}
-
-			item.Position = j
-			item.ListID = list.ID
-			item.ExternalListID = list.ExternalID
-			list.Items[j] = item
-		}
-
-		provider.Lists = append(provider.Lists, list)
-	}
-
-	return provider
-}
-
-func (f *FakeProvider) GetKey(resource model.Resource) string {
-	if f.Name != "external" {
-		return resource.GetID()
-	}
-
-	if extID := resource.GetExternalID(); extID != nil {
-		return *extID
-	}
-
-	return ""
-}
-
-func (f *FakeProvider) CreateList(_ context.Context, list *model.List) error {
-	if f.errNextWrite != nil {
-		err := f.errNextWrite
-		f.errNextWrite = nil
-
-		return err
-	}
-
-	list.Clean()
-	if err := list.Validate(); err != nil {
-		return err
-	}
-
-	if list.Status != model.StatusOpen {
-		return errors.New("new lists must have status 'open'")
-	}
-
-	listKey := f.GetKey(list)
-	if listKey == "" {
-		f.ListCounter++
-		listKey = fmt.Sprintf("%s-list-%d", f.Name, f.ListCounter)
-		if f.Name == "external" {
-			list.ExternalID = &listKey
-		} else {
-			list.ID = listKey
-		}
-	}
-
-	createdList := *list
-	if f.Name == "external" {
-		createdList.ID = ""
-	}
-
-	createdList.Status = model.StatusOpen
-	createdList.Items = []*model.Item{}
-	f.Lists = append(f.Lists, createdList)
-
-	return nil
-}
-
-func (f *FakeProvider) ListLists(_ context.Context) ([]model.List, error) {
-	if f.errNextRead != nil {
-		err := f.errNextRead
-		f.errNextRead = nil
-
-		return nil, err
-	}
-
-	lists := make([]model.List, 0, len(f.Lists))
-	for _, list := range f.Lists {
-		sort.Slice(list.Items, func(i, j int) bool {
-			return list.Items[i].Position < list.Items[j].Position
-		})
-
-		items := make([]*model.Item, len(list.Items))
-		for i, item := range list.Items {
-			fetchedItem := *item
-			items[i] = &fetchedItem
-		}
-
-		list.Items = items
-		lists = append(lists, list)
-	}
-
-	sort.Slice(lists, func(i, j int) bool {
-		return lists[i].Position < lists[j].Position
-	})
-
-	return lists, nil
-}
-
-func (f *FakeProvider) UpdateList(_ context.Context, updatedList, _ *model.List) error {
-	if f.errNextWrite != nil {
-		err := f.errNextWrite
-		f.errNextWrite = nil
-
-		return err
-	}
-
-	updatedList.Clean()
-	if err := updatedList.Validate(); err != nil {
-		return err
-	}
-
-	if f.Name == "generic" {
-		idx := slices.IndexFunc(f.Lists, func(list model.List) bool {
-			return f.GetKey(&list) == "" && list.Name == updatedList.Name
-		})
-
-		if idx != -1 {
-			list := f.Lists[idx]
-			list.ID = f.GetKey(updatedList)
-			f.Lists[idx] = list
-		}
-	}
-
-	listItems := []*model.Item{}
-	for i, updatedItem := range updatedList.Items {
-		if updatedItem.Status == model.StatusDeleted {
-			return errors.New("FakeProvider received invalid status 'deleted' in UpdateList payload")
-		}
-
-		for j, list := range f.Lists {
-			idx := slices.IndexFunc(list.Items, func(item *model.Item) bool {
-				genericMatch := f.Name == "generic" &&
-					f.GetKey(item) == "" &&
-					item.Title == updatedItem.Title
-
-				return isParent(&list, updatedItem) && (isMatch(item, updatedItem) || genericMatch)
-			})
-
-			if idx == -1 {
-				continue
-			}
-
-			item := list.Items[idx]
-			item.Position = i
-			listItems = append(listItems, item)
-			list.Items = slices.Delete(list.Items, idx, idx+1)
-			f.Lists[j] = list
-			break
-		}
-	}
-
-	if len(listItems) != len(updatedList.Items) {
-		return fmt.Errorf(
-			"item count mismatch: expected %d items, found %d in provider",
-			len(updatedList.Items),
-			len(listItems),
-		)
-	}
-
-	idx := slices.IndexFunc(f.Lists, func(list model.List) bool {
-		return isMatch(&list, updatedList)
-	})
-
-	if idx == -1 {
-		return fmt.Errorf("list not found: %s", updatedList.ID)
-	}
-
-	list := f.Lists[idx]
-	list.Position = updatedList.Position
-	list.Status = updatedList.Status
-	list.Name = updatedList.Name
-	list.Modified = updatedList.Modified
-	if updatedList.ExternalID != nil {
-		list.ExternalID = updatedList.ExternalID
-	}
-
-	list.Items = append(list.Items, listItems...)
-	if updatedList.Status == model.StatusDeleted {
-		list.Items = []*model.Item{}
-	}
-
-	for j, item := range list.Items {
-		if f.Name != "external" {
-			item.ListID = list.ID
-		}
-
-		item.ExternalListID = list.ExternalID
-		list.Items[j] = item
-	}
-
-	f.Lists[idx] = list
-
-	return nil
-}
-
-func (f *FakeProvider) DeleteList(_ context.Context, deletedList *model.List) error {
-	if f.errNextWrite != nil {
-		err := f.errNextWrite
-		f.errNextWrite = nil
-
-		return err
-	}
-
-	idx := slices.IndexFunc(f.Lists, func(list model.List) bool {
-		return isMatch(&list, deletedList)
-	})
-
-	if idx == -1 {
-		return fmt.Errorf("list not found: %s", deletedList.Name)
-	}
-
-	f.Lists = slices.Delete(f.Lists, idx, idx+1)
-
-	return nil
-}
-
-func (f *FakeProvider) CreateItem(_ context.Context, item *model.Item, prevItemID string) error {
-	if f.errNextWrite != nil {
-		err := f.errNextWrite
-		f.errNextWrite = nil
-
-		return err
-	}
-
-	item.Clean()
-	if err := item.Validate(); err != nil {
-		return err
-	}
-
-	itemKey := f.GetKey(item)
-	if itemKey == "" {
-		f.ItemCounter++
-		itemKey = fmt.Sprintf("%s-item-%d", f.Name, f.ItemCounter)
-		if f.Name == "external" {
-			item.ExternalID = &itemKey
-		} else {
-			item.ID = itemKey
-		}
-	}
-
-	idx := slices.IndexFunc(f.Lists, func(list model.List) bool {
-		return isParent(&list, item)
-	})
-
-	if idx == -1 {
-		return fmt.Errorf("list ID and external list ID not found: %s, %v", item.ListID, item.ExternalListID)
-	}
-
-	list := f.Lists[idx]
-
-	ok := slices.ContainsFunc(list.Items, func(i *model.Item) bool {
-		return i.ID == prevItemID || (i.ExternalID != nil && *i.ExternalID == prevItemID)
-	})
-
-	if !ok && prevItemID != "" {
-		return fmt.Errorf("mock API error: prevItemID %q does not exist in list %q", prevItemID, list.ID)
-	}
-
-	createdItem := *item
-	if f.Name == "external" {
-		createdItem.ID = ""
-	}
-
-	createdItem.ListID = list.ID
-	createdItem.ExternalListID = list.ExternalID
-	list.Items = append(list.Items, &createdItem)
-	f.Lists[idx] = list
-
-	return nil
-}
-
-func (f *FakeProvider) UpdateItem(_ context.Context, updatedItem *model.Item) error {
-	if f.errNextWrite != nil {
-		err := f.errNextWrite
-		f.errNextWrite = nil
-
-		return err
-	}
-
-	updatedItem.Clean()
-	if err := updatedItem.Validate(); err != nil {
-		return err
-	}
-
-	if f.Name == "generic" {
-		for i, list := range f.Lists {
-			idx := slices.IndexFunc(list.Items, func(item *model.Item) bool {
-				return f.GetKey(item) == "" && item.Title == updatedItem.Title
-			})
-
-			if idx == -1 {
-				continue
-			}
-
-			item := list.Items[idx]
-			item.ID = f.GetKey(updatedItem)
-			list.Items[idx] = item
-			f.Lists[i] = list
-			break
-		}
-	}
-
-	for i, list := range f.Lists {
-		idx := slices.IndexFunc(list.Items, func(item *model.Item) bool {
-			return isMatch(item, updatedItem)
-		})
-
-		if idx == -1 {
-			continue
-		}
-
-		item := list.Items[idx]
-
-		if !isParent(&list, updatedItem) {
-			return fmt.Errorf(
-				"item parent mismatch: item %s belongs to list %s (ID=%s, ExtID=%v), "+
-					"but update request specifies parent ID=%s, ExtID=%v",
-				updatedItem.Title,
-				list.Name,
-				list.ID,
-				list.ExternalID,
-				updatedItem.ListID,
-				updatedItem.ExternalListID,
-			)
-		}
-
-		item.Status = updatedItem.Status
-		item.Title = updatedItem.Title
-		item.Description = updatedItem.Description
-		item.ProjectID = updatedItem.ProjectID
-		item.WaitingOn = updatedItem.WaitingOn
-		item.Snoozed = updatedItem.Snoozed
-		item.Due = updatedItem.Due
-		item.Tags = updatedItem.Tags
-		item.Modified = updatedItem.Modified
-		if updatedItem.ExternalID != nil {
-			item.ExternalID = updatedItem.ExternalID
-		}
-
-		if updatedItem.ExternalListID != nil {
-			item.ExternalListID = updatedItem.ExternalListID
-		}
-
-		list.Items[idx] = item
-		f.Lists[i] = list
-
-		return nil
-	}
-
-	return fmt.Errorf("item not found: %s", updatedItem.ID)
-}
-
-func (f *FakeProvider) DeleteItem(_ context.Context, deletedItem *model.Item) error {
-	if f.errNextWrite != nil {
-		err := f.errNextWrite
-		f.errNextWrite = nil
-
-		return err
-	}
-
-	for i, list := range f.Lists {
-		idx := slices.IndexFunc(list.Items, func(item *model.Item) bool {
-			return isMatch(item, deletedItem)
-		})
-
-		if idx == -1 {
-			continue
-		}
-
-		list.Items = slices.Delete(list.Items, idx, idx+1)
-		f.Lists[i] = list
-
-		return nil
-	}
-
-	return fmt.Errorf("item not found: %s", deletedItem.ID)
-}
-
-func isMatch(a, b model.Resource) bool {
-	if a.GetID() != "" && a.GetID() == b.GetID() {
-		return true
-	}
-
-	if a.GetExternalID() == nil || b.GetExternalID() == nil {
-		return false
-	}
-
-	if *a.GetExternalID() == *b.GetExternalID() {
-		return true
-	}
-
-	return false
-}
-
-func isParent(list *model.List, item *model.Item) bool {
-	if item.ListID == "" && item.ExternalListID == nil {
-		return true
-	}
-
-	if list.ID != "" && list.ID == item.ListID {
-		return true
-	}
-
-	if list.ExternalID == nil || item.ExternalListID == nil {
-		return false
-	}
-
-	if *list.ExternalID == *item.ExternalListID {
-		return true
-	}
-
-	return false
-}
 
 func setupTestSQLite(t *testing.T, lists []model.List) Provider {
 	logger := slog.New(slog.DiscardHandler)
@@ -511,15 +56,72 @@ func setupTestSQLite(t *testing.T, lists []model.List) Provider {
 		_ = store.Close()
 	})
 
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		t.Fatalf("failed to open direct db connection for overrides: %v", err)
+	}
+
+	defer db.Close()
+
 	for _, list := range lists {
+		listStatus := list.Status
+		if listStatus == model.StatusDeleted {
+			list.Status = model.StatusOpen
+		}
+
 		if err := store.CreateList(context.Background(), &list); err != nil {
 			t.Fatalf("failed to create list: %v", err)
 		}
 
+		if listStatus == model.StatusDeleted {
+			list.Status = listStatus
+			if err := store.UpdateList(context.Background(), &list, &list); err != nil {
+				t.Fatalf("failed to update list to deleted: %v", err)
+			}
+		}
+
+		if !list.Modified.IsZero() {
+			_, err := db.ExecContext(
+				context.Background(),
+				"UPDATE lists SET modified = ? WHERE id = ?",
+				list.Modified,
+				list.ID,
+			)
+			if err != nil {
+				t.Fatalf("failed to override list modified time: %v", err)
+			}
+		}
+
 		for _, item := range list.Items {
 			item.ListID = list.ID
+			itemStatus := item.Status
+			if itemStatus == model.StatusDeleted {
+				item.Status = model.StatusNotStarted
+			}
+
 			if err := store.CreateItem(context.Background(), item, ""); err != nil {
 				t.Fatalf("failed to create item: %v", err)
+			}
+
+			if itemStatus == model.StatusDeleted {
+				item.Status = itemStatus
+				if err := store.UpdateItem(context.Background(), item); err != nil {
+					t.Fatalf("failed to update item to deleted: %v", err)
+				}
+			}
+
+			if item.Modified.IsZero() {
+				continue
+			}
+
+			_, err := db.ExecContext(
+				context.Background(),
+				"UPDATE items SET modified = ? WHERE id = ?",
+				item.Modified,
+				item.ID,
+			)
+			if err != nil {
+				t.Fatalf("failed to override item modified time: %v", err)
 			}
 		}
 	}
@@ -533,15 +135,35 @@ func setupTestMarkdown(t *testing.T, lists []model.List) RemoteProvider {
 	logger := slog.New(slog.DiscardHandler)
 	client := markdown.NewClient(path, logger)
 
+	if len(lists) == 0 {
+		_ = os.WriteFile(path, []byte(""), 0o600)
+	}
+
+	var lastModTime time.Time
 	for _, list := range lists {
+		if list.Modified.After(lastModTime) {
+			lastModTime = list.Modified
+		}
+
 		if err := client.CreateList(context.Background(), &list); err != nil {
 			t.Fatalf("failed to create list: %v", err)
 		}
 
-		for _, item := range list.Items {
+		for _, item := range slices.Backward(list.Items) {
+			if item.Modified.After(lastModTime) {
+				lastModTime = item.Modified
+			}
+
+			item.ListID = list.ID
 			if err := client.CreateItem(context.Background(), item, ""); err != nil {
 				t.Fatalf("failed to create item: %v", err)
 			}
+		}
+	}
+
+	if !lastModTime.IsZero() {
+		if err := os.Chtimes(path, lastModTime, lastModTime); err != nil {
+			t.Fatalf("failed to override markdown file time: %v", err)
 		}
 	}
 
@@ -567,10 +189,38 @@ func setupTestGoogleTasks(t *testing.T, lists []model.List) RemoteProvider {
 			t.Fatalf("failed to create list: %v", err)
 		}
 
+		if !list.Modified.IsZero() {
+			idx := slices.IndexFunc(fakeGoogleTasks.TaskLists, func(t *tasks.TaskList) bool {
+				return t.Id == *list.ExternalID
+			})
+
+			if idx == -1 {
+				t.Fatalf("failed to override list modified time: list %q not found in fake", *list.ExternalID)
+			}
+
+			fakeGoogleTasks.TaskLists[idx].Updated = list.Modified.Format(time.RFC3339Nano)
+		}
+
 		for _, item := range list.Items {
+			item.ExternalListID = list.ExternalID
 			if err := client.CreateItem(context.Background(), item, ""); err != nil {
 				t.Fatalf("failed to create item: %v", err)
 			}
+
+			if item.Modified.IsZero() {
+				continue
+			}
+
+			fakeTasks := fakeGoogleTasks.Tasks[*list.ExternalID]
+			idx := slices.IndexFunc(fakeTasks, func(t *tasks.Task) bool {
+				return t.Id == *item.ExternalID
+			})
+
+			if idx == -1 {
+				t.Fatalf("failed to override item modified time: item %q not found in fake", *item.ExternalID)
+			}
+
+			fakeTasks[idx].Updated = item.Modified.Format(time.RFC3339Nano)
 		}
 	}
 
@@ -583,21 +233,28 @@ func TestOneWaySync(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		src          *FakeProvider
-		dst          *FakeProvider
+		setupSrc     func(t *testing.T) Provider
+		setupDst     func(t *testing.T) Provider
 		wantSrcLists []model.List
 		wantDstLists []model.List
 		wantUpdated  bool
 	}{
 		{
 			name: "create list (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{}),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{})
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:     "store-list-1",
@@ -618,13 +275,20 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create list (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{}),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{})
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:     "store-list-1",
@@ -645,13 +309,20 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create list external (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-				},
-			}),
-			dst: NewFakeProvider("external", []model.List{}),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{})
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:         "store-list-1",
@@ -673,13 +344,20 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create list external (pull)",
-			src: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{}),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{})
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					Name:       "L1",
@@ -701,26 +379,33 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create item (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime,
-				},
-			}),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:     "store-list-1",
@@ -755,26 +440,33 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create item (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-				},
-			}),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:     "store-list-1",
@@ -809,26 +501,33 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create item external (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					Modified:   baseTime,
-					ExternalID: stringPtr("external-list-1"),
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-				},
-			}),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:         "store-list-1",
@@ -841,7 +540,7 @@ func TestOneWaySync(t *testing.T) {
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 							ExternalListID: stringPtr("external-list-1"),
 						},
 					},
@@ -856,7 +555,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 							ExternalListID: stringPtr("external-list-1"),
 						},
 					},
@@ -866,26 +565,33 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create item external (pull)",
-			src: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					Modified:   baseTime,
-					ExternalID: stringPtr("external-list-1"),
-				},
-			}),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					Name:       "L1",
@@ -895,7 +601,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 							ExternalListID: stringPtr("external-list-1"),
 						},
 					},
@@ -913,7 +619,7 @@ func TestOneWaySync(t *testing.T) {
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 							ExternalListID: stringPtr("external-list-1"),
 						},
 					},
@@ -923,26 +629,34 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create deleted item (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Status:   model.StatusDeleted,
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+								Status:   model.StatusDeleted,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime,
-				},
-			}),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:     "store-list-1",
@@ -970,26 +684,34 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create deleted item external (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					Modified:   baseTime,
-					ExternalID: stringPtr("external-list-1"),
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Status:   model.StatusDeleted,
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+								Status:   model.StatusDeleted,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-				},
-			}),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:         "store-list-1",
@@ -1019,20 +741,27 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create list and create item (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{}),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:     "store-list-1",
@@ -1067,20 +796,28 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create list and create item (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{}),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:     "store-list-1",
@@ -1115,20 +852,26 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create list and create item external (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("external", []model.List{}),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{})
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:         "store-list-1",
@@ -1141,7 +884,7 @@ func TestOneWaySync(t *testing.T) {
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 							ExternalListID: stringPtr("external-list-1"),
 						},
 					},
@@ -1156,7 +899,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 							ExternalListID: stringPtr("external-list-1"),
 						},
 					},
@@ -1166,20 +909,27 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create list and create item external (pull)",
-			src: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{}),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					Name:       "L1",
@@ -1189,7 +939,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 							ExternalListID: stringPtr("external-list-1"),
 						},
 					},
@@ -1207,7 +957,7 @@ func TestOneWaySync(t *testing.T) {
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 							ExternalListID: stringPtr("external-list-1"),
 						},
 					},
@@ -1217,34 +967,47 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create list and move item (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime.Add(1),
-					Items:    []*model.Item{},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{Title: "I1"},
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Position: 0,
+						Items:    []*model.Item{},
 					},
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							ID:       "store-item-1",
-							Title:    "I1",
-							Modified: baseTime,
+					{
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Position: 1,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:       "store-list-1",
@@ -1262,6 +1025,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
+							Status:   model.StatusNotStarted,
 							Position: 0,
 							ListID:   "store-list-2",
 						},
@@ -1285,6 +1049,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
+							Status:   model.StatusNotStarted,
 							Position: 0,
 							ListID:   "store-list-2",
 						},
@@ -1295,36 +1060,46 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create list and move item (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime.Add(1),
-					Items:    []*model.Item{},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							ID:    "store-item-1",
-							Title: "I1",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Items:    []*model.Item{},
+					},
+					{
+						ID:       "store-list-2",
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Modified: baseTime,
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:       "store-list-1",
@@ -1342,6 +1117,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
+							Status:   model.StatusNotStarted,
 							Position: 0,
 							ListID:   "store-list-2",
 						},
@@ -1365,6 +1141,7 @@ func TestOneWaySync(t *testing.T) {
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
+							Status:   model.StatusNotStarted,
 							Position: 0,
 							ListID:   "store-list-2",
 						},
@@ -1375,36 +1152,47 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create list and move item external (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					Modified:   baseTime.Add(1),
-					ExternalID: stringPtr("external-list-1"),
-					Items:      []*model.Item{},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							ExternalID: stringPtr("external-item-1"),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime.Add(1),
+						Position:   0,
+						ExternalID: stringPtr("external-list-1"),
+						Items:      []*model.Item{},
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Position: 1,
+						Items: []*model.Item{
+							{
+								Title:      "I1",
+								Modified:   baseTime,
+								ExternalID: stringPtr("external-task-1"),
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Modified: baseTime,
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:         "store-list-1",
@@ -1424,10 +1212,11 @@ func TestOneWaySync(t *testing.T) {
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
+							Status:         model.StatusNotStarted,
 							Position:       0,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 					},
 				},
@@ -1448,9 +1237,10 @@ func TestOneWaySync(t *testing.T) {
 					Items: []*model.Item{
 						{
 							Title:          "I1",
+							Status:         model.StatusNotStarted,
 							Position:       0,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 					},
 				},
@@ -1459,34 +1249,45 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create list and move item external (pull)",
-			src: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime.Add(1),
-					Items:    []*model.Item{},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{Title: "I1"},
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Items:    []*model.Item{},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Modified:   baseTime,
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							ExternalID: stringPtr("external-item-1"),
-							Modified:   baseTime,
+					{
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:      "I1",
+								Modified:   baseTime,
+								ExternalID: stringPtr("external-task-1"),
+							},
+						},
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					Name:       "L1",
@@ -1503,9 +1304,10 @@ func TestOneWaySync(t *testing.T) {
 					Items: []*model.Item{
 						{
 							Title:          "I1",
+							Status:         model.StatusNotStarted,
 							Position:       0,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 					},
 				},
@@ -1529,10 +1331,11 @@ func TestOneWaySync(t *testing.T) {
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
+							Status:         model.StatusNotStarted,
 							Position:       0,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 					},
 				},
@@ -1541,52 +1344,65 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create list create item and move item (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime.Add(1),
-					Items:    []*model.Item{},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							ID:       "store-item-2",
-							Title:    "I2",
-							Status:   model.StatusInProgress,
-							Modified: baseTime,
-						},
-						{
-							ID:       "store-item-1",
-							Title:    "I1",
-							Status:   model.StatusInProgress,
-							Modified: baseTime,
-						},
-						{
-							ID:       "store-item-3",
-							Title:    "I3",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Position: 0,
+						Items:    []*model.Item{},
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Position: 1,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-2",
+								Title:    "I2",
+								Modified: baseTime,
+								Status:   model.StatusInProgress,
+								Position: 0,
+							},
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+								Status:   model.StatusInProgress,
+								Position: 1,
+							},
+							{
+								ID:       "store-item-3",
+								Title:    "I3",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+								Position: 2,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							ID:       "store-item-1",
-							Title:    "I1",
-							Status:   model.StatusInProgress,
-							Modified: baseTime,
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+								Status:   model.StatusInProgress,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:       "store-list-1",
@@ -1667,49 +1483,58 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create list create item and move item (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime.Add(1),
-					Items:    []*model.Item{},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							Title:    "I2",
-							Status:   model.StatusInProgress,
-							Modified: baseTime,
-						},
-						{
-							ID:       "store-item-1",
-							Title:    "I1",
-							Status:   model.StatusInProgress,
-							Modified: baseTime,
-						},
-						{
-							Title:    "I3",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Items:    []*model.Item{},
+					},
+					{
+						ID:       "store-list-2",
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								Title:    "I2",
+								Modified: baseTime,
+								Status:   model.StatusInProgress,
+							},
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+								Status:   model.StatusInProgress,
+							},
+							{
+								Title:    "I3",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Status:   model.StatusInProgress,
-							Modified: baseTime,
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+								Status:   model.StatusInProgress,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:       "store-list-1",
@@ -1790,52 +1615,64 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create list create item and move item external (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					Modified:   baseTime.Add(1),
-					ExternalID: stringPtr("external-list-1"),
-					Items:      []*model.Item{},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							ID:       "store-item-2",
-							Title:    "I2",
-							Status:   model.StatusInProgress,
-							Modified: baseTime,
-						},
-						{
-							ID:         "store-item-1",
-							Title:      "I1",
-							Status:     model.StatusInProgress,
-							ExternalID: stringPtr("external-item-1"),
-							Modified:   baseTime,
-						},
-						{
-							ID:       "store-item-3",
-							Title:    "I3",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime.Add(1),
+						Position:   0,
+						ExternalID: stringPtr("external-list-1"),
+						Items:      []*model.Item{},
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Position: 1,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-2",
+								Title:    "I2",
+								Modified: baseTime,
+								Status:   model.StatusInProgress,
+								Position: 0,
+							},
+							{
+								ID:         "store-item-1",
+								Title:      "I1",
+								Modified:   baseTime,
+								Status:     model.StatusInProgress,
+								Position:   1,
+								ExternalID: stringPtr("external-task-1"),
+							},
+							{
+								ID:       "store-item-3",
+								Title:    "I3",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+								Position: 2,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Status:   model.StatusInProgress,
-							Modified: baseTime,
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:         "store-list-1",
@@ -1859,7 +1696,7 @@ func TestOneWaySync(t *testing.T) {
 							Status:         model.StatusInProgress,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-task-2"),
 						},
 						{
 							ID:             "store-item-1",
@@ -1868,7 +1705,7 @@ func TestOneWaySync(t *testing.T) {
 							Status:         model.StatusInProgress,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 						{
 							ID:             "store-item-3",
@@ -1877,7 +1714,7 @@ func TestOneWaySync(t *testing.T) {
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-3"),
+							ExternalID:     stringPtr("external-task-3"),
 						},
 					},
 				},
@@ -1899,23 +1736,23 @@ func TestOneWaySync(t *testing.T) {
 						{
 							Title:          "I2",
 							Position:       0,
-							Status:         model.StatusInProgress,
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-task-2"),
 						},
 						{
 							Title:          "I1",
 							Position:       1,
-							Status:         model.StatusInProgress,
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 						{
 							Title:          "I3",
 							Position:       2,
 							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-3"),
+							ExternalID:     stringPtr("external-task-3"),
 						},
 					},
 				},
@@ -1924,52 +1761,53 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create list create item and move item external (pull)",
-			src: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime.Add(1),
-					Items:    []*model.Item{},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							Title:      "I2",
-							Status:     model.StatusInProgress,
-							ExternalID: stringPtr("external-item-2"),
-							Modified:   baseTime,
-						},
-						{
-							Title:      "I1",
-							Status:     model.StatusInProgress,
-							ExternalID: stringPtr("external-item-1"),
-							Modified:   baseTime,
-						},
-						{
-							Title:      "I3",
-							Status:     model.StatusNotStarted,
-							ExternalID: stringPtr("external-item-3"),
-							Modified:   baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Items:    []*model.Item{},
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								Title:    "I2",
+								Modified: baseTime,
+							},
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
+							{
+								Title:    "I3",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Modified:   baseTime,
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							ExternalID: stringPtr("external-item-1"),
-							Status:     model.StatusInProgress,
-							Modified:   baseTime,
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:      "I1",
+								Modified:   baseTime,
+								ExternalID: stringPtr("external-task-2"),
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					Name:       "L1",
@@ -1987,23 +1825,23 @@ func TestOneWaySync(t *testing.T) {
 						{
 							Title:          "I2",
 							Position:       0,
-							Status:         model.StatusInProgress,
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 						{
 							Title:          "I1",
 							Position:       1,
-							Status:         model.StatusInProgress,
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-2"),
 						},
 						{
 							Title:          "I3",
 							Position:       2,
 							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-3"),
+							ExternalID:     stringPtr("external-task-3"),
 						},
 					},
 				},
@@ -2028,19 +1866,19 @@ func TestOneWaySync(t *testing.T) {
 							ID:             "store-item-2",
 							Title:          "I2",
 							Position:       0,
-							Status:         model.StatusInProgress,
+							Status:         model.StatusNotStarted,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
 							Position:       1,
-							Status:         model.StatusInProgress,
+							Status:         model.StatusNotStarted,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-2"),
 						},
 						{
 							ID:             "store-item-3",
@@ -2049,7 +1887,7 @@ func TestOneWaySync(t *testing.T) {
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-3"),
+							ExternalID:     stringPtr("external-task-3"),
 						},
 					},
 				},
@@ -2058,46 +1896,56 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create item after cross list move (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime.Add(1),
-					Items:    []*model.Item{},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							ID:       "store-item-1",
-							Title:    "I1",
-							Status:   model.StatusInProgress,
-							Modified: baseTime,
-						},
-						{
-							ID:       "store-item-2",
-							Title:    "I2",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Position: 0,
+						Items:    []*model.Item{},
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Position: 1,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+								Status:   model.StatusInProgress,
+								Position: 0,
+							},
+							{
+								Title:    "I2",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+								Position: 1,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							ID:       "store-item-1",
-							Title:    "I1",
-							Status:   model.StatusInProgress,
-							Modified: baseTime,
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+								Status:   model.StatusInProgress,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:       "store-list-1",
@@ -2164,47 +2012,53 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create item after cross list move (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime.Add(1),
-					Items:    []*model.Item{},
-				},
-				{
-					ID:       "store-list-2",
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							ID:       "store-item-1",
-							Title:    "I1",
-							Status:   model.StatusInProgress,
-							Modified: baseTime,
-						},
-						{
-							Title:    "I2",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Items:    []*model.Item{},
+					},
+					{
+						ID:       "store-list-2",
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+								Status:   model.StatusInProgress,
+							},
+							{
+								Title:    "I2",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							ID:       "store-item-1",
-							Title:    "I1",
-							Status:   model.StatusInProgress,
-							Modified: baseTime,
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+								Status:   model.StatusInProgress,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:       "store-list-1",
@@ -2271,48 +2125,55 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create item after cross list move external (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Modified:   baseTime.Add(1),
-					Items:      []*model.Item{},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							ID:         "store-item-1",
-							Title:      "I1",
-							Status:     model.StatusInProgress,
-							ExternalID: stringPtr("external-item-1"),
-							Modified:   baseTime,
-						},
-						{
-							ID:       "store-item-2",
-							Title:    "I2",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime.Add(1),
+						Position:   0,
+						ExternalID: stringPtr("external-list-1"),
+						Items:      []*model.Item{},
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Position: 1,
+						Items: []*model.Item{
+							{
+								Title:      "I1",
+								Modified:   baseTime,
+								Status:     model.StatusInProgress,
+								Position:   0,
+								ExternalID: stringPtr("external-task-1"),
+							},
+							{
+								Title:    "I2",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+								Position: 1,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("external", []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Modified:   baseTime,
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							ExternalID: stringPtr("external-item-1"),
-							Status:     model.StatusInProgress,
-							Modified:   baseTime,
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:         "store-list-1",
@@ -2336,7 +2197,7 @@ func TestOneWaySync(t *testing.T) {
 							Status:         model.StatusInProgress,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 						{
 							ID:             "store-item-2",
@@ -2345,7 +2206,7 @@ func TestOneWaySync(t *testing.T) {
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-task-2"),
 						},
 					},
 				},
@@ -2367,16 +2228,16 @@ func TestOneWaySync(t *testing.T) {
 						{
 							Title:          "I1",
 							Position:       0,
-							Status:         model.StatusInProgress,
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 						{
 							Title:          "I2",
 							Position:       1,
 							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-task-2"),
 						},
 					},
 				},
@@ -2385,50 +2246,52 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "create item after cross list move external (pull)",
-			src: NewFakeProvider("external", []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Modified:   baseTime.Add(1),
-					Items:      []*model.Item{},
-				},
-				{
-					Name:       "L2",
-					ExternalID: stringPtr("external-list-2"),
-					Modified:   baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							Status:     model.StatusInProgress,
-							ExternalID: stringPtr("external-item-1"),
-							Modified:   baseTime,
-						},
-						{
-							Title:      "I2",
-							Status:     model.StatusNotStarted,
-							ExternalID: stringPtr("external-item-2"),
-							Modified:   baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Items:    []*model.Item{},
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+							},
+							{
+								Title:    "I2",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					ID:         "store-list-1",
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Modified:   baseTime,
-					Items: []*model.Item{
-						{
-							ID:         "store-item-1",
-							Title:      "I1",
-							ExternalID: stringPtr("external-item-1"),
-							Status:     model.StatusInProgress,
-							Modified:   baseTime,
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:      "I1",
+								Modified:   baseTime,
+								Status:     model.StatusInProgress,
+								ExternalID: stringPtr("external-task-1"),
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					Name:       "L1",
@@ -2446,16 +2309,16 @@ func TestOneWaySync(t *testing.T) {
 						{
 							Title:          "I1",
 							Position:       0,
-							Status:         model.StatusInProgress,
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 						{
 							Title:          "I2",
 							Position:       1,
 							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-task-2"),
 						},
 					},
 				},
@@ -2483,7 +2346,7 @@ func TestOneWaySync(t *testing.T) {
 							Status:         model.StatusInProgress,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 						{
 							ID:             "store-item-2",
@@ -2492,7 +2355,7 @@ func TestOneWaySync(t *testing.T) {
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-task-2"),
 						},
 					},
 				},
@@ -2501,19 +2364,27 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "update list (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1 Updated",
-					Modified: baseTime.Add(1),
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1 Original",
-					Modified: baseTime,
-				},
-			}),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1 Updated",
+						Modified: baseTime.Add(1),
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1 Original",
+						Modified: baseTime,
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:     "store-list-1",
@@ -2534,19 +2405,27 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "update list (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1 Updated",
-					Modified: baseTime.Add(1),
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1 Original",
-					Modified: baseTime,
-				},
-			}),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1 Updated",
+						Modified: baseTime.Add(1),
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1 Original",
+						Modified: baseTime,
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:     "store-list-1",
@@ -2564,226 +2443,30 @@ func TestOneWaySync(t *testing.T) {
 				},
 			},
 			wantUpdated: true,
-		},
-		{
-			name: "update list drops deleted items (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1 Updated",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							Title:  "Active Item",
-							Status: model.StatusNotStarted,
-						},
-						{
-							Title:  "Deleted Item",
-							Status: model.StatusDeleted,
-						},
-					},
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1 Original",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							ID:     "store-item-1",
-							Title:  "Active Item",
-							Status: model.StatusNotStarted,
-						},
-						{
-							ID:     "store-item-2",
-							Title:  "Deleted Item",
-							Status: model.StatusNotStarted,
-						},
-					},
-				},
-			}),
-			wantSrcLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1 Updated",
-					Status: model.StatusOpen,
-					Items: []*model.Item{
-						{
-							ID:     "store-item-1",
-							ListID: "store-list-1",
-							Title:  "Active Item",
-							Status: model.StatusNotStarted,
-						},
-					},
-				},
-			},
-			wantDstLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1 Updated",
-					Status: model.StatusOpen,
-					Items: []*model.Item{
-						{
-							ID:     "store-item-1",
-							ListID: "store-list-1",
-							Title:  "Active Item",
-							Status: model.StatusNotStarted,
-						},
-					},
-				},
-			},
-			wantUpdated: true,
-		},
-		{
-			name: "update list drops deleted items (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1 Updated",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							ID:     "store-item-1",
-							Title:  "Active Item",
-							Status: model.StatusNotStarted,
-						},
-						{
-							ID:     "store-item-2",
-							Title:  "Deleted Item",
-							Status: model.StatusDeleted,
-						},
-					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1 Original",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:  "Active Item",
-							Status: model.StatusNotStarted,
-						},
-						{
-							Title:  "Deleted Item",
-							Status: model.StatusNotStarted,
-						},
-					},
-				},
-			}),
-			wantSrcLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1 Updated",
-					Status: model.StatusOpen,
-					Items: []*model.Item{
-						{
-							ID:     "store-item-1",
-							ListID: "store-list-1",
-							Title:  "Active Item",
-							Status: model.StatusNotStarted,
-						},
-					},
-				},
-			},
-			wantDstLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1 Updated",
-					Status: model.StatusOpen,
-					Items: []*model.Item{
-						{
-							ID:     "store-item-1",
-							ListID: "store-list-1",
-							Title:  "Active Item",
-							Status: model.StatusNotStarted,
-						},
-					},
-				},
-			},
-			wantUpdated: true,
-		},
-		{
-			name: "update list identical content (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime.Add(1),
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime,
-				},
-			}),
-			wantSrcLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusOpen,
-					Items:  []*model.Item{},
-				},
-			},
-			wantDstLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusOpen,
-					Items:  []*model.Item{},
-				},
-			},
-			wantUpdated: false,
-		},
-		{
-			name: "update list identical content (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime.Add(1),
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-				},
-			}),
-			wantSrcLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusOpen,
-					Items:  []*model.Item{},
-				},
-			},
-			wantDstLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusOpen,
-					Items:  []*model.Item{},
-				},
-			},
-			wantUpdated: false,
 		},
 		{
 			name: "update list external (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1 Updated",
-					ExternalID: stringPtr("external-list-1"),
-					Modified:   baseTime.Add(1),
-				},
-			}),
-			dst: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1 Original",
-					Modified: baseTime,
-				},
-			}),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1 Updated",
+						Modified:   baseTime.Add(1),
+						ExternalID: stringPtr("external-list-1"),
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1 Original",
+						Modified: baseTime,
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:         "store-list-1",
@@ -2805,19 +2488,27 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "update list external (pull)",
-			src: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1 Updated",
-					Modified: baseTime.Add(1),
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1 Original",
-					ExternalID: stringPtr("external-list-1"),
-					Modified:   baseTime,
-				},
-			}),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1 Updated",
+						Modified: baseTime.Add(1),
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1 Original",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					Name:       "L1 Updated",
@@ -2839,25 +2530,49 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "update list reorder (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Position: 1,
-					Modified: baseTime,
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Position: 0,
-					Modified: baseTime.Add(1),
-				},
-			}),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Position: 0,
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime,
+						Position: 1,
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-2",
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+					},
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:       "store-list-1",
 					Name:     "L1",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
 					Position: 1,
 					Status:   model.StatusOpen,
 					Items:    []*model.Item{},
@@ -2867,6 +2582,13 @@ func TestOneWaySync(t *testing.T) {
 				{
 					ID:       "store-list-1",
 					Name:     "L1",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
 					Position: 1,
 					Status:   model.StatusOpen,
 					Items:    []*model.Item{},
@@ -2876,22 +2598,46 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "update list reorder (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Position: 1,
-					Modified: baseTime,
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Position: 0,
-					Modified: baseTime.Add(1),
-				},
-			}),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-2",
+						Name:     "L2",
+						Modified: baseTime,
+					},
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Position: 0,
+						Modified: baseTime.Add(1),
+					},
+					{
+						Name:     "L2",
+						Position: 1,
+						Modified: baseTime.Add(1),
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Items:    []*model.Item{},
+				},
 				{
 					ID:       "store-list-1",
 					Name:     "L1",
@@ -2901,6 +2647,13 @@ func TestOneWaySync(t *testing.T) {
 				},
 			},
 			wantDstLists: []model.List{
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Items:    []*model.Item{},
+				},
 				{
 					ID:       "store-list-1",
 					Name:     "L1",
@@ -2913,22 +2666,49 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "update list reorder external (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					Position:   1,
-					ExternalID: stringPtr("external-list-1"),
-					Modified:   baseTime,
-				},
-			}),
-			dst: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Position: 0,
-					Modified: baseTime.Add(1),
-				},
-			}),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						ID:         "store-list-2",
+						Name:       "L2",
+						Modified:   baseTime,
+						Position:   0,
+						ExternalID: stringPtr("external-list-2"),
+					},
+					{
+						ID:         "store-list-1",
+						Name:       "L1",
+						Modified:   baseTime,
+						Position:   1,
+						ExternalID: stringPtr("external-list-1"),
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
+				{
+					ID:         "store-list-2",
+					Name:       "L2",
+					Position:   0,
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-2"),
+					Items:      []*model.Item{},
+				},
 				{
 					ID:         "store-list-1",
 					Name:       "L1",
@@ -2941,9 +2721,16 @@ func TestOneWaySync(t *testing.T) {
 			wantDstLists: []model.List{
 				{
 					Name:       "L1",
-					Position:   1,
+					Position:   0,
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
+					Name:       "L2",
+					Position:   1,
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-2"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -2951,27 +2738,53 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "update list reorder external (pull)",
-			src: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Position: 1,
-					Modified: baseTime,
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					Position:   0,
-					ExternalID: stringPtr("external-list-1"),
-					Modified:   baseTime.Add(1),
-				},
-			}),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime,
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						ID:         "store-list-2",
+						Name:       "L2",
+						Modified:   baseTime.Add(1),
+						Position:   0,
+						ExternalID: stringPtr("external-list-2"),
+					},
+					{
+						ID:         "store-list-1",
+						Name:       "L1",
+						Modified:   baseTime.Add(1),
+						Position:   1,
+						ExternalID: stringPtr("external-list-1"),
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					Name:       "L1",
-					Position:   1,
+					Position:   0,
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
+					Name:       "L2",
+					Position:   1,
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-2"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -2979,43 +2792,311 @@ func TestOneWaySync(t *testing.T) {
 				{
 					ID:         "store-list-1",
 					Name:       "L1",
-					Position:   1,
+					Position:   0,
 					Status:     model.StatusOpen,
 					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
+					ID:         "store-list-2",
+					Name:       "L2",
+					Position:   1,
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-2"),
 					Items:      []*model.Item{},
 				},
 			},
 			wantUpdated: true,
 		},
 		{
+			name: "update list drops deleted items (push)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1 Updated",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								Title:    "Active Item",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+								Position: 0,
+							},
+							{
+								Title:    "Deleted Item",
+								Modified: baseTime,
+								Status:   model.StatusDeleted,
+								Position: 1,
+							},
+						},
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1 Original",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "Active Item",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+							},
+							{
+								ID:       "store-item-2",
+								Title:    "Deleted Item",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+							},
+						},
+					},
+				})
+
+				return dst
+			},
+			wantSrcLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1 Updated",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							ListID: "store-list-1",
+							Title:  "Active Item",
+							Status: model.StatusNotStarted,
+						},
+					},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1 Updated",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							ListID: "store-list-1",
+							Title:  "Active Item",
+							Status: model.StatusNotStarted,
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "update list drops deleted items external (push)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1 Updated",
+						Modified:   baseTime.Add(1),
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:      "Active Item",
+								Modified:   baseTime,
+								Status:     model.StatusNotStarted,
+								Position:   0,
+								ExternalID: stringPtr("external-task-1"),
+							},
+							{
+								Title:      "Deleted Item",
+								Modified:   baseTime,
+								Status:     model.StatusDeleted,
+								Position:   1,
+								ExternalID: stringPtr("external-task-2"),
+							},
+						},
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1 Original",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "Active Item",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+							},
+							{
+								Title:    "Deleted Item",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+							},
+						},
+					},
+				})
+
+				return dst
+			},
+			wantSrcLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "L1 Updated",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-1",
+							ListID:         "store-list-1",
+							Title:          "Active Item",
+							Status:         model.StatusNotStarted,
+							ExternalID:     stringPtr("external-task-1"),
+							ExternalListID: stringPtr("external-list-1"),
+						},
+					},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					Name:       "L1 Updated",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items: []*model.Item{
+						{
+							Title:          "Active Item",
+							Status:         model.StatusNotStarted,
+							ExternalID:     stringPtr("external-task-1"),
+							ExternalListID: stringPtr("external-list-1"),
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "update list identical content (push)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return dst
+			},
+			wantSrcLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+			wantUpdated: false,
+		},
+		{
+			name: "update list identical content (pull)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return dst
+			},
+			wantSrcLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+			wantUpdated: false,
+		},
+		{
 			name: "update item (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name: "L1",
-					Items: []*model.Item{
-						{
-							Title:    "I1 Updated",
-							Status:   model.StatusDone,
-							Modified: baseTime.Add(1),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1 Updated",
+								Modified: baseTime.Add(1),
+								Status:   model.StatusDone,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:   "store-list-1",
-					Name: "L1",
-					Items: []*model.Item{
-						{
-							ID:       "store-item-1",
-							Title:    "I1 Original",
-							Status:   model.StatusNotStarted,
-							ListID:   "store-list-1",
-							Modified: baseTime,
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1 Original",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:     "store-list-1",
@@ -3050,33 +3131,42 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "update item (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:   "store-list-1",
-					Name: "L1",
-					Items: []*model.Item{
-						{
-							ID:       "store-item-1",
-							Title:    "I1 Updated",
-							Status:   model.StatusInProgress,
-							ListID:   "store-list-1",
-							Modified: baseTime.Add(1),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1 Updated",
+								Modified: baseTime.Add(1),
+								Status:   model.StatusInProgress,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name: "L1",
-					Items: []*model.Item{
-						{
-							Title:    "I1 Original",
-							Status:   model.StatusDone,
-							Modified: baseTime,
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1 Original",
+								Modified: baseTime,
+								Status:   model.StatusDone,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:     "store-list-1",
@@ -3110,155 +3200,43 @@ func TestOneWaySync(t *testing.T) {
 			wantUpdated: true,
 		},
 		{
-			name: "update item identical content (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name: "L1",
-					Items: []*model.Item{
-						{
-							Title:    "I1 Original",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime.Add(1),
-						},
-					},
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:   "store-list-1",
-					Name: "L1",
-					Items: []*model.Item{
-						{
-							ID:       "store-item-1",
-							Title:    "I1 Original",
-							Status:   model.StatusNotStarted,
-							ListID:   "store-list-1",
-							Modified: baseTime,
-						},
-					},
-				},
-			}),
-			wantSrcLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusOpen,
-					Items: []*model.Item{
-						{
-							ID:     "store-item-1",
-							Title:  "I1 Original",
-							Status: model.StatusNotStarted,
-							ListID: "store-list-1",
-						},
-					},
-				},
-			},
-			wantDstLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusOpen,
-					Items: []*model.Item{
-						{
-							ID:     "store-item-1",
-							Title:  "I1 Original",
-							Status: model.StatusNotStarted,
-							ListID: "store-list-1",
-						},
-					},
-				},
-			},
-			wantUpdated: false,
-		},
-		{
-			name: "update item identical content (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:   "store-list-1",
-					Name: "L1",
-					Items: []*model.Item{
-						{
-							ID:       "store-item-1",
-							Title:    "I1 Original",
-							Status:   model.StatusNotStarted,
-							ListID:   "store-list-1",
-							Modified: baseTime.Add(1),
-						},
-					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name: "L1",
-					Items: []*model.Item{
-						{
-							Title:    "I1 Original",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
-						},
-					},
-				},
-			}),
-			wantSrcLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusOpen,
-					Items: []*model.Item{
-						{
-							ID:     "store-item-1",
-							Title:  "I1 Original",
-							Status: model.StatusNotStarted,
-							ListID: "store-list-1",
-						},
-					},
-				},
-			},
-			wantDstLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusOpen,
-					Items: []*model.Item{
-						{
-							ID:     "store-item-1",
-							Title:  "I1 Original",
-							Status: model.StatusNotStarted,
-							ListID: "store-list-1",
-						},
-					},
-				},
-			},
-			wantUpdated: false,
-		},
-		{
 			name: "update item external (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Items: []*model.Item{
-						{
-							Title:      "I1 Updated",
-							Status:     model.StatusDone,
-							Modified:   baseTime.Add(1),
-							ExternalID: stringPtr("external-item-1"),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:      "I1 Updated",
+								Modified:   baseTime.Add(1),
+								Status:     model.StatusDone,
+								ExternalID: stringPtr("external-task-1"),
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("external", []model.List{
-				{
-					Name: "L1",
-					Items: []*model.Item{
-						{
-							Title:    "I1 Original",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1 Original",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:         "store-list-1",
@@ -3272,7 +3250,7 @@ func TestOneWaySync(t *testing.T) {
 							Status:         model.StatusDone,
 							ListID:         "store-list-1",
 							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 					},
 				},
@@ -3287,7 +3265,7 @@ func TestOneWaySync(t *testing.T) {
 							Title:          "I1 Updated",
 							Status:         model.StatusDone,
 							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 					},
 				},
@@ -3296,32 +3274,42 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "update item external (pull)",
-			src: NewFakeProvider("external", []model.List{
-				{
-					Name: "L1",
-					Items: []*model.Item{
-						{
-							Title:    "I1 Updated",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime.Add(1),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1 Updated",
+								Modified: baseTime.Add(1),
+								Status:   model.StatusNotStarted,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Items: []*model.Item{
-						{
-							Title:      "I1 Original",
-							Status:     model.StatusDone,
-							Modified:   baseTime,
-							ExternalID: stringPtr("external-item-1"),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:      "I1 Original",
+								Modified:   baseTime,
+								Status:     model.StatusDone,
+								ExternalID: stringPtr("external-task-1"),
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					Name:       "L1",
@@ -3332,7 +3320,7 @@ func TestOneWaySync(t *testing.T) {
 							Title:          "I1 Updated",
 							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 					},
 				},
@@ -3350,7 +3338,7 @@ func TestOneWaySync(t *testing.T) {
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
 							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 					},
 				},
@@ -3358,33 +3346,179 @@ func TestOneWaySync(t *testing.T) {
 			wantUpdated: true,
 		},
 		{
-			name: "no status update item external (push)",
-			src: NewFakeProvider("store", []model.List{
+			name: "update item identical content (push)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1 Original",
+								Modified: baseTime.Add(1),
+							},
+						},
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1 Original",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return dst
+			},
+			wantSrcLists: []model.List{
 				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
 					Items: []*model.Item{
 						{
-							Title:      "I1",
-							Status:     model.StatusInProgress,
-							Modified:   baseTime.Add(1),
-							ExternalID: stringPtr("external-item-1"),
+							ID:     "store-item-1",
+							ListID: "store-list-1",
+							Title:  "I1 Original",
+							Status: model.StatusNotStarted,
 						},
 					},
 				},
-			}),
-			dst: NewFakeProvider("external", []model.List{
+			},
+			wantDstLists: []model.List{
 				{
-					Name: "L1",
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
 					Items: []*model.Item{
 						{
-							Title:    "I1",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+							ID:     "store-item-1",
+							ListID: "store-list-1",
+							Title:  "I1 Original",
+							Status: model.StatusNotStarted,
 						},
 					},
 				},
-			}),
+			},
+			wantUpdated: false,
+		},
+		{
+			name: "update item identical content (pull)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1 Original",
+								Modified: baseTime.Add(1),
+							},
+						},
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1 Original",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return dst
+			},
+			wantSrcLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							ListID: "store-list-1",
+							Title:  "I1 Original",
+							Status: model.StatusNotStarted,
+						},
+					},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							ListID: "store-list-1",
+							Title:  "I1 Original",
+							Status: model.StatusNotStarted,
+						},
+					},
+				},
+			},
+			wantUpdated: false,
+		},
+		{
+			name: "update item status skipped external (push)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:      "I1",
+								Modified:   baseTime.Add(1),
+								Status:     model.StatusInProgress,
+								ExternalID: stringPtr("external-task-1"),
+							},
+						},
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+							},
+						},
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:         "store-list-1",
@@ -3394,11 +3528,11 @@ func TestOneWaySync(t *testing.T) {
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
+							ListID:         "store-list-1",
 							Title:          "I1",
 							Status:         model.StatusInProgress,
-							ListID:         "store-list-1",
+							ExternalID:     stringPtr("external-task-1"),
 							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-1"),
 						},
 					},
 				},
@@ -3411,9 +3545,9 @@ func TestOneWaySync(t *testing.T) {
 					Items: []*model.Item{
 						{
 							Title:          "I1",
-							Status:         model.StatusInProgress,
+							Status:         model.StatusNotStarted,
+							ExternalID:     stringPtr("external-task-1"),
 							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-1"),
 						},
 					},
 				},
@@ -3421,33 +3555,43 @@ func TestOneWaySync(t *testing.T) {
 			wantUpdated: true,
 		},
 		{
-			name: "no status update item external (pull)",
-			src: NewFakeProvider("external", []model.List{
-				{
-					Name: "L1",
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime.Add(1),
+			name: "update item status skipped external (pull)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime.Add(1),
+								Status:   model.StatusNotStarted,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							Status:     model.StatusInProgress,
-							Modified:   baseTime,
-							ExternalID: stringPtr("external-item-1"),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						ExternalID: stringPtr("external-list-1"),
+						Modified:   baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "I1",
+								Modified:   baseTime,
+								Status:     model.StatusInProgress,
+								ExternalID: stringPtr("external-task-1"),
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					Name:       "L1",
@@ -3457,8 +3601,8 @@ func TestOneWaySync(t *testing.T) {
 						{
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
+							ExternalID:     stringPtr("external-task-1"),
 							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-1"),
 						},
 					},
 				},
@@ -3472,11 +3616,11 @@ func TestOneWaySync(t *testing.T) {
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
+							ListID:         "store-list-1",
 							Title:          "I1",
 							Status:         model.StatusInProgress,
-							ListID:         "store-list-1",
+							ExternalID:     stringPtr("external-task-1"),
 							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-1"),
 						},
 					},
 				},
@@ -3485,33 +3629,51 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "reorder items (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1 Updated",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{Title: "I1"},
-						{Title: "I2"},
-					},
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1 Original",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							ID:    "store-item-2",
-							Title: "I2",
-						},
-						{
-							ID:    "store-item-1",
-							Title: "I1",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1 Updated",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+								Position: 0,
+							},
+							{
+								Title:    "I2",
+								Modified: baseTime,
+								Position: 1,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1 Original",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-2",
+								Title:    "I2",
+								Modified: baseTime,
+							},
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:     "store-list-1",
@@ -3522,12 +3684,14 @@ func TestOneWaySync(t *testing.T) {
 							ID:       "store-item-1",
 							Title:    "I1",
 							Position: 0,
+							Status:   model.StatusNotStarted,
 							ListID:   "store-list-1",
 						},
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
 							Position: 1,
+							Status:   model.StatusNotStarted,
 							ListID:   "store-list-1",
 						},
 					},
@@ -3543,12 +3707,14 @@ func TestOneWaySync(t *testing.T) {
 							ID:       "store-item-1",
 							Title:    "I1",
 							Position: 0,
+							Status:   model.StatusNotStarted,
 							ListID:   "store-list-1",
 						},
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
 							Position: 1,
+							Status:   model.StatusNotStarted,
 							ListID:   "store-list-1",
 						},
 					},
@@ -3558,33 +3724,51 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "reorder items (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1 Updated",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							ID:    "store-item-2",
-							Title: "I2",
-						},
-						{
-							ID:    "store-item-1",
-							Title: "I1",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1 Updated",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								ID:       "store-item-2",
+								Title:    "I2",
+								Modified: baseTime,
+							},
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1 Original",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{Title: "I1"},
-						{Title: "I2"},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1 Original",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+								Position: 0,
+							},
+							{
+								Title:    "I2",
+								Modified: baseTime,
+								Position: 0,
+							},
+						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:     "store-list-1",
@@ -3595,12 +3779,14 @@ func TestOneWaySync(t *testing.T) {
 							ID:       "store-item-2",
 							Title:    "I2",
 							Position: 0,
+							Status:   model.StatusNotStarted,
 							ListID:   "store-list-1",
 						},
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
 							Position: 1,
+							Status:   model.StatusNotStarted,
 							ListID:   "store-list-1",
 						},
 					},
@@ -3616,12 +3802,14 @@ func TestOneWaySync(t *testing.T) {
 							ID:       "store-item-2",
 							Title:    "I2",
 							Position: 0,
+							Status:   model.StatusNotStarted,
 							ListID:   "store-list-1",
 						},
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
 							Position: 1,
+							Status:   model.StatusNotStarted,
 							ListID:   "store-list-1",
 						},
 					},
@@ -3631,39 +3819,53 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "reorder items external (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1 Updated",
-					Modified:   baseTime.Add(1),
-					ExternalID: stringPtr("external-list-1"),
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							ExternalID: stringPtr("external-item-1"),
-						},
-						{
-							Title:      "I2",
-							ExternalID: stringPtr("external-item-2"),
-						},
-					},
-				},
-			}),
-			dst: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1 Original",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:      "I2",
-							ExternalID: stringPtr("external-item-2"),
-						},
-						{
-							Title:      "I1",
-							ExternalID: stringPtr("external-item-1"),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1 Updated",
+						Modified:   baseTime.Add(1),
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								ID:         "store-item-2",
+								Title:      "I2",
+								Modified:   baseTime,
+								Position:   0,
+								ExternalID: stringPtr("external-task-2"),
+							},
+							{
+								ID:         "store-item-1",
+								Title:      "I1",
+								Modified:   baseTime,
+								Position:   1,
+								ExternalID: stringPtr("external-task-1"),
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1 Original",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
+							{
+								Title:    "I2",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:         "store-list-1",
@@ -3672,20 +3874,22 @@ func TestOneWaySync(t *testing.T) {
 					ExternalID: stringPtr("external-list-1"),
 					Items: []*model.Item{
 						{
-							ID:             "store-item-1",
-							Title:          "I1",
-							Position:       0,
-							ListID:         "store-list-1",
-							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-1"),
-						},
-						{
 							ID:             "store-item-2",
 							Title:          "I2",
+							Position:       0,
+							ListID:         "store-list-1",
+							Status:         model.StatusNotStarted,
+							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     stringPtr("external-task-2"),
+						},
+						{
+							ID:             "store-item-1",
+							Title:          "I1",
 							Position:       1,
 							ListID:         "store-list-1",
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 					},
 				},
@@ -3697,16 +3901,18 @@ func TestOneWaySync(t *testing.T) {
 					ExternalID: stringPtr("external-list-1"),
 					Items: []*model.Item{
 						{
-							Title:          "I1",
+							Title:          "I2",
 							Position:       0,
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-2"),
 						},
 						{
-							Title:          "I2",
+							Title:          "I1",
 							Position:       1,
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 					},
 				},
@@ -3715,39 +3921,53 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "reorder items external (pull)",
-			src: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1 Updated",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							Title:      "I2",
-							ExternalID: stringPtr("external-item-2"),
-						},
-						{
-							Title:      "I1",
-							ExternalID: stringPtr("external-item-1"),
-						},
-					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1 Original",
-					Modified:   baseTime,
-					ExternalID: stringPtr("external-list-1"),
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							ExternalID: stringPtr("external-item-1"),
-						},
-						{
-							Title:      "I2",
-							ExternalID: stringPtr("external-item-2"),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1 Updated",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
+							{
+								Title:    "I2",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1 Original",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								ID:         "store-item-2",
+								Title:      "I2",
+								Modified:   baseTime,
+								Position:   0,
+								ExternalID: stringPtr("external-task-2"),
+							},
+							{
+								ID:         "store-item-1",
+								Title:      "I1",
+								Modified:   baseTime,
+								Position:   1,
+								ExternalID: stringPtr("external-task-1"),
+							},
+						},
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					Name:       "L1 Updated",
@@ -3755,16 +3975,18 @@ func TestOneWaySync(t *testing.T) {
 					ExternalID: stringPtr("external-list-1"),
 					Items: []*model.Item{
 						{
-							Title:          "I2",
+							Title:          "I1",
 							Position:       0,
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 						{
-							Title:          "I1",
+							Title:          "I2",
 							Position:       1,
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-2"),
 						},
 					},
 				},
@@ -3777,20 +3999,22 @@ func TestOneWaySync(t *testing.T) {
 					ExternalID: stringPtr("external-list-1"),
 					Items: []*model.Item{
 						{
-							ID:             "store-item-2",
-							Title:          "I2",
-							Position:       0,
-							ListID:         "store-list-1",
-							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-2"),
-						},
-						{
 							ID:             "store-item-1",
 							Title:          "I1",
+							Position:       0,
+							ListID:         "store-list-1",
+							Status:         model.StatusNotStarted,
+							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     stringPtr("external-task-1"),
+						},
+						{
+							ID:             "store-item-2",
+							Title:          "I2",
 							Position:       1,
 							ListID:         "store-list-1",
+							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-2"),
 						},
 					},
 				},
@@ -3799,50 +4023,75 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "move item (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime.Add(1),
-					Items:    []*model.Item{},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{Title: "I1"},
-						{Title: "I2"},
-						{Title: "I3"},
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Position: 0,
+						Items:    []*model.Item{},
 					},
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							ID:    "store-item-2",
-							Title: "I2",
+					{
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Position: 1,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+								Position: 0,
+							},
+							{
+								Title:    "I2",
+								Modified: baseTime,
+								Position: 1,
+							},
+							{
+								Title:    "I3",
+								Modified: baseTime,
+								Position: 2,
+							},
 						},
 					},
-				},
-				{
-					ID:       "store-list-2",
-					Name:     "L2",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							ID:    "store-item-1",
-							Title: "I1",
-						},
-						{
-							ID:    "store-item-3",
-							Title: "I3",
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-2",
+								Title:    "I2",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
+					{
+						ID:       "store-list-2",
+						Name:     "L2",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+							},
+							{
+								ID:       "store-item-3",
+								Title:    "I3",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:       "store-list-1",
@@ -3860,18 +4109,21 @@ func TestOneWaySync(t *testing.T) {
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
+							Status:   model.StatusNotStarted,
 							Position: 0,
 							ListID:   "store-list-2",
 						},
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
+							Status:   model.StatusNotStarted,
 							Position: 1,
 							ListID:   "store-list-2",
 						},
 						{
 							ID:       "store-item-3",
 							Title:    "I3",
+							Status:   model.StatusNotStarted,
 							Position: 2,
 							ListID:   "store-list-2",
 						},
@@ -3895,18 +4147,21 @@ func TestOneWaySync(t *testing.T) {
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
+							Status:   model.StatusNotStarted,
 							Position: 0,
 							ListID:   "store-list-2",
 						},
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
+							Status:   model.StatusNotStarted,
 							Position: 1,
 							ListID:   "store-list-2",
 						},
 						{
 							ID:       "store-item-3",
 							Title:    "I3",
+							Status:   model.StatusNotStarted,
 							Position: 2,
 							ListID:   "store-list-2",
 						},
@@ -3917,50 +4172,75 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "move item (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime.Add(1),
-					Items:    []*model.Item{},
-				},
-				{
-					ID:       "store-list-2",
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							ID:    "store-item-2",
-							Title: "I2",
-						},
-						{
-							ID:    "store-item-1",
-							Title: "I1",
-						},
-						{
-							ID:    "store-item-3",
-							Title: "I3",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Items:    []*model.Item{},
+					},
+					{
+						ID:       "store-list-2",
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								ID:       "store-item-2",
+								Title:    "I2",
+								Modified: baseTime,
+							},
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+							},
+							{
+								ID:       "store-item-3",
+								Title:    "I3",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{Title: "I1"},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Position: 0,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+								Position: 0,
+							},
+						},
 					},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{Title: "I2"},
-						{Title: "I3"},
+					{
+						Name:     "L2",
+						Modified: baseTime,
+						Position: 1,
+						Items: []*model.Item{
+							{
+								Title:    "I2",
+								Modified: baseTime,
+								Position: 0,
+							},
+							{
+								Title:    "I3",
+								Modified: baseTime,
+								Position: 1,
+							},
+						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:       "store-list-1",
@@ -3978,18 +4258,21 @@ func TestOneWaySync(t *testing.T) {
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
+							Status:   model.StatusNotStarted,
 							Position: 0,
 							ListID:   "store-list-2",
 						},
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
+							Status:   model.StatusNotStarted,
 							Position: 1,
 							ListID:   "store-list-2",
 						},
 						{
 							ID:       "store-item-3",
 							Title:    "I3",
+							Status:   model.StatusNotStarted,
 							Position: 2,
 							ListID:   "store-list-2",
 						},
@@ -4013,18 +4296,21 @@ func TestOneWaySync(t *testing.T) {
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
+							Status:   model.StatusNotStarted,
 							Position: 0,
 							ListID:   "store-list-2",
 						},
 						{
 							ID:       "store-item-1",
 							Title:    "I1",
+							Status:   model.StatusNotStarted,
 							Position: 1,
 							ListID:   "store-list-2",
 						},
 						{
 							ID:       "store-item-3",
 							Title:    "I3",
+							Status:   model.StatusNotStarted,
 							Position: 2,
 							ListID:   "store-list-2",
 						},
@@ -4035,59 +4321,78 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "move item external (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Modified:   baseTime.Add(1),
-					Items:      []*model.Item{},
-				},
-				{
-					Name:       "L2",
-					ExternalID: stringPtr("external-list-2"),
-					Modified:   baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							ExternalID: stringPtr("external-item-1"),
-						},
-						{
-							Title:      "I2",
-							ExternalID: stringPtr("external-item-2"),
-						},
-						{
-							Title:      "I3",
-							ExternalID: stringPtr("external-item-3"),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime.Add(1),
+						Position:   0,
+						ExternalID: stringPtr("external-list-1"),
+						Items:      []*model.Item{},
+					},
+					{
+						Name:       "L2",
+						Modified:   baseTime.Add(1),
+						Position:   1,
+						ExternalID: stringPtr("external-list-2"),
+						Items: []*model.Item{
+							{
+								ID:         "store-item-2",
+								Title:      "I2",
+								Modified:   baseTime,
+								Position:   0,
+								ExternalID: stringPtr("external-task-2"),
+							},
+							{
+								ID:         "store-item-1",
+								Title:      "I1",
+								Modified:   baseTime,
+								Position:   1,
+								ExternalID: stringPtr("external-task-1"),
+							},
+							{
+								ID:         "store-item-3",
+								Title:      "I3",
+								Modified:   baseTime,
+								Position:   2,
+								ExternalID: stringPtr("external-task-3"),
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:      "I2",
-							ExternalID: stringPtr("external-item-2"),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							ExternalID: stringPtr("external-item-1"),
-						},
-						{
-							Title:      "I3",
-							ExternalID: stringPtr("external-item-3"),
+					{
+						Name:     "L2",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I2",
+								Modified: baseTime,
+							},
+							{
+								Title:    "I3",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:         "store-list-1",
@@ -4105,28 +4410,31 @@ func TestOneWaySync(t *testing.T) {
 					ExternalID: stringPtr("external-list-2"),
 					Items: []*model.Item{
 						{
-							ID:             "store-item-1",
-							Title:          "I1",
+							ID:             "store-item-2",
+							Title:          "I2",
+							Status:         model.StatusNotStarted,
 							Position:       0,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-2"),
 						},
 						{
-							ID:             "store-item-2",
-							Title:          "I2",
+							ID:             "store-item-1",
+							Title:          "I1",
+							Status:         model.StatusNotStarted,
 							Position:       1,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 						{
 							ID:             "store-item-3",
 							Title:          "I3",
+							Status:         model.StatusNotStarted,
 							Position:       2,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-3"),
+							ExternalID:     stringPtr("external-task-3"),
 						},
 					},
 				},
@@ -4146,22 +4454,25 @@ func TestOneWaySync(t *testing.T) {
 					ExternalID: stringPtr("external-list-2"),
 					Items: []*model.Item{
 						{
-							Title:          "I1",
+							Title:          "I2",
+							Status:         model.StatusNotStarted,
 							Position:       0,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-2"),
 						},
 						{
-							Title:          "I2",
+							Title:          "I1",
+							Status:         model.StatusNotStarted,
 							Position:       1,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 						{
 							Title:          "I3",
+							Status:         model.StatusNotStarted,
 							Position:       2,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-3"),
+							ExternalID:     stringPtr("external-task-3"),
 						},
 					},
 				},
@@ -4170,59 +4481,73 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "move item external (pull)",
-			src: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime.Add(1),
-					Items:    []*model.Item{},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							Title:      "I2",
-							ExternalID: stringPtr("external-item-2"),
-						},
-						{
-							Title:      "I1",
-							ExternalID: stringPtr("external-item-1"),
-						},
-						{
-							Title:      "I3",
-							ExternalID: stringPtr("external-item-3"),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Items:    []*model.Item{},
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
+							{
+								Title:    "I2",
+								Modified: baseTime,
+							},
+							{
+								Title:    "I3",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Modified:   baseTime,
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							ExternalID: stringPtr("external-item-1"),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								ID:         "store-item-2",
+								Title:      "I2",
+								Modified:   baseTime,
+								ExternalID: stringPtr("external-task-2"),
+							},
 						},
 					},
-				},
-				{
-					Name:       "L2",
-					ExternalID: stringPtr("external-list-2"),
-					Modified:   baseTime,
-					Items: []*model.Item{
-						{
-							Title:      "I2",
-							ExternalID: stringPtr("external-item-2"),
-						},
-						{
-							Title:      "I3",
-							ExternalID: stringPtr("external-item-3"),
+					{
+						Name:       "L2",
+						ExternalID: stringPtr("external-list-2"),
+						Modified:   baseTime,
+						Items: []*model.Item{
+							{
+								ID:         "store-item-1",
+								Title:      "I1",
+								Modified:   baseTime,
+								ExternalID: stringPtr("external-task-1"),
+							},
+							{
+								ID:         "store-item-3",
+								Title:      "I3",
+								Modified:   baseTime,
+								ExternalID: stringPtr("external-task-3"),
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					Name:       "L1",
@@ -4238,22 +4563,25 @@ func TestOneWaySync(t *testing.T) {
 					ExternalID: stringPtr("external-list-2"),
 					Items: []*model.Item{
 						{
-							Title:          "I2",
+							Title:          "I1",
+							Status:         model.StatusNotStarted,
 							Position:       0,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 						{
-							Title:          "I1",
+							Title:          "I2",
+							Status:         model.StatusNotStarted,
 							Position:       1,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-2"),
 						},
 						{
 							Title:          "I3",
+							Status:         model.StatusNotStarted,
 							Position:       2,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-3"),
+							ExternalID:     stringPtr("external-task-3"),
 						},
 					},
 				},
@@ -4275,28 +4603,31 @@ func TestOneWaySync(t *testing.T) {
 					ExternalID: stringPtr("external-list-2"),
 					Items: []*model.Item{
 						{
-							ID:             "store-item-2",
-							Title:          "I2",
+							ID:             "store-item-1",
+							Title:          "I1",
+							Status:         model.StatusNotStarted,
 							Position:       0,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-2"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 						{
-							ID:             "store-item-1",
-							Title:          "I1",
+							ID:             "store-item-2",
+							Title:          "I2",
+							Status:         model.StatusNotStarted,
 							Position:       1,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-2"),
 						},
 						{
 							ID:             "store-item-3",
 							Title:          "I3",
+							Status:         model.StatusNotStarted,
 							Position:       2,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-3"),
+							ExternalID:     stringPtr("external-task-3"),
 						},
 					},
 				},
@@ -4305,46 +4636,55 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "update item and move item (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime.Add(1),
-					Items:    []*model.Item{},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							Title:    "I1 Updated",
-							Status:   model.StatusDone,
-							Modified: baseTime.Add(1),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Position: 0,
+						Items:    []*model.Item{},
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Position: 1,
+						Items: []*model.Item{
+							{
+								Title:    "I1 Updated",
+								Modified: baseTime.Add(1),
+								Status:   model.StatusDone,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							ID:       "store-item-1",
-							Title:    "I1 Original",
-							Status:   model.StatusNotStarted,
-							ListID:   "store-list-1",
-							Modified: baseTime,
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1 Original",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+							},
 						},
 					},
-				},
-				{
-					ID:       "store-list-2",
-					Name:     "L2",
-					Modified: baseTime,
-					Items:    []*model.Item{},
-				},
-			}),
+					{
+						ID:       "store-list-2",
+						Name:     "L2",
+						Modified: baseTime,
+						Items:    []*model.Item{},
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:       "store-list-1",
@@ -4395,46 +4735,55 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "update item and move item (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime.Add(1),
-					Items:    []*model.Item{},
-				},
-				{
-					ID:       "store-list-2",
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							ID:       "store-item-1",
-							Title:    "I1 Updated",
-							Status:   model.StatusInProgress,
-							ListID:   "store-list-2",
-							Modified: baseTime.Add(1),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Items:    []*model.Item{},
+					},
+					{
+						ID:       "store-list-2",
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1 Updated",
+								Modified: baseTime.Add(1),
+								Status:   model.StatusInProgress,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:    "I1 Original",
-							Status:   model.StatusDone,
-							Modified: baseTime,
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Position: 0,
+						Items: []*model.Item{
+							{
+								Title:    "I1 Original",
+								Modified: baseTime,
+								Status:   model.StatusDone,
+							},
 						},
 					},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime,
-					Items:    []*model.Item{},
-				},
-			}),
+					{
+						Name:     "L2",
+						Modified: baseTime,
+						Position: 1,
+						Items:    []*model.Item{},
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:       "store-list-1",
@@ -4485,45 +4834,55 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "update item and move item external (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Modified:   baseTime.Add(1),
-					Items:      []*model.Item{},
-				},
-				{
-					Name:       "L2",
-					ExternalID: stringPtr("external-list-2"),
-					Modified:   baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							Title:      "I1 Updated",
-							Status:     model.StatusDone,
-							Modified:   baseTime.Add(1),
-							ExternalID: stringPtr("external-item-1"),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime.Add(1),
+						Position:   0,
+						ExternalID: stringPtr("external-list-1"),
+						Items:      []*model.Item{},
+					},
+					{
+						Name:       "L2",
+						Modified:   baseTime.Add(1),
+						Position:   1,
+						ExternalID: stringPtr("external-list-2"),
+						Items: []*model.Item{
+							{
+								Title:      "I1 Updated",
+								Modified:   baseTime.Add(1),
+								Status:     model.StatusDone,
+								ExternalID: stringPtr("external-task-1"),
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:    "I1 Original",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime,
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1 Original",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+							},
 						},
 					},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime,
-					Items:    []*model.Item{},
-				},
-			}),
+					{
+						Name:     "L2",
+						Modified: baseTime,
+						Items:    []*model.Item{},
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:         "store-list-1",
@@ -4546,7 +4905,7 @@ func TestOneWaySync(t *testing.T) {
 							Status:         model.StatusDone,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 					},
 				},
@@ -4569,7 +4928,7 @@ func TestOneWaySync(t *testing.T) {
 							Title:          "I1 Updated",
 							Status:         model.StatusDone,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 					},
 				},
@@ -4578,45 +4937,55 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "update item and move item external (pull)",
-			src: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime.Add(1),
-					Items:    []*model.Item{},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							Title:    "I1 Updated",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime.Add(1),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Items:    []*model.Item{},
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								Title:    "I1 Updated",
+								Modified: baseTime.Add(1),
+								Status:   model.StatusNotStarted,
+							},
 						},
 					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Modified:   baseTime,
-					Items: []*model.Item{
-						{
-							Title:      "I1 Original",
-							Status:     model.StatusDone,
-							Modified:   baseTime,
-							ExternalID: stringPtr("external-item-1"),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						Position:   0,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:      "I1 Original",
+								Modified:   baseTime,
+								Status:     model.StatusDone,
+								ExternalID: stringPtr("external-task-1"),
+							},
 						},
 					},
-				},
-				{
-					Name:       "L2",
-					ExternalID: stringPtr("external-list-2"),
-					Modified:   baseTime,
-					Items:      []*model.Item{},
-				},
-			}),
+					{
+						Name:       "L2",
+						Modified:   baseTime,
+						Position:   1,
+						ExternalID: stringPtr("external-list-2"),
+						Items:      []*model.Item{},
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					Name:       "L1",
@@ -4635,7 +5004,7 @@ func TestOneWaySync(t *testing.T) {
 							Title:          "I1 Updated",
 							Status:         model.StatusNotStarted,
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 					},
 				},
@@ -4662,7 +5031,7 @@ func TestOneWaySync(t *testing.T) {
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-2",
 							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
+							ExternalID:     stringPtr("external-task-1"),
 						},
 					},
 				},
@@ -4671,43 +5040,62 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "delete list (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:   "L1",
-					Status: model.StatusDeleted,
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:   "store-list-1",
-					Name: "L1",
-					Items: []*model.Item{
-						{
-							ID:    "store-item-1",
-							Title: "I1",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Status:   model.StatusDeleted,
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{},
 			wantDstLists: []model.List{},
 			wantUpdated:  true,
 		},
 		{
 			name: "delete list (pull)",
-			src:  NewFakeProvider("generic", []model.List{}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Modified: baseTime,
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{},
 			wantDstLists: []model.List{
 				{
@@ -4721,42 +5109,63 @@ func TestOneWaySync(t *testing.T) {
 		},
 		{
 			name: "delete list external (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Status:     model.StatusDeleted,
-				},
-			}),
-			dst: NewFakeProvider("external", []model.List{
-				{
-					Name: "L1",
-					Items: []*model.Item{
-						{Title: "I1"},
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime.Add(1),
+						Status:     model.StatusDeleted,
+						ExternalID: stringPtr("external-list-1"),
 					},
-				},
-			}),
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{},
 			wantDstLists: []model.List{},
 			wantUpdated:  true,
 		},
 		{
 			name: "delete list external (pull)",
-			src:  NewFakeProvider("external", []model.List{}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					Modified:   baseTime,
-					ExternalID: stringPtr("external-list-1"),
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							Modified:   baseTime,
-							ExternalID: stringPtr("external-item-1"),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:      "I1",
+								Modified:   baseTime,
+								ExternalID: stringPtr("external-task-1"),
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{},
 			wantDstLists: []model.List{
 				{
@@ -4770,41 +5179,399 @@ func TestOneWaySync(t *testing.T) {
 			wantUpdated: true,
 		},
 		{
-			name: "delete already deleted list (pull)",
-			src:  NewFakeProvider("generic", []model.List{}),
-			dst: NewFakeProvider("store", []model.List{
+			name: "delete list move item (push)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Status:   model.StatusDeleted,
+						Position: 0,
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Position: 1,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+					{
+						ID:       "store-list-2",
+						Name:     "L2",
+						Modified: baseTime,
+						Items:    []*model.Item{},
+					},
+				})
+
+				return dst
+			},
+			wantSrcLists: []model.List{
 				{
-					Name:   "L1",
-					Status: model.StatusDeleted,
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-2",
+						},
+					},
 				},
-			}),
+			},
+			wantDstLists: []model.List{
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1",
+							ListID: "store-list-2",
+							Status: model.StatusNotStarted,
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "delete list move item (pull)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-2",
+						Name:     "L2",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Position: 0,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime,
+						Position: 1,
+						Items:    []*model.Item{},
+					},
+				})
+
+				return dst
+			},
+			wantSrcLists: []model.List{
+				{
+					ID:     "store-list-2",
+					Name:   "L2",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1",
+							ListID: "store-list-2",
+							Status: model.StatusNotStarted,
+						},
+					},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusDeleted,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1",
+							ListID: "store-list-2",
+							Status: model.StatusNotStarted,
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "delete list move item external (push)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime.Add(1),
+						Status:     model.StatusDeleted,
+						Position:   0,
+						ExternalID: stringPtr("external-list-1"),
+					},
+					{
+						Name:       "L2",
+						Modified:   baseTime.Add(1),
+						Position:   1,
+						ExternalID: stringPtr("external-list-2"),
+						Items: []*model.Item{
+							{
+								Title:      "I1",
+								Modified:   baseTime,
+								ExternalID: stringPtr("external-task-1"),
+							},
+						},
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime,
+						Items:    []*model.Item{},
+					},
+				})
+
+				return dst
+			},
+			wantSrcLists: []model.List{
+				{
+					ID:         "store-list-2",
+					Name:       "L2",
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: stringPtr("external-list-2"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-1",
+							Title:          "I1",
+							Status:         model.StatusNotStarted,
+							ListID:         "store-list-2",
+							ExternalListID: stringPtr("external-list-2"),
+							ExternalID:     stringPtr("external-task-1"),
+						},
+					},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					Name:       "L2",
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: stringPtr("external-list-2"),
+					Items: []*model.Item{
+						{
+							Title:          "I1",
+							Status:         model.StatusNotStarted,
+							ExternalListID: stringPtr("external-list-2"),
+							ExternalID:     stringPtr("external-task-1"),
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "delete list move item external (pull)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						Position:   0,
+						ExternalID: stringPtr("external-list-1"),
+						Items:      []*model.Item{},
+					},
+					{
+						Name:       "L2",
+						Modified:   baseTime,
+						Position:   1,
+						ExternalID: stringPtr("external-list-2"),
+						Items: []*model.Item{
+							{
+								Title:      "I1",
+								Modified:   baseTime,
+								ExternalID: stringPtr("external-task-1"),
+							},
+						},
+					},
+				})
+
+				return dst
+			},
+			wantSrcLists: []model.List{
+				{
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items: []*model.Item{
+						{
+							Title:          "I1",
+							Status:         model.StatusNotStarted,
+							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     stringPtr("external-task-1"),
+						},
+					},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: stringPtr("external-list-1"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-1",
+							Title:          "I1",
+							Status:         model.StatusNotStarted,
+							ListID:         "store-list-2",
+							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     stringPtr("external-task-1"),
+						},
+					},
+				},
+				{
+					ID:         "store-list-2",
+					Name:       "L2",
+					Status:     model.StatusDeleted,
+					Position:   1,
+					ExternalID: stringPtr("external-list-2"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "delete already deleted list (pull)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{})
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Status:   model.StatusDeleted,
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{},
 			wantDstLists: []model.List{
 				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusDeleted,
-					Items:  []*model.Item{},
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusDeleted,
+					Position: 0,
+					Items:    []*model.Item{},
 				},
 			},
 			wantUpdated: false,
 		},
 		{
 			name: "delete already deleted list external (pull)",
-			src:  NewFakeProvider("external", []model.List{}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					Status:     model.StatusDeleted,
-					ExternalID: stringPtr("external-list-1"),
-				},
-			}),
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{})
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						Status:     model.StatusDeleted,
+						ExternalID: stringPtr("external-list-1"),
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{},
 			wantDstLists: []model.List{
 				{
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusDeleted,
+					Position:   0,
 					ExternalID: stringPtr("external-list-1"),
 					Items:      []*model.Item{},
 				},
@@ -4812,34 +5579,380 @@ func TestOneWaySync(t *testing.T) {
 			wantUpdated: false,
 		},
 		{
-			name: "skip delete item due to concurrent edit (push)",
-			src: NewFakeProvider("store", []model.List{
+			name: "delete item (push)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+								Status:   model.StatusDeleted,
+							},
+						},
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return dst
+			},
+			wantSrcLists: []model.List{
 				{
-					Name:     "L1",
-					Modified: baseTime,
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "delete item (pull)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return dst
+			},
+			wantSrcLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
 					Items: []*model.Item{
 						{
+							ID:     "store-item-1",
 							Title:  "I1",
+							ListID: "store-list-1",
 							Status: model.StatusDeleted,
 						},
 					},
 				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "delete item external (push)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:      "I1",
+								Modified:   baseTime,
+								Status:     model.StatusDeleted,
+								ExternalID: stringPtr("external-task-1"),
+							},
+						},
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return dst
+			},
+			wantSrcLists: []model.List{
 				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime,
+					ID:         "store-list-1",
+					Name:       "L1",
+					ExternalID: stringPtr("external-list-1"),
+					Status:     model.StatusOpen,
+					Items:      []*model.Item{},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					Name:       "L1",
+					ExternalID: stringPtr("external-list-1"),
+					Status:     model.StatusOpen,
+					Items:      []*model.Item{},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "delete item external (pull)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:      "I1",
+								Modified:   baseTime,
+								ExternalID: stringPtr("external-task-1"),
+							},
+						},
+					},
+				})
+
+				return dst
+			},
+			wantSrcLists: []model.List{
+				{
+					Name:       "L1",
+					ExternalID: stringPtr("external-list-1"),
+					Status:     model.StatusOpen,
+					Items:      []*model.Item{},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "L1",
+					ExternalID: stringPtr("external-list-1"),
+					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
-							ID:       "store-item-1",
-							Title:    "I1",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime.Add(2 * time.Hour),
+							ID:             "store-item-1",
+							Title:          "I1",
+							ListID:         "store-list-1",
+							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     stringPtr("external-task-1"),
+							Status:         model.StatusDeleted,
 						},
 					},
 				},
-			}),
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "delete already deleted item (pull)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+								Status:   model.StatusDeleted,
+							},
+						},
+					},
+				})
+
+				return dst
+			},
+			wantSrcLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1",
+							Status: model.StatusDeleted,
+							ListID: "store-list-1",
+						},
+					},
+				},
+			},
+			wantUpdated: false,
+		},
+		{
+			name: "delete already deleted item external (pull)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:      "I1",
+								Modified:   baseTime,
+								Status:     model.StatusDeleted,
+								ExternalID: stringPtr("external-item-1"),
+							},
+						},
+					},
+				})
+
+				return dst
+			},
+			wantSrcLists: []model.List{
+				{
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantDstLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-1",
+							Title:          "I1",
+							Status:         model.StatusDeleted,
+							ListID:         "store-list-1",
+							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     stringPtr("external-item-1"),
+						},
+					},
+				},
+			},
+			wantUpdated: false,
+		},
+		{
+			name: "delete item skipped due to concurrent edit (push)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+								Status:   model.StatusDeleted,
+							},
+						},
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime.Add(2 * time.Hour),
+								Status:   model.StatusNotStarted,
+							},
+						},
+					},
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:       "store-list-1",
@@ -4877,30 +5990,35 @@ func TestOneWaySync(t *testing.T) {
 			wantUpdated: false,
 		},
 		{
-			name: "skip delete item due to concurrent edit (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime,
-					Items:    []*model.Item{},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							ID:       "store-item-1",
-							Title:    "I1",
-							Status:   model.StatusNotStarted,
-							Modified: baseTime.Add(2 * time.Hour),
+			name: "delete item skipped due to concurrent edit (pull)",
+			setupSrc: func(t *testing.T) Provider {
+				src := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items:    []*model.Item{},
+					},
+				})
+
+				return src
+			},
+			setupDst: func(t *testing.T) Provider {
+				dst := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime.Add(2 * time.Hour),
+							},
 						},
 					},
-				},
-			}),
+				})
+
+				return dst
+			},
 			wantSrcLists: []model.List{
 				{
 					ID:       "store-list-1",
@@ -4929,569 +6047,26 @@ func TestOneWaySync(t *testing.T) {
 			},
 			wantUpdated: false,
 		},
-		{
-			name: "delete item (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name: "L1",
-					Items: []*model.Item{
-						{
-							Title:  "I1",
-							Status: model.StatusDeleted,
-						},
-					},
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:   "store-list-1",
-					Name: "L1",
-					Items: []*model.Item{
-						{
-							ID:    "store-item-1",
-							Title: "I1",
-						},
-					},
-				},
-			}),
-			wantSrcLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusOpen,
-					Items:  []*model.Item{},
-				},
-			},
-			wantDstLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusOpen,
-					Items:  []*model.Item{},
-				},
-			},
-			wantUpdated: true,
-		},
-		{
-			name: "delete item (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime,
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							Title:    "I1",
-							Modified: baseTime,
-						},
-					},
-				},
-			}),
-			wantSrcLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusOpen,
-					Items:  []*model.Item{},
-				},
-			},
-			wantDstLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusOpen,
-					Items: []*model.Item{
-						{
-							ID:     "store-item-1",
-							Title:  "I1",
-							ListID: "store-list-1",
-							Status: model.StatusDeleted,
-						},
-					},
-				},
-			},
-			wantUpdated: true,
-		},
-		{
-			name: "delete item external (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							ExternalID: stringPtr("external-item-1"),
-							Status:     model.StatusDeleted,
-						},
-					},
-				},
-			}),
-			dst: NewFakeProvider("external", []model.List{
-				{
-					Name: "L1",
-					Items: []*model.Item{
-						{Title: "I1"},
-					},
-				},
-			}),
-			wantSrcLists: []model.List{
-				{
-					ID:         "store-list-1",
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Status:     model.StatusOpen,
-					Items:      []*model.Item{},
-				},
-			},
-			wantDstLists: []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Status:     model.StatusOpen,
-					Items:      []*model.Item{},
-				},
-			},
-			wantUpdated: true,
-		},
-		{
-			name: "delete item external (pull)",
-			src: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					Modified:   baseTime,
-					ExternalID: stringPtr("external-list-1"),
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							Modified:   baseTime,
-							ExternalID: stringPtr("external-item-1"),
-						},
-					},
-				},
-			}),
-			wantSrcLists: []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Status:     model.StatusOpen,
-					Items:      []*model.Item{},
-				},
-			},
-			wantDstLists: []model.List{
-				{
-					ID:         "store-list-1",
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Status:     model.StatusOpen,
-					Items: []*model.Item{
-						{
-							ID:             "store-item-1",
-							Title:          "I1",
-							ListID:         "store-list-1",
-							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-1"),
-							Status:         model.StatusDeleted,
-						},
-					},
-				},
-			},
-			wantUpdated: true,
-		},
-		{
-			name: "delete already deleted item (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:   "store-list-1",
-					Name: "L1",
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name: "L1",
-					Items: []*model.Item{
-						{
-							Title:  "I1",
-							Status: model.StatusDeleted,
-						},
-					},
-				},
-			}),
-			wantSrcLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusOpen,
-					Items:  []*model.Item{},
-				},
-			},
-			wantDstLists: []model.List{
-				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusOpen,
-					Items: []*model.Item{
-						{
-							ID:     "store-item-1",
-							Title:  "I1",
-							Status: model.StatusDeleted,
-							ListID: "store-list-1",
-						},
-					},
-				},
-			},
-			wantUpdated: false,
-		},
-		{
-			name: "delete already deleted item external (pull)",
-			src: NewFakeProvider("external", []model.List{
-				{Name: "L1"},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							Status:     model.StatusDeleted,
-							ExternalID: stringPtr("external-item-1"),
-						},
-					},
-				},
-			}),
-			wantSrcLists: []model.List{
-				{
-					Name:       "L1",
-					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
-					Items:      []*model.Item{},
-				},
-			},
-			wantDstLists: []model.List{
-				{
-					ID:         "store-list-1",
-					Name:       "L1",
-					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
-					Items: []*model.Item{
-						{
-							ID:             "store-item-1",
-							Title:          "I1",
-							Status:         model.StatusDeleted,
-							ListID:         "store-list-1",
-							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-item-1"),
-						},
-					},
-				},
-			},
-			wantUpdated: false,
-		},
-		{
-			name: "delete list move item (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Status:   model.StatusDeleted,
-					Modified: baseTime.Add(1),
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{Title: "I1"},
-					},
-				},
-			}),
-			dst: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{
-							ID:    "store-item-1",
-							Title: "I1",
-						},
-					},
-				},
-				{
-					ID:       "store-list-2",
-					Name:     "L2",
-					Modified: baseTime,
-					Items:    []*model.Item{},
-				},
-			}),
-			wantSrcLists: []model.List{
-				{
-					ID:       "store-list-2",
-					Name:     "L2",
-					Status:   model.StatusOpen,
-					Position: 1,
-					Items: []*model.Item{
-						{
-							ID:     "store-item-1",
-							Title:  "I1",
-							ListID: "store-list-2",
-						},
-					},
-				},
-			},
-			wantDstLists: []model.List{
-				{
-					ID:       "store-list-2",
-					Name:     "L2",
-					Status:   model.StatusOpen,
-					Position: 1,
-					Items: []*model.Item{
-						{
-							ID:     "store-item-1",
-							Title:  "I1",
-							ListID: "store-list-2",
-						},
-					},
-				},
-			},
-			wantUpdated: true,
-		},
-		{
-			name: "delete list move item (pull)",
-			src: NewFakeProvider("generic", []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Status:   model.StatusDeleted,
-					Modified: baseTime.Add(1),
-				},
-				{
-					ID:       "store-list-2",
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							ID:    "store-item-1",
-							Title: "I1",
-						},
-					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{Title: "I1"},
-					},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime,
-					Items:    []*model.Item{},
-				},
-			}),
-			wantSrcLists: []model.List{
-				{
-					ID:       "store-list-2",
-					Name:     "L2",
-					Status:   model.StatusOpen,
-					Position: 1,
-					Items: []*model.Item{
-						{
-							ID:     "store-item-1",
-							Title:  "I1",
-							ListID: "store-list-2",
-						},
-					},
-				},
-			},
-			wantDstLists: []model.List{
-				{
-					ID:       "store-list-2",
-					Name:     "L2",
-					Status:   model.StatusOpen,
-					Position: 1,
-					Items: []*model.Item{
-						{
-							ID:     "store-item-1",
-							Title:  "I1",
-							ListID: "store-list-2",
-						},
-					},
-				},
-			},
-			wantUpdated: true,
-		},
-		{
-			name: "delete list move item external (push)",
-			src: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					ExternalID: stringPtr("external-list-1"),
-					Status:     model.StatusDeleted,
-					Modified:   baseTime.Add(1),
-				},
-				{
-					Name:       "L2",
-					ExternalID: stringPtr("external-list-2"),
-					Modified:   baseTime.Add(1),
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							ExternalID: stringPtr("external-item-1"),
-						},
-					},
-				},
-			}),
-			dst: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Modified: baseTime,
-					Items: []*model.Item{
-						{Title: "I1"},
-					},
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime,
-					Items:    []*model.Item{},
-				},
-			}),
-			wantSrcLists: []model.List{
-				{
-					ID:         "store-list-2",
-					Name:       "L2",
-					Status:     model.StatusOpen,
-					Position:   1,
-					ExternalID: stringPtr("external-list-2"),
-					Items: []*model.Item{
-						{
-							ID:             "store-item-1",
-							Title:          "I1",
-							ListID:         "store-list-2",
-							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
-						},
-					},
-				},
-			},
-			wantDstLists: []model.List{
-				{
-					Name:       "L2",
-					Status:     model.StatusOpen,
-					Position:   1,
-					ExternalID: stringPtr("external-list-2"),
-					Items: []*model.Item{
-						{
-							Title:          "I1",
-							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
-						},
-					},
-				},
-			},
-			wantUpdated: true,
-		},
-		{
-			name: "delete list move item external (pull)",
-			src: NewFakeProvider("external", []model.List{
-				{
-					Name:     "L1",
-					Status:   model.StatusDeleted,
-					Modified: baseTime.Add(1),
-				},
-				{
-					Name:     "L2",
-					Modified: baseTime.Add(1),
-					Items: []*model.Item{
-						{Title: "I1"},
-					},
-				},
-			}),
-			dst: NewFakeProvider("store", []model.List{
-				{
-					Name:       "L1",
-					Modified:   baseTime,
-					ExternalID: stringPtr("external-list-1"),
-					Items: []*model.Item{
-						{
-							Title:      "I1",
-							ExternalID: stringPtr("external-item-1"),
-						},
-					},
-				},
-				{
-					Name:       "L2",
-					Modified:   baseTime,
-					ExternalID: stringPtr("external-list-2"),
-					Items:      []*model.Item{},
-				},
-			}),
-			wantSrcLists: []model.List{
-				{
-					Name:       "L2",
-					Status:     model.StatusOpen,
-					Position:   1,
-					ExternalID: stringPtr("external-list-2"),
-					Items: []*model.Item{
-						{
-							Title:          "I1",
-							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
-						},
-					},
-				},
-			},
-			wantDstLists: []model.List{
-				{
-					ID:         "store-list-2",
-					Name:       "L2",
-					Status:     model.StatusOpen,
-					Position:   1,
-					ExternalID: stringPtr("external-list-2"),
-					Items: []*model.Item{
-						{
-							ID:             "store-item-1",
-							Title:          "I1",
-							ListID:         "store-list-2",
-							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-item-1"),
-						},
-					},
-				},
-			},
-			wantUpdated: true,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			src := tt.setupSrc(t)
+			dst := tt.setupDst(t)
+
 			var s *Syncer
-			switch {
-			case tt.src.Name == "store":
-				s = NewSyncer(tt.src, tt.dst)
-			case tt.dst.Name == "store":
-				s = NewSyncer(tt.dst, tt.src)
-			default:
-				t.Fatalf("test must have at least one 'store' provider")
+			if remote, ok := dst.(RemoteProvider); ok {
+				s = NewSyncer(src, remote)
+			} else if remote, ok := src.(RemoteProvider); ok {
+				s = NewSyncer(dst, remote)
+			} else {
+				t.Fatalf("test must have at least one RemoteProvider")
 			}
 
 			syncStart := baseTime.Add(time.Hour)
-			updated, err := s.oneWaySync(context.Background(), tt.src, tt.dst, syncStart)
+			updated, err := s.oneWaySync(context.Background(), src, dst, syncStart)
 			if err != nil {
 				t.Fatalf("oneWaySync failed: %v", err)
 			}
@@ -5506,12 +6081,12 @@ func TestOneWaySync(t *testing.T) {
 				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}
 
-			gotSrcLists, _ := tt.src.ListLists(context.Background())
+			gotSrcLists, _ := src.ListLists(context.Background())
 			if diff := cmp.Diff(tt.wantSrcLists, gotSrcLists, opts...); diff != "" {
 				t.Errorf("Source state mismatch (-want +got):\n%s", diff)
 			}
 
-			gotDstLists, _ := tt.dst.ListLists(context.Background())
+			gotDstLists, _ := dst.ListLists(context.Background())
 			if diff := cmp.Diff(tt.wantDstLists, gotDstLists, opts...); diff != "" {
 				t.Errorf("Destination state mismatch (-want +got):\n%s", diff)
 			}

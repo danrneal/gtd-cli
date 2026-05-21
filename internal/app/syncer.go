@@ -182,11 +182,12 @@ func (ss *syncSession) syncListCreation(ctx context.Context, srcList *model.List
 			continue
 		}
 
+		srcItem.ListID = srcList.ID
+		srcItem.ExternalListID = srcList.ExternalID
+
 		itemKey := ss.getKey(srcItem)
 		dstItem, ok := ss.dstState.itemsMap[itemKey]
 		if !ok {
-			srcItem.ListID = srcList.ID
-			srcItem.ExternalListID = srcList.ExternalID
 			if err := ss.createItem(ctx, srcItem, prevItemID); err != nil {
 				return created, err
 			}
@@ -358,6 +359,10 @@ func (ss *syncSession) updateList(ctx context.Context, list, dstList *model.List
 		if dstItem, ok := ss.dstState.itemsMap[itemKey]; ok {
 			listItem.ListID = dstItem.ListID
 			listItem.ExternalListID = dstItem.ExternalListID
+
+			if listItem.Status == model.StatusNotStarted && dstItem.Status == model.StatusInProgress {
+				listItem.Status = model.StatusInProgress
+			}
 		}
 
 		listItems = append(listItems, &listItem)
