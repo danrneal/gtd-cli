@@ -212,6 +212,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 	defer rows.Close()
 
 	var lists []model.List
+	i := 0
 	for rows.Next() {
 		var list model.List
 		err := rows.Scan(
@@ -225,6 +226,9 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan list: %w", err)
 		}
+
+		list.Position = i
+		i++
 
 		if items, ok := itemsByListID[list.ID]; ok {
 			list.Items = items

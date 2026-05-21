@@ -289,17 +289,18 @@ func TestListLists(t *testing.T) {
 			setupDB: func(t *testing.T, db *sql.DB) {
 				mustExec(t, db,
 					`
-						INSERT INTO lists (id, name, modified)
-						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", time.Now(),
+						INSERT INTO lists (id, name, position, modified)
+						VALUES (?, ?, ?, ?)
+					`, "list-1", "Inbox", 5, time.Now(),
 				)
 			},
 			wantLists: []model.List{
 				{
-					ID:     "list-1",
-					Name:   "Inbox",
-					Status: model.StatusOpen,
-					Items:  []*model.Item{},
+					ID:       "list-1",
+					Name:     "Inbox",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
 				},
 			},
 		},
