@@ -393,9 +393,9 @@ func TestPushMarkdown(t *testing.T) {
 					Items:  []*model.Item{},
 				},
 				{
-					ID:     "store-list-2",
-					Name:   "L2",
-					Status: model.StatusOpen,
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
 					Position: 1,
 					Items: []*model.Item{
 						{
@@ -421,9 +421,9 @@ func TestPushMarkdown(t *testing.T) {
 					Items:  []*model.Item{},
 				},
 				{
-					ID:     "store-list-2",
-					Name:   "L2",
-					Status: model.StatusOpen,
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
 					Position: 1,
 					Items: []*model.Item{
 						{
@@ -437,6 +437,398 @@ func TestPushMarkdown(t *testing.T) {
 							Title:  "I2",
 							Status: model.StatusNotStarted,
 							ListID: "store-list-2",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "skips deletion of list due to concurrent edit",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1 Updated",
+						Status:   model.StatusDeleted,
+						Modified: baseTime.Add(1),
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1 Original",
+						Modified: baseTime.Add(2 * time.Hour),
+					},
+				})
+
+				return md
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1 Updated",
+					Status: model.StatusDeleted,
+					Items:  []*model.Item{},
+				},
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1 Original",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+		},
+		{
+			name: "updates list name and content",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1 Updated",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								Title:    "I1 Original",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1 Original",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1 Original",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return md
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1 Updated",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1 Original",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
+					},
+				},
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1 Updated",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1 Original",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "updates list position only",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Position: 1,
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime,
+						Position: 0,
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+					},
+					{
+						ID:       "store-list-2",
+						Name:     "L2",
+						Modified: baseTime,
+					},
+				})
+
+				return md
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
+				},
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
+				},
+			},
+		},
+		{
+			name: "skips deleted items during list update",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1 Updated",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								Title:    "Active Item",
+								Status:   model.StatusNotStarted,
+								Modified: baseTime,
+								Position: 0,
+							},
+							{
+								Title:    "Deleted Item",
+								Status:   model.StatusDeleted,
+								Modified: baseTime,
+								Position: 1,
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1 Original",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "Active Item",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+							},
+						},
+					},
+				})
+
+				return md
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1 Updated",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							ListID: "store-list-1",
+							Title:  "Active Item",
+							Status: model.StatusNotStarted,
+						},
+						{
+							ID:     "store-item-2",
+							ListID: "store-list-1",
+							Title:  "Deleted Item",
+							Status: model.StatusDeleted,
+						},
+					},
+				},
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1 Updated",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							ListID: "store-list-1",
+							Title:  "Active Item",
+							Status: model.StatusNotStarted,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "skips deletion of item due to concurrent edit",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Status:   model.StatusDeleted,
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime.Add(2 * time.Hour),
+							},
+						},
+					},
+				})
+
+				return md
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1",
+							Status: model.StatusDeleted,
+							ListID: "store-list-1",
+						},
+					},
+				},
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "updates item content",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1 Updated",
+								Modified: baseTime.Add(1),
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1 Original",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return md
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1 Updated",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
+					},
+				},
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1 Updated",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
 						},
 					},
 				},
@@ -701,7 +1093,6 @@ func TestPullMarkdown(t *testing.T) {
 						Modified: baseTime,
 						Items: []*model.Item{
 							{
-								// ID intentionally left empty
 								Title:    "I1",
 								Modified: baseTime.Add(1),
 							},
@@ -885,9 +1276,9 @@ func TestPullMarkdown(t *testing.T) {
 					Items:  []*model.Item{},
 				},
 				{
-					ID:     "store-list-2",
-					Name:   "L2",
-					Status: model.StatusOpen,
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
 					Position: 1,
 					Items: []*model.Item{
 						{
@@ -913,9 +1304,9 @@ func TestPullMarkdown(t *testing.T) {
 					Items:  []*model.Item{},
 				},
 				{
-					ID:     "store-list-2",
-					Name:   "L2",
-					Status: model.StatusOpen,
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
 					Position: 1,
 					Items: []*model.Item{
 						{
@@ -929,6 +1320,210 @@ func TestPullMarkdown(t *testing.T) {
 							Title:  "I2",
 							Status: model.StatusNotStarted,
 							ListID: "store-list-2",
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "updates list name and content",
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1 Updated",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1 Original",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1 Original",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1 Original",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1 Updated",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1 Original",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
+					},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1 Updated",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1 Original",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "updates list position only",
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+					},
+					{
+						ID:       "store-list-2",
+						Name:     "L2",
+						Modified: baseTime,
+					},
+				})
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Position: 1,
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime,
+						Position: 0,
+					},
+				})
+
+				return sqlite
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "updates item content",
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1 Updated",
+								Modified: baseTime.Add(1),
+							},
+						},
+					},
+				})
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1 Original",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1 Updated",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
+					},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1 Updated",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
 						},
 					},
 				},
