@@ -71,20 +71,15 @@ func TestRun(t *testing.T) {
 			name: "bootstrap sync processes initial state without events",
 			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (Provider, RemoteProvider, RemoteProvider) {
 				store := setupTestSQLite(t, []model.List{})
+				md := setupTestMarkdown(t, []model.List{
+					{
+						Name:     "New Offline List",
+						Modified: modified,
+						Items:    []*model.Item{},
+					},
+				})
 
-				md := &FakeRemoteProvider{
-					RemoteProvider: setupTestMarkdown(t, []model.List{
-						{
-							Name:     "New Offline List",
-							Modified: modified,
-							Items:    []*model.Item{},
-						},
-					}),
-				}
-
-				tasks := &FakeRemoteProvider{
-					RemoteProvider: setupTestGoogleTasks(t, []model.List{}),
-				}
+				tasks := setupTestGoogleTasks(t, []model.List{})
 
 				return store, md, tasks
 			},
@@ -118,20 +113,15 @@ func TestRun(t *testing.T) {
 			name: "single event triggers full reconciliation and ID backfill",
 			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (Provider, RemoteProvider, RemoteProvider) {
 				store := setupTestSQLite(t, []model.List{})
+				md := setupTestMarkdown(t, []model.List{
+					{
+						Name:     "New List",
+						Modified: modified,
+						Items:    []*model.Item{},
+					},
+				})
 
-				md := &FakeRemoteProvider{
-					RemoteProvider: setupTestMarkdown(t, []model.List{
-						{
-							Name:     "New List",
-							Modified: modified,
-							Items:    []*model.Item{},
-						},
-					}),
-				}
-
-				tasks := &FakeRemoteProvider{
-					RemoteProvider: setupTestGoogleTasks(t, []model.List{}),
-				}
+				tasks := setupTestGoogleTasks(t, []model.List{})
 
 				return store, md, tasks
 			},
@@ -168,20 +158,14 @@ func TestRun(t *testing.T) {
 			name: "remote event pulls into local",
 			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (Provider, RemoteProvider, RemoteProvider) {
 				store := setupTestSQLite(t, []model.List{})
-
-				md := &FakeRemoteProvider{
-					RemoteProvider: setupTestMarkdown(t, []model.List{}),
-				}
-
-				tasks := &FakeRemoteProvider{
-					RemoteProvider: setupTestGoogleTasks(t, []model.List{
-						{
-							Name:     "Remote List",
-							Modified: modified,
-							Items:    []*model.Item{},
-						},
-					}),
-				}
+				md := setupTestMarkdown(t, []model.List{})
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "Remote List",
+						Modified: modified,
+						Items:    []*model.Item{},
+					},
+				})
 
 				return store, md, tasks
 			},
@@ -220,14 +204,8 @@ func TestRun(t *testing.T) {
 				mdWatcher.watchErr = errors.New("simulated watcher error")
 
 				store := setupTestSQLite(t, nil)
-
-				md := &FakeRemoteProvider{
-					RemoteProvider: setupTestMarkdown(t, nil),
-				}
-
-				tasks := &FakeRemoteProvider{
-					RemoteProvider: setupTestGoogleTasks(t, nil),
-				}
+				md := setupTestMarkdown(t, nil)
+				tasks := setupTestGoogleTasks(t, nil)
 
 				return store, md, tasks
 			},
@@ -241,14 +219,8 @@ func TestRun(t *testing.T) {
 			name: "fatal watcher error aborts sync loop",
 			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (Provider, RemoteProvider, RemoteProvider) {
 				store := setupTestSQLite(t, nil)
-
-				md := &FakeRemoteProvider{
-					RemoteProvider: setupTestMarkdown(t, nil),
-				}
-
-				tasks := &FakeRemoteProvider{
-					RemoteProvider: setupTestGoogleTasks(t, nil),
-				}
+				md := setupTestMarkdown(t, nil)
+				tasks := setupTestGoogleTasks(t, nil)
 
 				return store, md, tasks
 			},
@@ -264,21 +236,18 @@ func TestRun(t *testing.T) {
 			name: "pull failure sets retry flag and recovers on next event",
 			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (Provider, RemoteProvider, RemoteProvider) {
 				store := setupTestSQLite(t, []model.List{})
-
-				md := &FakeRemoteProvider{
-					RemoteProvider: setupTestMarkdown(t, []model.List{
+				md := &errorProvider{
+					Provider: setupTestMarkdown(t, []model.List{
 						{
 							Name:     "New List",
 							Modified: modified,
 							Items:    []*model.Item{},
 						},
 					}),
-					ErrNextRead: errors.New("transient i/o error"),
+					errListLists: errors.New("transient i/o error"),
 				}
 
-				tasks := &FakeRemoteProvider{
-					RemoteProvider: setupTestGoogleTasks(t, []model.List{}),
-				}
+				tasks := setupTestGoogleTasks(t, []model.List{})
 
 				return store, md, tasks
 			},
@@ -327,21 +296,19 @@ func TestRun(t *testing.T) {
 					},
 				})
 
-				tasks := &FakeRemoteProvider{
-					RemoteProvider: setupTestGoogleTasks(t, []model.List{
-						{
-							Name:       "Inbox",
-							Status:     model.StatusOpen,
-							ExternalID: stringPtr("external-list-1"),
-							Modified:   modified,
-							Items:      []*model.Item{},
-						},
-					}),
-				}
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:       "Inbox",
+						Status:     model.StatusOpen,
+						ExternalID: stringPtr("external-list-1"),
+						Modified:   modified,
+						Items:      []*model.Item{},
+					},
+				})
 
-				md := &FakeRemoteProvider{
-					RemoteProvider: setupTestMarkdown(t, []model.List{}),
-					ErrNextRead:    fs.ErrNotExist,
+				md := &errorProvider{
+					Provider:     setupTestMarkdown(t, []model.List{}),
+					errListLists: fs.ErrNotExist,
 				}
 
 				return store, md, tasks
@@ -382,20 +349,17 @@ func TestRun(t *testing.T) {
 			name: "pull failure blocks subsequent push and recovers on next event",
 			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (Provider, RemoteProvider, RemoteProvider) {
 				store := setupTestSQLite(t, []model.List{})
+				md := setupTestMarkdown(t, []model.List{
+					{
+						Name:     "New List",
+						Modified: modified,
+						Items:    []*model.Item{},
+					},
+				})
 
-				md := &FakeRemoteProvider{
-					RemoteProvider: setupTestMarkdown(t, []model.List{
-						{
-							Name:     "New List",
-							Modified: modified,
-							Items:    []*model.Item{},
-						},
-					}),
-				}
-
-				tasks := &FakeRemoteProvider{
-					RemoteProvider: setupTestGoogleTasks(t, []model.List{}),
-					ErrNextRead:    errors.New("transient network error"),
+				tasks := &errorProvider{
+					Provider:     setupTestGoogleTasks(t, []model.List{}),
+					errListLists: errors.New("transient network error"),
 				}
 
 				return store, md, tasks
@@ -435,20 +399,17 @@ func TestRun(t *testing.T) {
 			name: "push mutation failure sets retry flag and recovers on next event",
 			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (Provider, RemoteProvider, RemoteProvider) {
 				store := setupTestSQLite(t, []model.List{})
+				md := setupTestMarkdown(t, []model.List{
+					{
+						Name:     "New List",
+						Modified: modified,
+						Items:    []*model.Item{},
+					},
+				})
 
-				md := &FakeRemoteProvider{
-					RemoteProvider: setupTestMarkdown(t, []model.List{
-						{
-							Name:     "New List",
-							Modified: modified,
-							Items:    []*model.Item{},
-						},
-					}),
-				}
-
-				tasks := &FakeRemoteProvider{
-					RemoteProvider: setupTestGoogleTasks(t, []model.List{}),
-					ErrNextWrite:   errors.New("transient api error"),
+				tasks := &errorProvider{
+					Provider:      setupTestGoogleTasks(t, []model.List{}),
+					errCreateList: errors.New("transient api error"),
 				}
 
 				return store, md, tasks

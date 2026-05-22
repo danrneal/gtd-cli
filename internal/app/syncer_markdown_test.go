@@ -109,7 +109,6 @@ func TestPushMarkdown(t *testing.T) {
 			},
 			setupMarkdown: func(t *testing.T) RemoteProvider {
 				md := setupTestMarkdown(t, []model.List{})
-
 				return md
 			},
 			wantSqliteLists: []model.List{
@@ -136,7 +135,6 @@ func TestPushMarkdown(t *testing.T) {
 			},
 			setupMarkdown: func(t *testing.T) RemoteProvider {
 				md := setupTestMarkdown(t, []model.List{})
-
 				return md
 			},
 			wantSqliteLists: []model.List{
@@ -177,7 +175,6 @@ func TestPushMarkdown(t *testing.T) {
 			},
 			setupMarkdown: func(t *testing.T) RemoteProvider {
 				md := setupTestMarkdown(t, []model.List{})
-
 				return md
 			},
 			wantSqliteLists: []model.List{
@@ -288,7 +285,6 @@ func TestPushMarkdown(t *testing.T) {
 			},
 			setupMarkdown: func(t *testing.T) RemoteProvider {
 				md := setupTestMarkdown(t, []model.List{})
-
 				return md
 			},
 			wantSqliteLists: []model.List{
@@ -865,13 +861,11 @@ func TestPushMarkdown(t *testing.T) {
 			name: "skips deletion of list with empty key",
 			setupSqlite: func(t *testing.T) Provider {
 				sqlite := setupTestSQLite(t, []model.List{})
-
 				return sqlite
 			},
 			setupMarkdown: func(t *testing.T) RemoteProvider {
 				md := setupTestMarkdown(t, []model.List{
 					{
-						// ID intentionally left empty
 						Name:     "L1",
 						Modified: baseTime,
 					},
@@ -910,7 +904,6 @@ func TestPushMarkdown(t *testing.T) {
 						Modified: baseTime,
 						Items: []*model.Item{
 							{
-								// ID intentionally left empty
 								Title:    "I1",
 								Modified: baseTime,
 							},
@@ -1129,7 +1122,6 @@ func TestPullMarkdown(t *testing.T) {
 			},
 			setupSqlite: func(t *testing.T) Provider {
 				sqlite := setupTestSQLite(t, []model.List{})
-
 				return sqlite
 			},
 			wantMarkdownLists: []model.List{
@@ -1164,7 +1156,6 @@ func TestPullMarkdown(t *testing.T) {
 			},
 			setupSqlite: func(t *testing.T) Provider {
 				sqlite := setupTestSQLite(t, []model.List{})
-
 				return sqlite
 			},
 			wantMarkdownLists: []model.List{
@@ -1335,7 +1326,6 @@ func TestPullMarkdown(t *testing.T) {
 			},
 			setupSqlite: func(t *testing.T) Provider {
 				sqlite := setupTestSQLite(t, []model.List{})
-
 				return sqlite
 			},
 			wantMarkdownLists: []model.List{
@@ -1698,7 +1688,6 @@ func TestPullMarkdown(t *testing.T) {
 			name: "skips already deleted list during deletion phase",
 			setupMarkdown: func(t *testing.T) RemoteProvider {
 				md := setupTestMarkdown(t, []model.List{})
-
 				return md
 			},
 			setupSqlite: func(t *testing.T) Provider {
@@ -1727,7 +1716,6 @@ func TestPullMarkdown(t *testing.T) {
 			name: "deletes list in destination",
 			setupMarkdown: func(t *testing.T) RemoteProvider {
 				md := setupTestMarkdown(t, []model.List{})
-
 				return md
 			},
 			setupSqlite: func(t *testing.T) Provider {
