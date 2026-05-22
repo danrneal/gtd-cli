@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -26,6 +28,7 @@ func TestPushMarkdown(t *testing.T) {
 		setupMarkdown     func(t *testing.T) RemoteProvider
 		wantSqliteLists   []model.List
 		wantMarkdownLists []model.List
+		wantErr           bool
 	}{
 		{
 			name: "success (no updates needed)",
@@ -991,6 +994,342 @@ func TestPushMarkdown(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "fails to build source state",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := &errorProvider{
+					Provider:     setupTestSQLite(t, []model.List{}),
+					errListLists: errors.New("boom"),
+				}
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{})
+				return md
+			},
+			wantErr: true,
+		},
+		{
+			name: "creates destination file if missing",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := &errorProvider{
+					Provider:     setupTestMarkdown(t, []model.List{}),
+					errListLists: fs.ErrNotExist,
+				}
+
+				return md
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+		},
+		{
+			name: "fails to build destination state",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{})
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := &errorProvider{
+					Provider:     setupTestMarkdown(t, []model.List{}),
+					errListLists: errors.New("boom"),
+				}
+
+				return md
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to create list in destination",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := &errorProvider{
+					Provider:      setupTestMarkdown(t, []model.List{}),
+					errCreateList: errors.New("boom"),
+				}
+
+				return md
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to create item in destination",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := &errorProvider{
+					Provider: setupTestMarkdown(t, []model.List{
+						{
+							ID:       "store-list-1",
+							Name:     "L1",
+							Modified: baseTime,
+						},
+					}),
+					errCreateItem: errors.New("boom"),
+				}
+
+				return md
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to update list in destination",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1 Updated",
+						Modified: baseTime.Add(1),
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := &errorProvider{
+					Provider: setupTestMarkdown(t, []model.List{
+						{
+							ID:       "store-list-1",
+							Name:     "L1 Original",
+							Modified: baseTime,
+						},
+					}),
+					errUpdateList: errors.New("boom"),
+				}
+
+				return md
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to update item in destination",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1 Updated",
+								Modified: baseTime.Add(1),
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := &errorProvider{
+					Provider: setupTestMarkdown(t, []model.List{
+						{
+							ID:       "store-list-1",
+							Name:     "L1",
+							Modified: baseTime,
+							Items: []*model.Item{
+								{
+									ID:       "store-item-1",
+									Title:    "I1 Original",
+									Modified: baseTime,
+								},
+							},
+						},
+					}),
+					errUpdateItem: errors.New("boom"),
+				}
+
+				return md
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to permanently delete list from destination",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Status:   model.StatusDeleted,
+						Modified: baseTime.Add(1),
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := &errorProvider{
+					Provider: setupTestMarkdown(t, []model.List{
+						{
+							ID:       "store-list-1",
+							Name:     "L1",
+							Modified: baseTime,
+						},
+					}),
+					errDeleteList: errors.New("boom"),
+				}
+
+				return md
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to permanently delete list from source",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := &errorProvider{
+					Provider: setupTestSQLite(t, []model.List{
+						{
+							Name:     "L1",
+							Status:   model.StatusDeleted,
+							Modified: baseTime.Add(1),
+						},
+					}),
+					errDeleteList: errors.New("boom"),
+				}
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return md
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to permanently delete item from destination",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Status:   model.StatusDeleted,
+								Modified: baseTime.Add(1),
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := &errorProvider{
+					Provider: setupTestMarkdown(t, []model.List{
+						{
+							ID:       "store-list-1",
+							Name:     "L1",
+							Modified: baseTime,
+							Items: []*model.Item{
+								{
+									ID:       "store-item-1",
+									Title:    "I1",
+									Modified: baseTime,
+								},
+							},
+						},
+					}),
+					errDeleteItem: errors.New("boom"),
+				}
+
+				return md
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to permanently delete item from source",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := &errorProvider{
+					Provider: setupTestSQLite(t, []model.List{
+						{
+							Name:     "L1",
+							Modified: baseTime,
+							Items: []*model.Item{
+								{
+									Title:    "I1",
+									Status:   model.StatusDeleted,
+									Modified: baseTime.Add(1),
+								},
+							},
+						},
+					}),
+					errDeleteItem: errors.New("boom"),
+				}
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return md
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1004,8 +1343,12 @@ func TestPushMarkdown(t *testing.T) {
 
 			syncStart := baseTime.Add(time.Hour)
 			err := syncer.Push(context.Background(), syncStart)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Push error = %v, wantErr %v", err, tt.wantErr)
+			}
+
 			if err != nil {
-				t.Fatalf("Pull failed: %v", err)
+				return
 			}
 
 			opts := []cmp.Option{
@@ -1038,6 +1381,7 @@ func TestPullMarkdown(t *testing.T) {
 		wantMarkdownLists []model.List
 		wantSqliteLists   []model.List
 		wantUpdated       bool
+		wantErr           bool
 	}{
 		{
 			name: "success (no updates needed)",
@@ -1851,6 +2195,275 @@ func TestPullMarkdown(t *testing.T) {
 			},
 			wantUpdated: true,
 		},
+		{
+			name: "fails to build source state",
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := &errorProvider{
+					Provider:     setupTestMarkdown(t, []model.List{}),
+					errListLists: errors.New("boom"),
+				}
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{})
+				return sqlite
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to build destination state",
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{})
+				return md
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := &errorProvider{
+					Provider:     setupTestSQLite(t, []model.List{}),
+					errListLists: errors.New("boom"),
+				}
+
+				return sqlite
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to create list in destination",
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := &errorProvider{
+					Provider:      setupTestSQLite(t, []model.List{}),
+					errCreateList: errors.New("boom"),
+				}
+
+				return sqlite
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to backfill list ID in source",
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := &errorProvider{
+					Provider: setupTestMarkdown(t, []model.List{
+						{
+							Name:     "L1",
+							Modified: baseTime.Add(1),
+						},
+					}),
+					errUpdateList: errors.New("boom"),
+				}
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{})
+				return sqlite
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to create item in destination",
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := &errorProvider{
+					Provider: setupTestSQLite(t, []model.List{
+						{
+							Name:     "L1",
+							Modified: baseTime,
+						},
+					}),
+					errCreateItem: errors.New("boom"),
+				}
+
+				return sqlite
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to backfill item ID in source",
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := &errorProvider{
+					Provider: setupTestMarkdown(t, []model.List{
+						{
+							ID:       "store-list-1",
+							Name:     "L1",
+							Modified: baseTime,
+							Items: []*model.Item{
+								{
+									Title:    "I1",
+									Modified: baseTime.Add(1),
+								},
+							},
+						},
+					}),
+					errUpdateItem: errors.New("boom"),
+				}
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return sqlite
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to update list in destination",
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1 Updated",
+						Modified: baseTime.Add(1),
+					},
+				})
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := &errorProvider{
+					Provider: setupTestSQLite(t, []model.List{
+						{
+							Name:     "L1 Original",
+							Modified: baseTime,
+						},
+					}),
+					errUpdateList: errors.New("boom"),
+				}
+
+				return sqlite
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to update item in destination",
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1 Updated",
+								Modified: baseTime.Add(1),
+							},
+						},
+					},
+				})
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := &errorProvider{
+					Provider: setupTestSQLite(t, []model.List{
+						{
+							Name:     "L1",
+							Modified: baseTime,
+							Items: []*model.Item{
+								{
+									Title:    "I1 Original",
+									Modified: baseTime,
+								},
+							},
+						},
+					}),
+					errUpdateItem: errors.New("boom"),
+				}
+
+				return sqlite
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to mark list as deleted in destination",
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{})
+				return md
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := &errorProvider{
+					Provider: setupTestSQLite(t, []model.List{
+						{
+							Name:     "L1",
+							Modified: baseTime,
+						},
+					}),
+					errUpdateList: errors.New("boom"),
+				}
+
+				return sqlite
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to mark item as deleted in destination",
+			setupMarkdown: func(t *testing.T) RemoteProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items:    []*model.Item{},
+					},
+				})
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := &errorProvider{
+					Provider: setupTestSQLite(t, []model.List{
+						{
+							Name:     "L1",
+							Modified: baseTime,
+							Items: []*model.Item{
+								{
+									Title:    "I1",
+									Modified: baseTime,
+								},
+							},
+						},
+					}),
+					errUpdateItem: errors.New("boom"),
+				}
+
+				return sqlite
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1864,8 +2477,12 @@ func TestPullMarkdown(t *testing.T) {
 
 			syncStart := baseTime.Add(time.Hour)
 			updated, err := syncer.Pull(context.Background(), syncStart)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Pull error = %v, wantErr %v", err, tt.wantErr)
+			}
+
 			if err != nil {
-				t.Fatalf("Pull failed: %v", err)
+				return
 			}
 
 			if updated != tt.wantUpdated {
