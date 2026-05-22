@@ -2,79 +2,15 @@ package app
 
 import (
 	"context"
-	"log/slog"
-	"net/http"
-	"slices"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	_ "github.com/mattn/go-sqlite3"
-	"google.golang.org/api/option"
-	"google.golang.org/api/tasks/v1"
 
 	"github.com/danrneal/gtd.nvim/internal/model"
-	"github.com/danrneal/gtd.nvim/internal/providers/googletasks"
-	"github.com/danrneal/gtd.nvim/internal/providers/googletasks/googletaskstest"
 )
-
-func setupTestGoogleTasks(t *testing.T, lists []model.List) RemoteProvider {
-	fakeGoogleTasks := googletaskstest.NewFakeGoogleTasks(t)
-	mockHTTPClient := &http.Client{
-		Transport: fakeGoogleTasks,
-	}
-
-	tasksService, err := tasks.NewService(context.Background(), option.WithHTTPClient(mockHTTPClient))
-	if err != nil {
-		t.Fatalf("failed to create tasks service: %v", err)
-	}
-
-	logger := slog.New(slog.DiscardHandler)
-	client := googletasks.NewClient(tasksService, 30*time.Second, logger)
-
-	for _, list := range lists {
-		if err := client.CreateList(context.Background(), &list); err != nil {
-			t.Fatalf("failed to create list: %v", err)
-		}
-
-		if !list.Modified.IsZero() {
-			idx := slices.IndexFunc(fakeGoogleTasks.TaskLists, func(t *tasks.TaskList) bool {
-				return t.Id == *list.ExternalID
-			})
-
-			if idx == -1 {
-				t.Fatalf("failed to override list modified time: list %q not found in fake", *list.ExternalID)
-			}
-
-			fakeGoogleTasks.TaskLists[idx].Updated = list.Modified.Format(time.RFC3339Nano)
-		}
-
-		for _, item := range list.Items {
-			item.ExternalListID = list.ExternalID
-			if err := client.CreateItem(context.Background(), item, ""); err != nil {
-				t.Fatalf("failed to create item: %v", err)
-			}
-
-			if item.Modified.IsZero() {
-				continue
-			}
-
-			fakeTasks := fakeGoogleTasks.Tasks[*list.ExternalID]
-			idx := slices.IndexFunc(fakeTasks, func(t *tasks.Task) bool {
-				return t.Id == *item.ExternalID
-			})
-
-			if idx == -1 {
-				t.Fatalf("failed to override item modified time: item %q not found in fake", *item.ExternalID)
-			}
-
-			fakeTasks[idx].Updated = item.Modified.Format(time.RFC3339Nano)
-		}
-	}
-
-	return client
-}
 
 func testOneWaySync(t *testing.T) {
 	t.Parallel()

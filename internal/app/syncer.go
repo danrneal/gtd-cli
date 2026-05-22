@@ -317,6 +317,10 @@ func (ss *syncSession) createList(ctx context.Context, list *model.List) error {
 // createItem creates a new item in the destination provider and backfills the external ID
 // into the source provider if necessary.
 func (ss *syncSession) createItem(ctx context.Context, item *model.Item, prevItemID string) error {
+	if item.Status == model.StatusOpen {
+		item.Status = model.StatusNotStarted
+	}
+
 	itemKey := ss.getKey(item)
 	if err := ss.dstState.provider.CreateItem(ctx, item, prevItemID); err != nil {
 		return fmt.Errorf("failed to create item %q in destination: %w", item.Title, err)
