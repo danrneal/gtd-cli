@@ -2582,11 +2582,14 @@ func setupTestGoogleTasks(t *testing.T, lists []model.List) RemoteProvider {
 			fakeGoogleTasks.TaskLists[idx].Updated = list.Modified.Format(time.RFC3339Nano)
 		}
 
+		prevItemID := ""
 		for _, item := range list.Items {
 			item.ExternalListID = list.ExternalID
-			if err := client.CreateItem(context.Background(), item, ""); err != nil {
+			if err := client.CreateItem(context.Background(), item, prevItemID); err != nil {
 				t.Fatalf("failed to create item: %v", err)
 			}
+
+			prevItemID = *item.ExternalID
 
 			if item.Modified.IsZero() {
 				continue

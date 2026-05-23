@@ -865,7 +865,9 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{}
+			},
 			wantErr:        false,
 			wantExternalID: "external-task-1",
 		},
@@ -887,7 +889,9 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{}
+			},
 			wantErr:        false,
 			wantExternalID: "external-task-1",
 		},
@@ -900,7 +904,9 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{}
+			},
 			wantErr:        false,
 			wantExternalID: "external-task-1",
 		},
@@ -913,7 +919,13 @@ func TestCreateItem(t *testing.T) {
 				Modified:       time.Now(),
 			},
 			previousItemID: "P1",
-			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id: "P1",
+					},
+				}
+			},
 			wantErr:        false,
 			wantExternalID: "external-task-1",
 		},
