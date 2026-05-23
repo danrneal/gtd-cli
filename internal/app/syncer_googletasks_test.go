@@ -514,33 +514,6 @@ func TestPushGoogleTasks(t *testing.T) {
 			},
 		},
 		{
-			name: "deletes list in destination",
-			setupSqlite: func(t *testing.T) Provider {
-				sqlite := setupTestSQLite(t, []model.List{
-					{
-						Name:       "L1",
-						Status:     model.StatusDeleted,
-						Modified:   baseTime.Add(1),
-						ExternalID: stringPtr("external-list-1"),
-					},
-				})
-
-				return sqlite
-			},
-			setupGoogleTasks: func(t *testing.T) RemoteProvider {
-				tasks := setupTestGoogleTasks(t, []model.List{
-					{
-						Name:     "L1",
-						Modified: baseTime,
-					},
-				})
-
-				return tasks
-			},
-			wantSqliteLists:      []model.List{},
-			wantGoogleTasksLists: []model.List{},
-		},
-		{
 			name: "updates list name and content",
 			setupSqlite: func(t *testing.T) Provider {
 				sqlite := setupTestSQLite(t, []model.List{
@@ -841,40 +814,14 @@ func TestPushGoogleTasks(t *testing.T) {
 			},
 		},
 		{
-			name: "skips deletion of list with empty key",
-			setupSqlite: func(t *testing.T) Provider {
-				sqlite := setupTestSQLite(t, []model.List{})
-				return sqlite
-			},
-			setupGoogleTasks: func(t *testing.T) RemoteProvider {
-				tasks := setupTestGoogleTasks(t, []model.List{
-					{
-						Name:     "L1",
-						Modified: baseTime,
-					},
-				})
-
-				return tasks
-			},
-			wantSqliteLists: []model.List{},
-			wantGoogleTasksLists: []model.List{
-				{
-					Name:       "L1",
-					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
-					Items:      []*model.Item{},
-				},
-			},
-		},
-		{
-			name: "skips deletion of item with empty key",
+			name: "deletes list in destination",
 			setupSqlite: func(t *testing.T) Provider {
 				sqlite := setupTestSQLite(t, []model.List{
 					{
 						Name:       "L1",
-						Modified:   baseTime,
+						Status:     model.StatusDeleted,
+						Modified:   baseTime.Add(1),
 						ExternalID: stringPtr("external-list-1"),
-						Items:      []*model.Item{},
 					},
 				})
 
@@ -885,41 +832,13 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:     "L1",
 						Modified: baseTime,
-						Items: []*model.Item{
-							{
-								Title:    "I1",
-								Modified: baseTime,
-							},
-						},
 					},
 				})
 
 				return tasks
 			},
-			wantSqliteLists: []model.List{
-				{
-					ID:         "store-list-1",
-					Name:       "L1",
-					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
-					Items:      []*model.Item{},
-				},
-			},
-			wantGoogleTasksLists: []model.List{
-				{
-					Name:       "L1",
-					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
-					Items: []*model.Item{
-						{
-							Title:          "I1",
-							Status:         model.StatusOpen,
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
-						},
-					},
-				},
-			},
+			wantSqliteLists:      []model.List{},
+			wantGoogleTasksLists: []model.List{},
 		},
 		{
 			name: "deletes item in destination",
@@ -1032,6 +951,27 @@ func TestPushGoogleTasks(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "fails to backfill list ID in source",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := &errorProvider{
+					Provider: setupTestSQLite(t, []model.List{
+						{
+							Name:     "L1",
+							Modified: baseTime,
+						},
+					}),
+					errUpdateList: errors.New("boom"),
+				}
+
+				return sqlite
+			},
+			setupGoogleTasks: func(t *testing.T) RemoteProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{})
+				return tasks
+			},
+			wantErr: true,
+		},
+		{
 			name: "fails to create item in destination",
 			setupSqlite: func(t *testing.T) Provider {
 				sqlite := setupTestSQLite(t, []model.List{
@@ -1065,12 +1005,48 @@ func TestPushGoogleTasks(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "fails to backfill item ID in source",
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := &errorProvider{
+					Provider: setupTestSQLite(t, []model.List{
+						{
+							Name:       "L1",
+							Modified:   baseTime,
+							ExternalID: stringPtr("external-list-1"),
+							Items: []*model.Item{
+								{
+									Title:    "I1",
+									Modified: baseTime,
+								},
+							},
+						},
+					}),
+					errUpdateItem: errors.New("boom"),
+				}
+
+				return sqlite
+			},
+			setupGoogleTasks: func(t *testing.T) RemoteProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return tasks
+			},
+			wantErr: true,
+		},
+		{
 			name: "fails to update list in destination",
 			setupSqlite: func(t *testing.T) Provider {
 				sqlite := setupTestSQLite(t, []model.List{
 					{
-						Name:     "L1 Updated",
-						Modified: baseTime.Add(1),
+						Name:       "L1 Updated",
+						Modified:   baseTime.Add(1),
+						ExternalID: stringPtr("external-list-1"),
 					},
 				})
 
@@ -1842,6 +1818,79 @@ func TestPullGoogleTasks(t *testing.T) {
 			wantUpdated: true,
 		},
 		{
+			name: "promotes item to in progress during list update",
+			setupGoogleTasks: func(t *testing.T) RemoteProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1 Updated",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return tasks
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1 Original",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:          "I1",
+								Status:         model.StatusInProgress,
+								Modified:       baseTime,
+								ExternalID:     stringPtr("external-task-1"),
+								ExternalListID: stringPtr("external-list-1"),
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			wantGoogleTasksLists: []model.List{
+				{
+					Name:       "L1 Updated",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items: []*model.Item{
+						{
+							Title:          "I1",
+							Status:         model.StatusOpen,
+							ExternalID:     stringPtr("external-task-1"),
+							ExternalListID: stringPtr("external-list-1"),
+						},
+					},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "L1 Updated",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-1",
+							Title:          "I1",
+							Status:         model.StatusInProgress,
+							ListID:         "store-list-1",
+							ExternalID:     stringPtr("external-task-1"),
+							ExternalListID: stringPtr("external-list-1"),
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
 			name: "updates item content",
 			setupGoogleTasks: func(t *testing.T) RemoteProvider {
 				tasks := setupTestGoogleTasks(t, []model.List{
@@ -1914,6 +1963,79 @@ func TestPullGoogleTasks(t *testing.T) {
 			wantUpdated: true,
 		},
 		{
+			name: "promotes item to in progress during item update",
+			setupGoogleTasks: func(t *testing.T) RemoteProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1 Updated",
+								Modified: baseTime.Add(1),
+							},
+						},
+					},
+				})
+
+				return tasks
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:          "I1 Original",
+								Status:         model.StatusInProgress,
+								Modified:       baseTime,
+								ExternalID:     stringPtr("external-task-1"),
+								ExternalListID: stringPtr("external-list-1"),
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			wantGoogleTasksLists: []model.List{
+				{
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items: []*model.Item{
+						{
+							Title:          "I1 Updated",
+							Status:         model.StatusOpen,
+							ExternalID:     stringPtr("external-task-1"),
+							ExternalListID: stringPtr("external-list-1"),
+						},
+					},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-1",
+							Title:          "I1 Updated",
+							Status:         model.StatusInProgress,
+							ListID:         "store-list-1",
+							ExternalID:     stringPtr("external-task-1"),
+							ExternalListID: stringPtr("external-list-1"),
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
 			name: "skips already deleted list during deletion phase",
 			setupGoogleTasks: func(t *testing.T) RemoteProvider {
 				tasks := setupTestGoogleTasks(t, []model.List{})
@@ -1936,6 +2058,33 @@ func TestPullGoogleTasks(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusDeleted,
+					Items:  []*model.Item{},
+				},
+			},
+			wantUpdated: false,
+		},
+		{
+			name: "skips deletion of list with empty key",
+			setupGoogleTasks: func(t *testing.T) RemoteProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{})
+				return tasks
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return sqlite
+			},
+			wantGoogleTasksLists: []model.List{},
+			wantSqliteLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
 					Items:  []*model.Item{},
 				},
 			},
@@ -2021,6 +2170,62 @@ func TestPullGoogleTasks(t *testing.T) {
 							ID:     "store-item-1",
 							Title:  "I1",
 							Status: model.StatusDeleted,
+							ListID: "store-list-1",
+						},
+					},
+				},
+			},
+			wantUpdated: false,
+		},
+		{
+			name: "skips deletion of item with empty key",
+			setupGoogleTasks: func(t *testing.T) RemoteProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items:    []*model.Item{},
+					},
+				})
+
+				return tasks
+			},
+			setupSqlite: func(t *testing.T) Provider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: stringPtr("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			wantGoogleTasksLists: []model.List{
+				{
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					ExternalID: stringPtr("external-list-1"),
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "I1",
+							Status: model.StatusNotStarted,
 							ListID: "store-list-1",
 						},
 					},
