@@ -60,6 +60,8 @@ func NewStore(ctx context.Context, dbPath string, logger *slog.Logger, opts ...S
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
+	db.SetMaxOpenConns(1)
+
 	generateID := func() string {
 		return uuid.NewString()[:8]
 	}
