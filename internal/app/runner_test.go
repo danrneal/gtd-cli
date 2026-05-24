@@ -485,10 +485,34 @@ func TestRun(t *testing.T) {
 			logger := slog.New(slog.NewTextHandler(os.Stderr, handlerOpts))
 
 			errChan := make(chan error, 1)
+			ready := make(chan struct{})
 			go func() {
-				runner := NewRunner(targets, logger)
+				onReadyOpt := WithOnReady(func() {
+					close(ready)
+				})
+
+				runner := NewRunner(targets, logger, onReadyOpt)
 				errChan <- runner.Run(ctx)
 			}()
+
+			select {
+			case <-ready:
+				// Runner is listening
+			case <-time.After(1 * time.Second):
+				t.Fatal("Runner failed to become ready within 1 second")
+			case err := <-errChan:
+				if tt.wantErr != "" {
+					if err == nil || err.Error() != tt.wantErr {
+						t.Fatalf("expected error %q, got %v", tt.wantErr, err)
+					}
+
+					return
+				}
+
+				if err != nil && !errors.Is(err, context.Canceled) {
+					t.Fatalf("Runner crashed during startup: %v", err)
+				}
+			}
 
 			if tt.triggerEvent != nil {
 				tt.triggerEvent(mdWatcher, tasksWatcher)
