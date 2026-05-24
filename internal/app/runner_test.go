@@ -513,17 +513,29 @@ func TestRun(t *testing.T) {
 					cmpopts.IgnoreFields(model.List{}, "Modified"),
 				}
 
-				gotStoreLists, _ := store.ListLists(context.Background())
+				gotStoreLists, err := store.ListLists(context.Background())
+				if err != nil {
+					return fmt.Errorf("failed to list store lists: %w", err)
+				}
+
 				if diff := cmp.Diff(tt.wantStore, gotStoreLists, opts...); diff != "" {
 					return fmt.Errorf("Store state mismatch (-want +got):\n%s", diff)
 				}
 
-				gotMdLists, _ := md.ListLists(context.Background())
+				gotMdLists, err := md.ListLists(context.Background())
+				if err != nil {
+					return fmt.Errorf("failed to list md lists: %w", err)
+				}
+
 				if diff := cmp.Diff(tt.wantMd, gotMdLists, opts...); diff != "" {
 					return fmt.Errorf("Markdown state mismatch (-want +got):\n%s", diff)
 				}
 
-				gotTasksLists, _ := tasks.ListLists(context.Background())
+				gotTasksLists, err := tasks.ListLists(context.Background())
+				if err != nil {
+					return fmt.Errorf("failed to list tasks lists: %w", err)
+				}
+
 				if diff := cmp.Diff(tt.wantTasks, gotTasksLists, opts...); diff != "" {
 					return fmt.Errorf("Tasks state mismatch (-want +got):\n%s", diff)
 				}

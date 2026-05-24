@@ -1357,12 +1357,20 @@ func TestPushMarkdown(t *testing.T) {
 				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}
 
-			gotSqliteLists, _ := sqlite.ListLists(context.Background())
+			gotSqliteLists, err := sqlite.ListLists(context.Background())
+			if err != nil {
+				t.Fatalf("failed to list sqlite lists: %v", err)
+			}
+
 			if diff := cmp.Diff(tt.wantSqliteLists, gotSqliteLists, opts...); diff != "" {
 				t.Errorf("Sqlite state mismatch (-want +got):\n%s", diff)
 			}
 
-			gotMarkdownLists, _ := md.ListLists(context.Background())
+			gotMarkdownLists, err := md.ListLists(context.Background())
+			if err != nil {
+				t.Fatalf("failed to list markdown lists: %v", err)
+			}
+
 			if diff := cmp.Diff(tt.wantMarkdownLists, gotMarkdownLists, opts...); diff != "" {
 				t.Errorf("Markdown state mismatch (-want +got):\n%s", diff)
 			}
@@ -2495,12 +2503,20 @@ func TestPullMarkdown(t *testing.T) {
 				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}
 
-			gotMarkdownLists, _ := md.ListLists(context.Background())
+			gotMarkdownLists, err := md.ListLists(context.Background())
+			if err != nil {
+				t.Fatalf("failed to list markdown lists: %v", err)
+			}
+
 			if diff := cmp.Diff(tt.wantMarkdownLists, gotMarkdownLists, opts...); diff != "" {
 				t.Errorf("Markdown state mismatch (-want +got):\n%s", diff)
 			}
 
-			gotSqliteLists, _ := sqlite.ListLists(context.Background())
+			gotSqliteLists, err := sqlite.ListLists(context.Background())
+			if err != nil {
+				t.Fatalf("failed to list sqlite lists: %v", err)
+			}
+
 			if diff := cmp.Diff(tt.wantSqliteLists, gotSqliteLists, opts...); diff != "" {
 				t.Errorf("Sqlite state mismatch (-want +got):\n%s", diff)
 			}

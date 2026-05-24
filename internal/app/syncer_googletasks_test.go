@@ -1280,12 +1280,20 @@ func TestPushGoogleTasks(t *testing.T) {
 				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}
 
-			gotSqliteLists, _ := sqlite.ListLists(context.Background())
+			gotSqliteLists, err := sqlite.ListLists(context.Background())
+			if err != nil {
+				t.Fatalf("failed to list sqlite lists: %v", err)
+			}
+
 			if diff := cmp.Diff(tt.wantSqliteLists, gotSqliteLists, opts...); diff != "" {
 				t.Errorf("Sqlite state mismatch (-want +got):\n%s", diff)
 			}
 
-			gotGoogleTasksLists, _ := googleTasks.ListLists(context.Background())
+			gotGoogleTasksLists, err := googleTasks.ListLists(context.Background())
+			if err != nil {
+				t.Fatalf("failed to list google tasks lists: %v", err)
+			}
+
 			if diff := cmp.Diff(tt.wantGoogleTasksLists, gotGoogleTasksLists, opts...); diff != "" {
 				t.Errorf("Google Tasks state mismatch (-want +got):\n%s", diff)
 			}
@@ -2538,12 +2546,20 @@ func TestPullGoogleTasks(t *testing.T) {
 				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}
 
-			gotGoogleTasksLists, _ := googleTasks.ListLists(context.Background())
+			gotGoogleTasksLists, err := googleTasks.ListLists(context.Background())
+			if err != nil {
+				t.Fatalf("failed to list google tasks lists: %v", err)
+			}
+
 			if diff := cmp.Diff(tt.wantGoogleTasksLists, gotGoogleTasksLists, opts...); diff != "" {
 				t.Errorf("Google Tasks state mismatch (-want +got):\n%s", diff)
 			}
 
-			gotSqliteLists, _ := sqlite.ListLists(context.Background())
+			gotSqliteLists, err := sqlite.ListLists(context.Background())
+			if err != nil {
+				t.Fatalf("failed to list sqlite lists: %v", err)
+			}
+
 			if diff := cmp.Diff(tt.wantSqliteLists, gotSqliteLists, opts...); diff != "" {
 				t.Errorf("Sqlite state mismatch (-want +got):\n%s", diff)
 			}
