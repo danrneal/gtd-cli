@@ -63,7 +63,7 @@ func TestRun(t *testing.T) {
 	tests := []struct {
 		name         string
 		setup        func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (store Provider, md, tasks RemoteProvider)
-		triggerEvent func(mdWatcher, tasksWatcher *FakeWatcher)
+		triggerEvent func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher, md, tasks RemoteProvider)
 		wantStore    []model.List
 		wantMd       []model.List
 		wantTasks    []model.List
@@ -115,19 +115,23 @@ func TestRun(t *testing.T) {
 			name: "single event triggers full reconciliation and ID backfill",
 			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (Provider, RemoteProvider, RemoteProvider) {
 				store := setupTestSQLite(t, []model.List{})
-				md := setupTestMarkdown(t, []model.List{
-					{
-						Name:     "New List",
-						Modified: modified,
-						Items:    []*model.Item{},
-					},
-				})
-
+				md := setupTestMarkdown(t, []model.List{})
 				tasks := setupTestGoogleTasks(t, []model.List{})
 
 				return store, md, tasks
 			},
-			triggerEvent: func(mdWatcher, _ *FakeWatcher) {
+			triggerEvent: func(t *testing.T, mdWatcher, _ *FakeWatcher, md, _ RemoteProvider) {
+				list := &model.List{
+					Name:     "New List",
+					Modified: modified,
+					Items:    []*model.Item{},
+				}
+
+				err := md.CreateList(context.Background(), list)
+				if err != nil {
+					t.Fatalf("failed to insert data during event trigger: %v", err)
+				}
+
 				mdWatcher.Trigger(nil)
 			},
 			wantStore: []model.List{
@@ -161,17 +165,22 @@ func TestRun(t *testing.T) {
 			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (Provider, RemoteProvider, RemoteProvider) {
 				store := setupTestSQLite(t, []model.List{})
 				md := setupTestMarkdown(t, []model.List{})
-				tasks := setupTestGoogleTasks(t, []model.List{
-					{
-						Name:     "Remote List",
-						Modified: modified,
-						Items:    []*model.Item{},
-					},
-				})
+				tasks := setupTestGoogleTasks(t, []model.List{})
 
 				return store, md, tasks
 			},
-			triggerEvent: func(_, tasksWatcher *FakeWatcher) {
+			triggerEvent: func(t *testing.T, _, tasksWatcher *FakeWatcher, _, tasks RemoteProvider) {
+				list := &model.List{
+					Name:     "Remote List",
+					Modified: modified,
+					Items:    []*model.Item{},
+				}
+
+				err := tasks.CreateList(context.Background(), list)
+				if err != nil {
+					t.Fatalf("failed to insert data during event trigger: %v", err)
+				}
+
 				tasksWatcher.Trigger(nil)
 			},
 			wantStore: []model.List{
@@ -211,7 +220,7 @@ func TestRun(t *testing.T) {
 
 				return store, md, tasks
 			},
-			triggerEvent: func(_, _ *FakeWatcher) {},
+			triggerEvent: func(t *testing.T, _, _ *FakeWatcher, _, _ RemoteProvider) {},
 			wantStore:    []model.List{},
 			wantMd:       []model.List{},
 			wantTasks:    []model.List{},
@@ -226,7 +235,7 @@ func TestRun(t *testing.T) {
 
 				return store, md, tasks
 			},
-			triggerEvent: func(mdWatcher, _ *FakeWatcher) {
+			triggerEvent: func(t *testing.T, mdWatcher, _ *FakeWatcher, _, _ RemoteProvider) {
 				close(mdWatcher.events)
 			},
 			wantStore: []model.List{},
@@ -253,7 +262,7 @@ func TestRun(t *testing.T) {
 
 				return store, md, tasks
 			},
-			triggerEvent: func(mdWatcher, tasksWatcher *FakeWatcher) {
+			triggerEvent: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher, _, _ RemoteProvider) {
 				mdWatcher.Trigger(nil)
 				time.Sleep(5 * time.Millisecond)
 				tasksWatcher.Trigger(nil)
@@ -315,7 +324,7 @@ func TestRun(t *testing.T) {
 
 				return store, md, tasks
 			},
-			triggerEvent: func(mdWatcher, _ *FakeWatcher) {
+			triggerEvent: func(t *testing.T, mdWatcher, _ *FakeWatcher, _, _ RemoteProvider) {
 				mdWatcher.Trigger(nil)
 			},
 			wantStore: []model.List{
@@ -366,7 +375,7 @@ func TestRun(t *testing.T) {
 
 				return store, md, tasks
 			},
-			triggerEvent: func(mdWatcher, _ *FakeWatcher) {
+			triggerEvent: func(t *testing.T, mdWatcher, _ *FakeWatcher, _, _ RemoteProvider) {
 				mdWatcher.Trigger(nil)
 				time.Sleep(5 * time.Millisecond)
 				mdWatcher.Trigger(nil)
@@ -416,7 +425,7 @@ func TestRun(t *testing.T) {
 
 				return store, md, tasks
 			},
-			triggerEvent: func(_, tasksWatcher *FakeWatcher) {
+			triggerEvent: func(t *testing.T, _, tasksWatcher *FakeWatcher, _, _ RemoteProvider) {
 				tasksWatcher.Trigger(nil)
 				time.Sleep(5 * time.Millisecond)
 				tasksWatcher.Trigger(nil)
@@ -515,7 +524,7 @@ func TestRun(t *testing.T) {
 			}
 
 			if tt.triggerEvent != nil {
-				tt.triggerEvent(mdWatcher, tasksWatcher)
+				tt.triggerEvent(t, mdWatcher, tasksWatcher, md, tasks)
 			}
 
 			if tt.wantErr != "" {
