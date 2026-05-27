@@ -1,7 +1,9 @@
 package googletasks
 
 import (
+	"bytes"
 	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -191,41 +193,73 @@ func TestFileTokenSource_Token(t *testing.T) {
 
 	tests := []struct {
 		name        string
+		setupFile   func(t *testing.T) string
 		tokenSource oauth2.TokenSource
 		token       *oauth2.Token
 		wantToken   *oauth2.Token
 		wantSave    bool
+		wantLog     bool
 		wantErr     bool
 	}{
 		{
 			name: "token unchanged",
+			setupFile: func(t *testing.T) string {
+				tokenFile := filepath.Join(t.TempDir(), "token.json")
+				return tokenFile
+			},
 			tokenSource: &mockTokenSource{
 				token: oldToken,
 			},
 			token:     oldToken,
 			wantToken: oldToken,
 			wantSave:  false,
+			wantLog:   false,
 			wantErr:   false,
 		},
 		{
 			name: "token refreshed",
+			setupFile: func(t *testing.T) string {
+				tokenFile := filepath.Join(t.TempDir(), "token.json")
+				return tokenFile
+			},
 			tokenSource: &mockTokenSource{
 				token: newToken,
 			},
 			token:     oldToken,
 			wantToken: newToken,
 			wantSave:  true,
+			wantLog:   false,
 			wantErr:   false,
 		},
 		{
 			name: "source error",
+			setupFile: func(t *testing.T) string {
+				tokenFile := filepath.Join(t.TempDir(), "token.json")
+				return tokenFile
+			},
 			tokenSource: &mockTokenSource{
 				err: os.ErrNotExist,
 			},
 			token:     oldToken,
 			wantToken: nil,
 			wantSave:  false,
+			wantLog:   false,
 			wantErr:   true,
+		},
+		{
+			name: "token refreshed but save fails",
+			setupFile: func(t *testing.T) string {
+				tokenFile := "/invalid/path/that/does/not/exist/token.json"
+				return tokenFile
+			},
+			tokenSource: &mockTokenSource{
+				token: newToken,
+			},
+			token:     nil,
+			wantToken: newToken,
+			wantSave:  false,
+			wantLog:   true,
+			wantErr:   false,
 		},
 	}
 
@@ -233,18 +267,21 @@ func TestFileTokenSource_Token(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			tmpDir := t.TempDir()
-			tokenFile := filepath.Join(tmpDir, "token.json")
+			tokenFile := tt.setupFile(t)
 			if tt.token != nil {
 				if err := saveToken(tokenFile, tt.token); err != nil {
 					t.Fatalf("failed to setup initial token: %v", err)
 				}
 			}
 
+			var logBuffer bytes.Buffer
+			logger := slog.New(slog.NewJSONHandler(&logBuffer, nil))
+
 			fts := &fileTokenSource{
 				tokenSource: tt.tokenSource,
 				tokenFile:   tokenFile,
 				token:       tt.token,
+				logger:      logger,
 			}
 
 			got, err := fts.Token()
@@ -287,6 +324,12 @@ func TestFileTokenSource_Token(t *testing.T) {
 
 			if diff := cmp.Diff(*wantToken, savedToken, opts...); diff != "" {
 				t.Errorf("File save mismatch (-want +got):\n%s", diff)
+			}
+
+			if tt.wantLog && logBuffer.Len() == 0 {
+				t.Error("Token() expected to log a warning, but buffer was empty")
+			} else if !tt.wantLog && logBuffer.Len() > 0 {
+				t.Errorf("Token() expected to remain silent, but logged:\n%s", logBuffer.String())
 			}
 		})
 	}

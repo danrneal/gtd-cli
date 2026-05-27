@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -16,7 +17,7 @@ import (
 // NewService creates a new Google Tasks service.
 // It authenticates using the provided credentials file and token file.
 // If the token file does not exist, it triggers the web authentication flow.
-func NewService(ctx context.Context, credsFile, tokenFile string) (*tasks.Service, error) {
+func NewService(ctx context.Context, credsFile, tokenFile string, logger *slog.Logger) (*tasks.Service, error) {
 	creds, err := os.ReadFile(credsFile)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read client secret file: %w", err)
@@ -27,7 +28,7 @@ func NewService(ctx context.Context, credsFile, tokenFile string) (*tasks.Servic
 		return nil, fmt.Errorf("unable to parse client secret file to config: %w", err)
 	}
 
-	client, err := clientFromConfig(ctx, config, tokenFile)
+	client, err := clientFromConfig(ctx, config, tokenFile, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +42,12 @@ func NewService(ctx context.Context, credsFile, tokenFile string) (*tasks.Servic
 }
 
 // clientFromConfig retrieves a token, saves the token, then returns the generated client.
-func clientFromConfig(ctx context.Context, config *oauth2.Config, tokenFile string) (*http.Client, error) {
+func clientFromConfig(
+	ctx context.Context,
+	config *oauth2.Config,
+	tokenFile string,
+	logger *slog.Logger,
+) (*http.Client, error) {
 	token, err := tokenFromFile(tokenFile)
 	if err != nil {
 		token, err = tokenFromWeb(ctx, config)
@@ -59,6 +65,7 @@ func clientFromConfig(ctx context.Context, config *oauth2.Config, tokenFile stri
 		tokenSource: tokenSource,
 		tokenFile:   tokenFile,
 		token:       token,
+		logger:      logger,
 	}
 
 	return oauth2.NewClient(ctx, tc), nil
@@ -124,6 +131,7 @@ type fileTokenSource struct {
 	tokenSource oauth2.TokenSource
 	tokenFile   string
 	token       *oauth2.Token
+	logger      *slog.Logger
 }
 
 // Token returns a token from the underlying source, saving it if it has been refreshed.
@@ -136,7 +144,7 @@ func (fts *fileTokenSource) Token() (*oauth2.Token, error) {
 	if fts.token == nil || token.AccessToken != fts.token.AccessToken {
 		fts.token = token
 		if err := saveToken(fts.tokenFile, token); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to save new token: %v\n", err)
+			fts.logger.Warn("failed to cache new oauth token", "error", err, "file", fts.tokenFile)
 		}
 	}
 

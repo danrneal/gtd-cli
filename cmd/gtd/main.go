@@ -107,7 +107,7 @@ func run(cfg *Config, logger *slog.Logger) error {
 		switch providerName {
 		case "google_tasks":
 			var tasksService *tasks.Service
-			tasksService, err = googletasks.NewService(ctx, cfg.credsFile, cfg.tokenFile)
+			tasksService, err = googletasks.NewService(ctx, cfg.credsFile, cfg.tokenFile, logger)
 			if err != nil {
 				return fmt.Errorf("failed to initialize google tasks service: %w", err)
 			}

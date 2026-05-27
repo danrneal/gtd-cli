@@ -1084,6 +1084,33 @@ func TestListItems(t *testing.T) {
 			},
 		},
 		{
+			name: "waiting for parsing without separator",
+			list: &model.List{
+				ID:         "1",
+				Name:       "Waiting For",
+				ExternalID: stringPtr("L1"),
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Send Mail",
+						Position: "0001",
+					},
+				}
+			},
+			wantItems: []*model.Item{
+				{
+					ListID:         "1",
+					Title:          "Send Mail",
+					WaitingOn:      nil,
+					Status:         model.StatusOpen,
+					ExternalID:     stringPtr("t1"),
+					ExternalListID: stringPtr("L1"),
+				},
+			},
+		},
+		{
 			name: "waiting for parsing with created date",
 			list: &model.List{
 				ID:         "1",
@@ -1169,6 +1196,34 @@ func TestListItems(t *testing.T) {
 			},
 		},
 		{
+			name: "project parsing boundary",
+			list: &model.List{
+				ID:         "1",
+				Name:       "Inbox",
+				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task +",
+						Position: "0001",
+					},
+				}
+			},
+			wantItems: []*model.Item{
+				{
+					ListID:         "1",
+					Title:          "Task",
+					ProjectID:      nil,
+					Status:         model.StatusOpen,
+					ExternalID:     stringPtr("t1"),
+					ExternalListID: stringPtr("L1"),
+				},
+			},
+		},
+		{
 			name: "due date parsing (title)",
 			list: &model.List{
 				ID:         "1",
@@ -1218,6 +1273,33 @@ func TestListItems(t *testing.T) {
 					ListID:         "1",
 					Title:          "Task",
 					Tags:           []string{"tag1", "tag2"},
+					Status:         model.StatusOpen,
+					ExternalID:     stringPtr("t1"),
+					ExternalListID: stringPtr("L1"),
+				},
+			},
+		},
+		{
+			name: "tag parsing boundary",
+			list: &model.List{
+				ID:         "1",
+				Name:       "Inbox",
+				ExternalID: stringPtr("L1"),
+				Modified:   time.Now(),
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task #",
+						Position: "0001",
+					},
+				}
+			},
+			wantItems: []*model.Item{
+				{
+					ListID:         "1",
+					Title:          "Task",
 					Status:         model.StatusOpen,
 					ExternalID:     stringPtr("t1"),
 					ExternalListID: stringPtr("L1"),
@@ -1533,6 +1615,17 @@ func TestUpdateItem(t *testing.T) {
 			wantErr:   true,
 		},
 		{
+			name: "missing external list ID (one nil)",
+			item: &model.Item{
+				ListID:     "list-1",
+				Title:      "Update Task",
+				Modified:   time.Now(),
+				ExternalID: stringPtr("T1"),
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
+			wantErr:   true,
+		},
+		{
 			name: "api error",
 			item: &model.Item{
 				ListID:         "L1",
@@ -1620,6 +1713,16 @@ func TestDeleteItem(t *testing.T) {
 			item: &model.Item{
 				ListID: "list-1",
 				Title:  "Delete Task",
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
+			wantErr:   true,
+		},
+		{
+			name: "missing external list ID (one nil)",
+			item: &model.Item{
+				ListID:     "list-1",
+				Title:      "Delete Task",
+				ExternalID: stringPtr("T1"),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:   true,
