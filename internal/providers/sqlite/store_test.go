@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"path/filepath"
 	"strings"
@@ -498,14 +499,15 @@ func TestUpdateList(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name         string
-		setupDB      func(t *testing.T, db *sql.DB) string
-		setupList    func(id string) model.List
-		setupCurrent func() *model.List
-		setupCtx     func() (context.Context, context.CancelFunc)
-		wantList     *model.List
-		wantItems    []*model.Item
-		wantErr      bool
+		name          string
+		setupDB       func(t *testing.T, db *sql.DB) string
+		setupList     func(id string) model.List
+		setupCurrent  func() *model.List
+		setupCtx      func() (context.Context, context.CancelFunc)
+		wantList      *model.List
+		wantItems     []*model.Item
+		wantErr       bool
+		wantErrTarget error
 	}{
 		{
 			name: "valid update (rename and reorder)",
@@ -530,7 +532,23 @@ func TestUpdateList(t *testing.T) {
 							created
 						)
 						VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-					`, "item-1", "A", "", "list-1", 0, "not_started", time.Now(), time.Now(),
+					`, "item-3", "C", "", "list-1", 0, "not_started", time.Now(), time.Now(),
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							position,
+							status,
+							modified,
+							created
+						)
+						VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-1", "A", "", "list-1", 1, "not_started", time.Now(), time.Now(),
 				)
 
 				mustExec(t, db,
@@ -545,7 +563,7 @@ func TestUpdateList(t *testing.T) {
 							modified,
 							created
 						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-					`, "item-2", "B", "", "list-1", 1, "not_started", time.Now(), time.Now(),
+					`, "item-2", "B", "", "list-1", 2, "not_started", time.Now(), time.Now(),
 				)
 
 				return "list-1"
@@ -559,16 +577,23 @@ func TestUpdateList(t *testing.T) {
 					Modified: time.Now(),
 					Items: []*model.Item{
 						{
-							ID:       "item-2",
+							ID:       "item-3",
 							ListID:   id,
 							Position: 0,
+							Title:    "C",
+							Status:   model.StatusNotStarted,
+						},
+						{
+							ID:       "item-2",
+							ListID:   id,
+							Position: 1,
 							Title:    "B",
 							Status:   model.StatusNotStarted,
 						},
 						{
 							ID:       "item-1",
 							ListID:   id,
-							Position: 1,
+							Position: 2,
 							Title:    "A",
 							Status:   model.StatusNotStarted,
 						},
@@ -576,6 +601,16 @@ func TestUpdateList(t *testing.T) {
 				}
 
 				return list
+			},
+			setupCurrent: func() *model.List {
+				return &model.List{
+					Name: "Old Name",
+					Items: []*model.Item{
+						{ID: "item-3"},
+						{ID: "item-1"},
+						{ID: "item-2"},
+					},
+				}
 			},
 			wantList: &model.List{
 				ID:       "list-1",
@@ -585,9 +620,17 @@ func TestUpdateList(t *testing.T) {
 			},
 			wantItems: []*model.Item{
 				{
-					ID:       "item-2",
+					ID:       "item-3",
 					ListID:   "list-1",
 					Position: 0,
+					Title:    "C",
+					Status:   model.StatusNotStarted,
+					Tags:     []string{},
+				},
+				{
+					ID:       "item-2",
+					ListID:   "list-1",
+					Position: 1,
 					Title:    "B",
 					Status:   model.StatusNotStarted,
 					Tags:     []string{},
@@ -595,7 +638,7 @@ func TestUpdateList(t *testing.T) {
 				{
 					ID:       "item-1",
 					ListID:   "list-1",
-					Position: 1,
+					Position: 2,
 					Title:    "A",
 					Status:   model.StatusNotStarted,
 					Tags:     []string{},
@@ -922,7 +965,8 @@ func TestUpdateList(t *testing.T) {
 					Modified:   time.Now(),
 				}
 			},
-			wantErr: true,
+			wantErr:       true,
+			wantErrTarget: ErrNotFound,
 		},
 		{
 			name: "transaction rollback on item failure",
@@ -1172,6 +1216,8 @@ func TestUpdateList(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Error("UpdateList() expected error, got nil")
+				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Errorf("UpdateList() expected error target %v, got: %v", tt.wantErrTarget, err)
 				}
 
 				return
@@ -1695,12 +1741,13 @@ func TestUpdateItem(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		setupDB   func(t *testing.T, db *sql.DB) string
-		setupItem func(id string) model.Item
-		setupCtx  func() (context.Context, context.CancelFunc)
-		wantItem  *model.Item
-		wantErr   bool
+		name          string
+		setupDB       func(t *testing.T, db *sql.DB) string
+		setupItem     func(id string) model.Item
+		setupCtx      func() (context.Context, context.CancelFunc)
+		wantItem      *model.Item
+		wantErr       bool
+		wantErrTarget error
 	}{
 		{
 			name: "valid update (complex fields)",
@@ -1876,7 +1923,8 @@ func TestUpdateItem(t *testing.T) {
 
 				return item
 			},
-			wantErr: true,
+			wantErr:       true,
+			wantErrTarget: ErrNotFound,
 		},
 		{
 			name: "invalid item (validation failed)",
@@ -2017,6 +2065,8 @@ func TestUpdateItem(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Error("UpdateItem() expected error, got nil")
+				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Errorf("UpdateItem() expected error target %v, got: %v", tt.wantErrTarget, err)
 				}
 
 				return

@@ -15,6 +15,9 @@ import (
 	"github.com/danrneal/gtd.nvim/internal/model"
 )
 
+// ErrNotFound is returned when a requested record is not found in the database.
+var ErrNotFound = errors.New("record not found")
+
 // Store manages the SQLite database connection and executes queries.
 type Store struct {
 	db             *sql.DB
@@ -260,7 +263,7 @@ func (s *Store) getListID(ctx context.Context, tx *sql.Tx, externalID *string) (
 	err := row.Scan(&id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("list with external ID %v not found", externalID)
+			return "", fmt.Errorf("list with external ID %v: %w", externalID, ErrNotFound)
 		}
 
 		return "", fmt.Errorf("failed to scan list ID: %w", err)
@@ -340,10 +343,8 @@ func (s *Store) UpdateList(ctx context.Context, list, currentList *model.List) e
 	}
 
 	itemsToMove := calculateItemsToMove(list, currentList.Items)
-	if len(itemsToMove) > 0 {
-		if err := s.batchMoveItems(ctx, tx, itemsToMove); err != nil {
-			return err
-		}
+	if err := s.batchMoveItems(ctx, tx, itemsToMove); err != nil {
+		return err
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -534,7 +535,7 @@ func (s *Store) getItemID(ctx context.Context, tx *sql.Tx, externalID *string) (
 	err := row.Scan(&id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("item with external ID %v not found", externalID)
+			return "", fmt.Errorf("item with external ID %v: %w", externalID, ErrNotFound)
 		}
 
 		return "", fmt.Errorf("failed to scan item ID: %w", err)
@@ -629,6 +630,10 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 // batchMoveItems updates the list_id and position for a batch of items.
 // It uses a single prepared statement for efficiency.
 func (s *Store) batchMoveItems(ctx context.Context, tx *sql.Tx, items []*model.Item) error {
+	if len(items) == 0 {
+		return nil
+	}
+
 	query := `
 		UPDATE items SET
 			list_id = ?,
