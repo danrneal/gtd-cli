@@ -44,26 +44,31 @@ func TestList_Clean(t *testing.T) {
 				Status: StatusOpen,
 				Items: []*Item{
 					{
+						ID:       "1",
 						Title:    "Done task",
 						Status:   StatusDone,
 						Position: 0,
 					},
 					{
+						ID:       "2",
 						Title:    "Not started 1",
 						Status:   StatusNotStarted,
 						Position: 1,
 					},
 					{
+						ID:       "3",
 						Title:    "In progress 2",
 						Status:   StatusInProgress,
 						Position: 2,
 					},
 					{
+						ID:       "4",
 						Title:    "In progress 1",
 						Status:   StatusInProgress,
 						Position: 3,
 					},
 					{
+						ID:       "5",
 						Title:    "Not started 2",
 						Status:   StatusNotStarted,
 						Position: 4,
@@ -75,26 +80,31 @@ func TestList_Clean(t *testing.T) {
 				Status: StatusOpen,
 				Items: []*Item{
 					{
+						ID:       "3",
 						Title:    "In progress 2",
 						Status:   StatusInProgress,
 						Position: 0,
 					},
 					{
+						ID:       "4",
 						Title:    "In progress 1",
 						Status:   StatusInProgress,
 						Position: 1,
 					},
 					{
+						ID:       "2",
 						Title:    "Not started 1",
 						Status:   StatusNotStarted,
 						Position: 2,
 					},
 					{
+						ID:       "5",
 						Title:    "Not started 2",
 						Status:   StatusNotStarted,
 						Position: 3,
 					},
 					{
+						ID:       "1",
 						Title:    "Done task",
 						Status:   StatusDone,
 						Position: 4,
@@ -109,24 +119,28 @@ func TestList_Clean(t *testing.T) {
 				Status: StatusOpen,
 				Items: []*Item{
 					{
+						ID:       "1",
 						Title:    "Task 1 (Done)",
 						Status:   StatusDone,
 						Created:  time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 						Position: 0,
 					},
 					{
+						ID:       "2",
 						Title:    "Task 2 (NotStarted, Newest)",
 						Status:   StatusNotStarted,
 						Created:  time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC),
 						Position: 1,
 					},
 					{
+						ID:       "3",
 						Title:    "Task 3 (InProgress)",
 						Status:   StatusInProgress,
 						Created:  time.Date(2024, 1, 4, 0, 0, 0, 0, time.UTC),
 						Position: 2,
 					},
 					{
+						ID:       "4",
 						Title:    "Task 4 (NotStarted, Oldest)",
 						Status:   StatusNotStarted,
 						Created:  time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
@@ -139,24 +153,28 @@ func TestList_Clean(t *testing.T) {
 				Status: StatusOpen,
 				Items: []*Item{
 					{
+						ID:       "3",
 						Title:    "Task 3 (InProgress)",
 						Status:   StatusInProgress,
 						Created:  time.Date(2024, 1, 4, 0, 0, 0, 0, time.UTC),
 						Position: 0,
 					},
 					{
+						ID:       "2",
 						Title:    "Task 2 (NotStarted, Newest)",
 						Status:   StatusNotStarted,
 						Created:  time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC),
 						Position: 1,
 					},
 					{
+						ID:       "4",
 						Title:    "Task 4 (NotStarted, Oldest)",
 						Status:   StatusNotStarted,
 						Created:  time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
 						Position: 2,
 					},
 					{
+						ID:       "1",
 						Title:    "Task 1 (Done)",
 						Status:   StatusDone,
 						Created:  time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -172,36 +190,42 @@ func TestList_Clean(t *testing.T) {
 				Status: StatusOpen,
 				Items: []*Item{
 					{
+						ID:       "a",
 						Title:    "Task A (Done, Snoozed early)",
 						Status:   StatusDone,
 						Snoozed:  iso8601ToDate("2024-01-01"),
 						Position: 0,
 					},
 					{
+						ID:       "b",
 						Title:    "Task B (NotStarted, Snoozed nil)",
 						Status:   StatusNotStarted,
 						Snoozed:  nil,
 						Position: 1,
 					},
 					{
+						ID:       "c",
 						Title:    "Task C (InProgress, Snoozed late)",
 						Status:   StatusInProgress,
 						Snoozed:  iso8601ToDate("2024-01-10"),
 						Position: 2,
 					},
 					{
+						ID:       "d",
 						Title:    "Task D (NotStarted, Snoozed early)",
 						Status:   StatusNotStarted,
 						Snoozed:  iso8601ToDate("2024-01-05"),
 						Position: 3,
 					},
 					{
+						ID:       "e",
 						Title:    "Task E (NotStarted, Snoozed nil again)",
 						Status:   StatusNotStarted,
 						Snoozed:  nil,
 						Position: 4,
 					},
 					{
+						ID:       "f",
 						Title:    "Task F (NotStarted, Snoozed later)",
 						Status:   StatusNotStarted,
 						Snoozed:  iso8601ToDate("2024-01-06"),
@@ -214,36 +238,42 @@ func TestList_Clean(t *testing.T) {
 				Status: StatusOpen,
 				Items: []*Item{
 					{
+						ID:       "c",
 						Title:    "Task C (InProgress, Snoozed late)",
 						Status:   StatusInProgress,
 						Snoozed:  iso8601ToDate("2024-01-10"),
 						Position: 0,
 					},
 					{
+						ID:       "b",
 						Title:    "Task B (NotStarted, Snoozed nil)",
 						Status:   StatusNotStarted,
 						Snoozed:  nil,
 						Position: 1,
 					},
 					{
+						ID:       "e",
 						Title:    "Task E (NotStarted, Snoozed nil again)",
 						Status:   StatusNotStarted,
 						Snoozed:  nil,
 						Position: 2,
 					},
 					{
+						ID:       "d",
 						Title:    "Task D (NotStarted, Snoozed early)",
 						Status:   StatusNotStarted,
 						Snoozed:  iso8601ToDate("2024-01-05"),
 						Position: 3,
 					},
 					{
+						ID:       "f",
 						Title:    "Task F (NotStarted, Snoozed later)",
 						Status:   StatusNotStarted,
 						Snoozed:  iso8601ToDate("2024-01-06"),
 						Position: 4,
 					},
 					{
+						ID:       "a",
 						Title:    "Task A (Done, Snoozed early)",
 						Status:   StatusDone,
 						Snoozed:  iso8601ToDate("2024-01-01"),
@@ -375,6 +405,18 @@ func TestList_Equal(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "different ExternalIDs (one nil)",
+			list: baseList,
+			other: &List{
+				ID:         "1",
+				ExternalID: nil,
+				Name:       "Inbox",
+				Status:     StatusOpen,
+				Position:   0,
+			},
+			want: true,
+		},
+		{
 			name: "different names",
 			list: baseList,
 			other: &List{
@@ -431,7 +473,9 @@ func TestList_Equal(t *testing.T) {
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
-				Items:      []*Item{{Title: "New Item"}},
+				Items: []*Item{
+					{Title: "New Item"},
+				},
 			},
 			want: false,
 		},
@@ -444,7 +488,7 @@ func TestList_Equal(t *testing.T) {
 				Status:     StatusOpen,
 				Position:   0,
 				Items: []*Item{
-					{ID: "item-1", Position: 0},
+					{ID: "item-1"},
 				},
 			},
 			other: &List{
@@ -454,10 +498,34 @@ func TestList_Equal(t *testing.T) {
 				Status:     StatusOpen,
 				Position:   0,
 				Items: []*Item{
-					{ID: "item-2", Position: 0},
+					{ID: "item-2"},
 				},
 			},
 			want: false,
+		},
+		{
+			name: "different item IDs (one empty)",
+			list: &List{
+				ID:         "1",
+				ExternalID: stringPtr("ext-1"),
+				Name:       "Inbox",
+				Status:     StatusOpen,
+				Position:   0,
+				Items: []*Item{
+					{ID: "item-1"},
+				},
+			},
+			other: &List{
+				ID:         "1",
+				ExternalID: stringPtr("ext-1"),
+				Name:       "Inbox",
+				Status:     StatusOpen,
+				Position:   0,
+				Items: []*Item{
+					{ID: ""},
+				},
+			},
+			want: true,
 		},
 		{
 			name: "different item ExternalIDs when both set",
@@ -468,7 +536,10 @@ func TestList_Equal(t *testing.T) {
 				Status:     StatusOpen,
 				Position:   0,
 				Items: []*Item{
-					{ID: "item-1", ExternalID: stringPtr("ext-item-1"), Position: 0},
+					{
+						ID:         "item-1",
+						ExternalID: stringPtr("ext-item-1"),
+					},
 				},
 			},
 			other: &List{
@@ -478,10 +549,45 @@ func TestList_Equal(t *testing.T) {
 				Status:     StatusOpen,
 				Position:   0,
 				Items: []*Item{
-					{ID: "item-1", ExternalID: stringPtr("ext-item-2"), Position: 0},
+					{
+						ID:         "item-1",
+						ExternalID: stringPtr("ext-item-2"),
+						Position:   0,
+					},
 				},
 			},
 			want: false,
+		},
+		{
+			name: "different item ExternalIDs (one nil)",
+			list: &List{
+				ID:         "1",
+				ExternalID: stringPtr("ext-1"),
+				Name:       "Inbox",
+				Status:     StatusOpen,
+				Position:   0,
+				Items: []*Item{
+					{
+						ID:         "item-1",
+						ExternalID: stringPtr("ext-item-1"),
+					},
+				},
+			},
+			other: &List{
+				ID:         "1",
+				ExternalID: stringPtr("ext-1"),
+				Name:       "Inbox",
+				Status:     StatusOpen,
+				Position:   0,
+				Items: []*Item{
+					{
+						ID:         "item-1",
+						ExternalID: nil,
+						Position:   0,
+					},
+				},
+			},
+			want: true,
 		},
 		{
 			name: "equal lists ignoring metadata",
