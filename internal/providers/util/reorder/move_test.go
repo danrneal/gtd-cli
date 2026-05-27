@@ -176,6 +176,75 @@ func TestCalculateMoves(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "duplicate items in updated list",
+			updatedList: &model.List{
+				ExternalID: stringPtr("L1"),
+				Items: []*model.Item{
+					{
+						ExternalID:     stringPtr("C"),
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						ExternalID:     stringPtr("D"),
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						ExternalID:     stringPtr("E"),
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						ExternalID:     stringPtr("A"),
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						ExternalID:     stringPtr("A"),
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						ExternalID:     stringPtr("A"),
+						ExternalListID: stringPtr("L1"),
+					},
+					{
+						ExternalID:     stringPtr("B"),
+						ExternalListID: stringPtr("L1"),
+					},
+				},
+			},
+			currentItems: []*model.Item{
+				{ExternalID: stringPtr("A")},
+				{ExternalID: stringPtr("B")},
+				{ExternalID: stringPtr("C")},
+				{ExternalID: stringPtr("D")},
+				{ExternalID: stringPtr("E")},
+			},
+			wantMoves: []Move{
+				{
+					ItemID:            "A",
+					SourceListID:      "L1",
+					DestinationListID: "L1",
+					PreviousItemID:    "E",
+				},
+				{
+					ItemID:            "A",
+					SourceListID:      "L1",
+					DestinationListID: "L1",
+					PreviousItemID:    "A",
+				},
+				{
+					ItemID:            "A",
+					SourceListID:      "L1",
+					DestinationListID: "L1",
+					PreviousItemID:    "A",
+				},
+				{
+					ItemID:            "B",
+					SourceListID:      "L1",
+					DestinationListID: "L1",
+					PreviousItemID:    "A",
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
