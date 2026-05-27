@@ -399,7 +399,7 @@ func TestClient_UpdateList(t *testing.T) {
 			list: &model.List{
 				ID:       "list-1",
 				Name:     "List A",
-				Position: 5,
+				Position: 2,
 				Status:   model.StatusOpen,
 				Modified: modified,
 				Items:    []*model.Item{},
@@ -1191,6 +1191,7 @@ func TestClient_CreateItem(t *testing.T) {
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "create_success_after.md")
 				content := "# Inbox {{list-1}}\n" +
+					"* [ ] Task 0 {{item-0}}\n" +
 					"* [ ] Task 1 {{item-1}}\n"
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
@@ -1218,17 +1219,25 @@ func TestClient_CreateItem(t *testing.T) {
 					Modified: modified,
 					Items: []*model.Item{
 						{
-							ID:       "item-1",
-							Title:    "Task 1",
+							ID:       "item-0",
+							Title:    "Task 0",
 							ListID:   "list-1",
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
 						},
 						{
-							Title:    "Task 2",
+							ID:       "item-1",
+							Title:    "Task 1",
 							ListID:   "list-1",
 							Position: 1,
+							Status:   model.StatusNotStarted,
+							Modified: modified,
+						},
+						{
+							Title:    "Task 2",
+							ListID:   "list-1",
+							Position: 2,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
 						},
@@ -1502,7 +1511,7 @@ func TestClient_UpdateItem(t *testing.T) {
 				return path
 			},
 			item: &model.Item{
-				Title:    "", // invalid
+				Title:    "",
 				ListID:   "list-1",
 				ID:       "item-1",
 				Modified: modified,
@@ -1513,12 +1522,17 @@ func TestClient_UpdateItem(t *testing.T) {
 			name: "missing item ID",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "missing_item_id.md")
+				content := "# Inbox {{list-1}}\n* [ ] Valid Title\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
 				return path
 			},
 			item: &model.Item{
 				Title:    "Valid Title",
 				ListID:   "list-1",
-				ID:       "", // missing
+				ID:       "",
 				Modified: modified,
 			},
 			wantErr: true,
@@ -1527,11 +1541,16 @@ func TestClient_UpdateItem(t *testing.T) {
 			name: "missing list ID",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "missing_list_id.md")
+				content := "# Inbox\n* [ ] Valid Title {{item-1}}\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
 				return path
 			},
 			item: &model.Item{
 				Title:    "Valid Title",
-				ListID:   "", // missing
+				ListID:   "",
 				ID:       "item-1",
 				Modified: modified,
 			},
@@ -1704,10 +1723,15 @@ func TestClient_DeleteItem(t *testing.T) {
 			name: "item id missing",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "missing_item_id.md")
+				content := "# Inbox {{list-1}}\n* [ ] Task 1\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
 				return path
 			},
 			item: &model.Item{
-				ID:       "", // missing
+				ID:       "",
 				ListID:   "list-1",
 				Modified: modified,
 			},
@@ -1717,11 +1741,16 @@ func TestClient_DeleteItem(t *testing.T) {
 			name: "list id missing",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "missing_list_id.md")
+				content := "# Inbox\n* [ ] Task 1 {{item-1}}\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
 				return path
 			},
 			item: &model.Item{
 				ID:       "item-1",
-				ListID:   "", // missing
+				ListID:   "",
 				Modified: modified,
 			},
 			wantErr: true,

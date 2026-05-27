@@ -48,15 +48,13 @@ func (c *Client) watchLoop(ctx context.Context, watcher *fsnotify.Watcher, event
 				return
 			}
 
-			if !c.hasFileChanged(event) {
-				continue
-			}
-
-			select {
-			case events <- nil:
-				// Successfully sent the event
-			default:
-				// Non-blocking send: drop duplicate burst events if the channel is unread
+			if c.hasFileChanged(event) {
+				select {
+				case events <- nil:
+					// Successfully sent the event
+				default:
+					// Non-blocking send: drop duplicate burst events if the channel is unread
+				}
 			}
 		case err, ok := <-watcher.Errors:
 			if !ok {
