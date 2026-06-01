@@ -294,6 +294,13 @@ func TestListLists(t *testing.T) {
 						VALUES (?, ?, ?, ?)
 					`, "list-1", "Inbox", 5, time.Now(),
 				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, position, modified)
+						VALUES (?, ?, ?, ?)
+					`, "list-2", "Later", 10, time.Now(),
+				)
 			},
 			wantLists: []model.List{
 				{
@@ -301,6 +308,13 @@ func TestListLists(t *testing.T) {
 					Name:     "Inbox",
 					Status:   model.StatusOpen,
 					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "list-2",
+					Name:     "Later",
+					Status:   model.StatusOpen,
+					Position: 1,
 					Items:    []*model.Item{},
 				},
 			},
@@ -1137,7 +1151,8 @@ func TestUpdateList(t *testing.T) {
 
 				return list
 			},
-			wantErr: true,
+			wantErr:       true,
+			wantErrTarget: ErrNotFound,
 		},
 		{
 			name: "context cancellation",

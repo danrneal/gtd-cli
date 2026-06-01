@@ -59,8 +59,8 @@ func TestCreateList(t *testing.T) {
 		name           string
 		list           *model.List
 		setupFake      func(fake *googletaskstest.FakeGoogleTasks)
-		wantErr        bool
 		wantExternalID string
+		wantErr        bool
 	}{
 		{
 			name: "success",
@@ -69,8 +69,8 @@ func TestCreateList(t *testing.T) {
 				Modified: time.Now(),
 			},
 			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
-			wantErr:        false,
 			wantExternalID: "external-list-1",
+			wantErr:        false,
 		},
 		{
 			name: "invalid status for new list",
@@ -769,6 +769,7 @@ func TestUpdateList(t *testing.T) {
 			opts := []cmp.Option{
 				cmpopts.IgnoreFields(tasks.TaskList{}, "Updated"),
 			}
+
 			if diff := cmp.Diff(tt.wantTaskList, gotTaskList, opts...); diff != "" {
 				t.Errorf("UpdateList() taskList mismatch (-want +got):\n%s", diff)
 			}
@@ -854,8 +855,9 @@ func TestCreateItem(t *testing.T) {
 		item           *model.Item
 		previousItemID string
 		setupFake      func(fake *googletaskstest.FakeGoogleTasks)
-		wantErr        bool
+		wantTask       *tasks.Task
 		wantExternalID string
+		wantErr        bool
 	}{
 		{
 			name:   "simple item",
@@ -868,8 +870,13 @@ func TestCreateItem(t *testing.T) {
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.Tasks["L1"] = []*tasks.Task{}
 			},
-			wantErr:        false,
+			wantTask: &tasks.Task{
+				Id:     "external-task-1",
+				Title:  "Simple",
+				Status: "needsAction",
+			},
 			wantExternalID: "external-task-1",
+			wantErr:        false,
 		},
 		{
 			name:   "invalid item (validation failed)",
@@ -892,8 +899,13 @@ func TestCreateItem(t *testing.T) {
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.Tasks["L1"] = []*tasks.Task{}
 			},
-			wantErr:        false,
+			wantTask: &tasks.Task{
+				Id:     "external-task-1",
+				Title:  "Done",
+				Status: "completed",
+			},
 			wantExternalID: "external-task-1",
+			wantErr:        false,
 		},
 		{
 			name:   "snoozed item",
@@ -907,8 +919,14 @@ func TestCreateItem(t *testing.T) {
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.Tasks["L1"] = []*tasks.Task{}
 			},
-			wantErr:        false,
+			wantTask: &tasks.Task{
+				Id:     "external-task-1",
+				Title:  "Snoozed",
+				Status: "needsAction",
+				Due:    "2024-01-01T00:00:00Z",
+			},
 			wantExternalID: "external-task-1",
+			wantErr:        false,
 		},
 		{
 			name:   "item with previous",
@@ -926,8 +944,13 @@ func TestCreateItem(t *testing.T) {
 					},
 				}
 			},
-			wantErr:        false,
+			wantTask: &tasks.Task{
+				Id:     "external-task-1",
+				Title:  "Task",
+				Status: "needsAction",
+			},
 			wantExternalID: "external-task-1",
+			wantErr:        false,
 		},
 		{
 			name:   "cannot create deleted item",
@@ -994,6 +1017,23 @@ func TestCreateItem(t *testing.T) {
 				return
 			}
 
+			if tt.wantTask != nil {
+				gotTasks, ok := fakeTasks.Tasks[tt.listID]
+				if !ok || len(gotTasks) == 0 {
+					t.Fatalf("CreateItem() expected task in fake tasks under list %q, but none found", tt.listID)
+				}
+
+				gotTask := gotTasks[len(gotTasks)-1]
+
+				opts := []cmp.Option{
+					cmpopts.IgnoreFields(tasks.Task{}, "Updated"),
+				}
+
+				if diff := cmp.Diff(tt.wantTask, gotTask, opts...); diff != "" {
+					t.Errorf("CreateItem() Task mismatch (-want +got):\n%s", diff)
+				}
+			}
+
 			if tt.item.ExternalID == nil {
 				t.Errorf("CreateItem() failed to mutate ExternalID pointer")
 			} else if *tt.item.ExternalID != tt.wantExternalID {
@@ -1035,6 +1075,12 @@ func TestListItems(t *testing.T) {
 						Position: "0001",
 						Status:   "needsAction",
 					},
+					{
+						Id:       "t3",
+						Title:    "Task 3",
+						Position: "0001",
+						Status:   "needsAction",
+					},
 				}
 			},
 			wantItems: []*model.Item{
@@ -1048,8 +1094,16 @@ func TestListItems(t *testing.T) {
 				},
 				{
 					ListID:         "1",
-					Title:          "Task 2",
+					Title:          "Task 3",
 					Position:       1,
+					Status:         model.StatusOpen,
+					ExternalID:     stringPtr("t3"),
+					ExternalListID: stringPtr("L1"),
+				},
+				{
+					ListID:         "1",
+					Title:          "Task 2",
+					Position:       2,
 					Status:         model.StatusOpen,
 					ExternalID:     stringPtr("t2"),
 					ExternalListID: stringPtr("L1"),
@@ -1470,6 +1524,15 @@ func TestListItems(t *testing.T) {
 			if diff := cmp.Diff(tt.wantItems, got); diff != "" {
 				t.Errorf("listItems() mismatch (-want +got):\n%s", diff)
 			}
+
+			for i, wantItem := range tt.wantItems {
+				if !wantItem.Modified.Equal(got[i].Modified) {
+					t.Errorf(
+						"listItems() Modified mismatch at index %d: want %v, got %v",
+						i, wantItem.Modified, got[i].Modified,
+					)
+				}
+			}
 		})
 	}
 }
@@ -1681,6 +1744,7 @@ func TestUpdateItem(t *testing.T) {
 			opts := []cmp.Option{
 				cmpopts.IgnoreFields(tasks.Task{}, "Updated"),
 			}
+
 			if diff := cmp.Diff(tt.wantTask, gotTask, opts...); diff != "" {
 				t.Errorf("Updated item mismatch (-want +got):\n%s", diff)
 			}

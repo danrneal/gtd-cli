@@ -381,6 +381,16 @@ func TestList_Equal(t *testing.T) {
 			want:  false,
 		},
 		{
+			name: "equal when one ID is empty",
+			list: baseList,
+			other: &List{
+				ExternalID: stringPtr("ext-1"),
+				Name:       "Inbox",
+				Status:     StatusOpen,
+			},
+			want: true,
+		},
+		{
 			name: "different IDs when both set",
 			list: baseList,
 			other: &List{
