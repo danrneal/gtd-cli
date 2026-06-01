@@ -36,7 +36,7 @@ func TestPushMarkdown(t *testing.T) {
 				sqlite := setupTestSQLite(t, []model.List{
 					{
 						Name:     "L1",
-						Modified: baseTime,
+						Modified: baseTime.Add(1),
 						Items: []*model.Item{
 							{
 								Title:    "I1",
@@ -132,28 +132,55 @@ func TestPushMarkdown(t *testing.T) {
 						Name:     "L1",
 						Modified: baseTime,
 					},
+					{
+						Name:     "L2",
+						Modified: baseTime,
+					},
 				})
 
 				return sqlite
 			},
 			setupMarkdown: func(t *testing.T) RemoteProvider {
-				md := setupTestMarkdown(t, []model.List{})
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-2",
+						Name:     "L2",
+						Modified: baseTime,
+					},
+				})
+
 				return md
 			},
 			wantSqliteLists: []model.List{
 				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusOpen,
-					Items:  []*model.Item{},
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
 				},
 			},
 			wantMarkdownLists: []model.List{
 				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusOpen,
-					Items:  []*model.Item{},
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
 				},
 			},
 		},
@@ -168,6 +195,10 @@ func TestPushMarkdown(t *testing.T) {
 							{
 								Title:    "I1",
 								Status:   model.StatusDeleted,
+								Modified: baseTime,
+							},
+							{
+								Title:    "I2",
 								Modified: baseTime,
 							},
 						},
@@ -192,6 +223,12 @@ func TestPushMarkdown(t *testing.T) {
 							Status: model.StatusDeleted,
 							ListID: "store-list-1",
 						},
+						{
+							ID:     "store-item-2",
+							Title:  "I2",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
 					},
 				},
 			},
@@ -200,7 +237,14 @@ func TestPushMarkdown(t *testing.T) {
 					ID:     "store-list-1",
 					Name:   "L1",
 					Status: model.StatusOpen,
-					Items:  []*model.Item{},
+					Items: []*model.Item{
+						{
+							ID:     "store-item-2",
+							Title:  "I2",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
+					},
 				},
 			},
 		},
@@ -487,6 +531,11 @@ func TestPushMarkdown(t *testing.T) {
 			setupSqlite: func(t *testing.T) Provider {
 				sqlite := setupTestSQLite(t, []model.List{
 					{
+						ID:       "store-list-2",
+						Name:     "L2",
+						Modified: baseTime,
+					},
+					{
 						Name:     "L1",
 						Status:   model.StatusDeleted,
 						Modified: baseTime.Add(1),
@@ -506,8 +555,24 @@ func TestPushMarkdown(t *testing.T) {
 
 				return md
 			},
-			wantSqliteLists:   []model.List{},
-			wantMarkdownLists: []model.List{},
+			wantSqliteLists: []model.List{
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+			},
 		},
 		{
 			name: "updates list name and content",
@@ -652,16 +717,22 @@ func TestPushMarkdown(t *testing.T) {
 						Modified: baseTime.Add(1),
 						Items: []*model.Item{
 							{
-								Title:    "Active Item",
-								Status:   model.StatusNotStarted,
+								Title:    "Deleted Item",
+								Status:   model.StatusDeleted,
 								Modified: baseTime,
 								Position: 0,
 							},
 							{
-								Title:    "Deleted Item",
-								Status:   model.StatusDeleted,
-								Modified: baseTime,
+								Title:    "Valid Synced Item Updated",
+								Status:   model.StatusNotStarted,
+								Modified: baseTime.Add(1),
 								Position: 1,
+							},
+							{
+								Title:    "Active Item",
+								Status:   model.StatusNotStarted,
+								Modified: baseTime,
+								Position: 2,
 							},
 						},
 					},
@@ -677,8 +748,14 @@ func TestPushMarkdown(t *testing.T) {
 						Modified: baseTime,
 						Items: []*model.Item{
 							{
-								ID:       "store-item-1",
+								ID:       "store-item-3",
 								Title:    "Active Item",
+								Modified: baseTime,
+								Status:   model.StatusNotStarted,
+							},
+							{
+								ID:       "store-item-2",
+								Title:    "Valid Synced Item Original",
 								Modified: baseTime,
 								Status:   model.StatusNotStarted,
 							},
@@ -697,14 +774,20 @@ func TestPushMarkdown(t *testing.T) {
 						{
 							ID:     "store-item-1",
 							ListID: "store-list-1",
-							Title:  "Active Item",
-							Status: model.StatusNotStarted,
+							Title:  "Deleted Item",
+							Status: model.StatusDeleted,
 						},
 						{
 							ID:     "store-item-2",
 							ListID: "store-list-1",
-							Title:  "Deleted Item",
-							Status: model.StatusDeleted,
+							Title:  "Valid Synced Item Updated",
+							Status: model.StatusNotStarted,
+						},
+						{
+							ID:     "store-item-3",
+							ListID: "store-list-1",
+							Title:  "Active Item",
+							Status: model.StatusNotStarted,
 						},
 					},
 				},
@@ -716,7 +799,13 @@ func TestPushMarkdown(t *testing.T) {
 					Status: model.StatusOpen,
 					Items: []*model.Item{
 						{
-							ID:     "store-item-1",
+							ID:     "store-item-2",
+							ListID: "store-list-1",
+							Title:  "Valid Synced Item Updated",
+							Status: model.StatusNotStarted,
+						},
+						{
+							ID:     "store-item-3",
 							ListID: "store-list-1",
 							Title:  "Active Item",
 							Status: model.StatusNotStarted,
@@ -802,6 +891,12 @@ func TestPushMarkdown(t *testing.T) {
 						Modified: baseTime,
 						Items: []*model.Item{
 							{
+								ID:       "store-item-2",
+								Title:    "I2 Unsynced",
+								Modified: baseTime,
+							},
+							{
+								ID:       "store-item-1",
 								Title:    "I1 Updated",
 								Modified: baseTime.Add(1),
 							},
@@ -836,6 +931,12 @@ func TestPushMarkdown(t *testing.T) {
 					Status: model.StatusOpen,
 					Items: []*model.Item{
 						{
+							ID:     "store-item-2",
+							Title:  "I2 Unsynced",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
+						{
 							ID:     "store-item-1",
 							Title:  "I1 Updated",
 							Status: model.StatusNotStarted,
@@ -850,6 +951,12 @@ func TestPushMarkdown(t *testing.T) {
 					Name:   "L1",
 					Status: model.StatusOpen,
 					Items: []*model.Item{
+						{
+							ID:     "store-item-2",
+							Title:  "I2 Unsynced",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
 						{
 							ID:     "store-item-1",
 							Title:  "I1 Updated",
@@ -893,7 +1000,14 @@ func TestPushMarkdown(t *testing.T) {
 					{
 						Name:     "L1",
 						Modified: baseTime,
-						Items:    []*model.Item{},
+						Items: []*model.Item{
+							{
+								ID:       "store-item-2",
+								Title:    "I2 To Be Deleted",
+								Status:   model.StatusDeleted,
+								Modified: baseTime.Add(1),
+							},
+						},
 					},
 				})
 
@@ -908,6 +1022,11 @@ func TestPushMarkdown(t *testing.T) {
 						Items: []*model.Item{
 							{
 								Title:    "I1",
+								Modified: baseTime,
+							},
+							{
+								ID:       "store-item-2",
+								Title:    "I2 To Be Deleted",
 								Modified: baseTime,
 							},
 						},
@@ -1398,7 +1517,7 @@ func TestPullMarkdown(t *testing.T) {
 					{
 						ID:       "store-list-1",
 						Name:     "L1",
-						Modified: baseTime,
+						Modified: baseTime.Add(1),
 						Items: []*model.Item{
 							{
 								ID:       "store-item-1",
@@ -1600,8 +1719,13 @@ func TestPullMarkdown(t *testing.T) {
 						Modified: baseTime,
 						Items: []*model.Item{
 							{
-								Title:    "I1",
+								Title:    "I1 (Unsynced)",
 								Modified: baseTime.Add(1),
+							},
+							{
+								ID:       "store-item-2",
+								Title:    "I2 (Synced)",
+								Modified: baseTime,
 							},
 						},
 					},
@@ -1614,6 +1738,13 @@ func TestPullMarkdown(t *testing.T) {
 					{
 						Name:     "L1",
 						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-2",
+								Title:    "I2 (Synced)",
+								Modified: baseTime,
+							},
+						},
 					},
 				})
 
@@ -1627,7 +1758,13 @@ func TestPullMarkdown(t *testing.T) {
 					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
-							Title:  "I1",
+							Title:  "I1 (Unsynced)",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
+						{
+							ID:     "store-item-2",
+							Title:  "I2 (Synced)",
 							Status: model.StatusNotStarted,
 							ListID: "store-list-1",
 						},
@@ -1641,8 +1778,14 @@ func TestPullMarkdown(t *testing.T) {
 					Status: model.StatusOpen,
 					Items: []*model.Item{
 						{
+							ID:     "store-item-2",
+							Title:  "I2 (Synced)",
+							Status: model.StatusNotStarted,
+							ListID: "store-list-1",
+						},
+						{
 							ID:     "store-item-1",
-							Title:  "I1",
+							Title:  "I1 (Unsynced)",
 							Status: model.StatusNotStarted,
 							ListID: "store-list-1",
 						},
@@ -2117,6 +2260,11 @@ func TestPullMarkdown(t *testing.T) {
 								Status:   model.StatusDeleted,
 								Modified: baseTime,
 							},
+							{
+								Title:    "I2 To Be Deleted",
+								Status:   model.StatusNotStarted,
+								Modified: baseTime,
+							},
 						},
 					},
 				})
@@ -2143,10 +2291,16 @@ func TestPullMarkdown(t *testing.T) {
 							Status: model.StatusDeleted,
 							ListID: "store-list-1",
 						},
+						{
+							ID:     "store-item-2",
+							Title:  "I2 To Be Deleted",
+							Status: model.StatusDeleted,
+							ListID: "store-list-1",
+						},
 					},
 				},
 			},
-			wantUpdated: false,
+			wantUpdated: true,
 		},
 		{
 			name: "deletes item in destination",

@@ -167,7 +167,6 @@ func (ss *syncSession) syncListCreation(ctx context.Context, srcList *model.List
 		}
 
 		createdList := *srcList
-		createdList.Modified = createdList.Modified.Add(-1)
 		createdList.Items = []*model.Item{}
 		dstList = &createdList
 		listKey = ss.getKey(dstList)
