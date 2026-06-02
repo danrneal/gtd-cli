@@ -369,7 +369,13 @@ func TestRun(t *testing.T) {
 				})
 
 				tasks := &errorProvider{
-					Provider:     setupTestGoogleTasks(t, []model.List{}),
+					Provider: setupTestGoogleTasks(t, []model.List{
+						{
+							Name:     "Old Remote List",
+							Modified: modified.Add(-1),
+							Items:    []*model.Item{},
+						},
+					}),
 					errListLists: errors.New("transient network error"),
 				}
 
@@ -385,23 +391,48 @@ func TestRun(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "New List",
 					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: stringPtr("external-list-2"),
+					Items:      []*model.Item{},
+				},
+				{
+					ID:         "store-list-2",
+					Name:       "Old Remote List",
+					Status:     model.StatusOpen,
+					Position:   1,
 					ExternalID: stringPtr("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
 			wantMd: []model.List{
 				{
-					ID:     "store-list-1",
-					Name:   "New List",
-					Status: model.StatusOpen,
-					Items:  []*model.Item{},
+					ID:       "store-list-1",
+					Name:     "New List",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "Old Remote List",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
 				},
 			},
 			wantTasks: []model.List{
 				{
+					Name:       "Old Remote List",
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: stringPtr("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
 					Name:       "New List",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					Position:   1,
+					ExternalID: stringPtr("external-list-2"),
 					Items:      []*model.Item{},
 				},
 			},
