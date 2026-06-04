@@ -157,6 +157,10 @@ func TestClient_Watch(t *testing.T) {
 				return
 			}
 
+			if cap(events) != 1 {
+				t.Errorf("Watch() channel capacity = %d, want 1", cap(events))
+			}
+
 			tt.verify(t, client, events, cancel)
 		})
 	}

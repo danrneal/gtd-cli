@@ -105,7 +105,11 @@ func TestNewStore(t *testing.T) {
 			}
 
 			if store == nil {
-				t.Error("NewStore() expected store instance, got nil")
+				t.Fatal("NewStore() expected store instance, got nil")
+			}
+
+			if maxConns := store.db.Stats().MaxOpenConnections; maxConns != 1 {
+				t.Errorf("expected MaxOpenConnections to be 1, got %d", maxConns)
 			}
 
 			if tt.verifyTables != nil {
@@ -233,10 +237,6 @@ func TestCreateList(t *testing.T) {
 
 			defer db.Close()
 
-			if tt.wantList == nil {
-				return
-			}
-
 			query := `
 				SELECT id, name, position, status, external_id
 				FROM lists
@@ -262,6 +262,8 @@ func TestCreateList(t *testing.T) {
 
 			if tt.list.ID != "" && gotList.ID != tt.list.ID {
 				t.Errorf("CreateList() ID mismatch: want %q, got %q", tt.list.ID, gotList.ID)
+			} else if tt.list.ID == "" && gotList.ID == "" {
+				t.Errorf("CreateList() failed to generate an ID for the list")
 			}
 
 			if diff := cmp.Diff(tt.wantList, &gotList, opts...); diff != "" {
@@ -1269,10 +1271,6 @@ func TestUpdateList(t *testing.T) {
 				t.Errorf("UpdateList() mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantItems == nil {
-				return
-			}
-
 			tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
 			items, err := store.listAllItems(context.Background(), tx)
 			tx.Rollback()
@@ -1295,12 +1293,13 @@ func TestDeleteList(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		setupDB   func(t *testing.T, db *sql.DB) model.List
-		setupCtx  func() (context.Context, context.CancelFunc)
-		wantLists []model.List
-		wantItems []*model.Item
-		wantErr   bool
+		name          string
+		setupDB       func(t *testing.T, db *sql.DB) model.List
+		setupCtx      func() (context.Context, context.CancelFunc)
+		wantLists     []model.List
+		wantItems     []*model.Item
+		wantErr       bool
+		wantErrTarget error
 	}{
 		{
 			name: "valid delete with cascade",
@@ -1374,7 +1373,8 @@ func TestDeleteList(t *testing.T) {
 
 				return list
 			},
-			wantErr: true,
+			wantErr:       true,
+			wantErrTarget: ErrNotFound,
 		},
 		{
 			name: "nonexistent id",
@@ -1450,6 +1450,8 @@ func TestDeleteList(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Error("DeleteList() expected error, got nil")
+				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Errorf("DeleteList() expected error target %v, got: %v", tt.wantErrTarget, err)
 				}
 
 				return
@@ -1487,12 +1489,13 @@ func TestCreateItem(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		setupDB  func(t *testing.T, db *sql.DB)
-		item     *model.Item
-		setupCtx func() (context.Context, context.CancelFunc)
-		wantItem *model.Item
-		wantErr  bool
+		name          string
+		setupDB       func(t *testing.T, db *sql.DB)
+		item          *model.Item
+		setupCtx      func() (context.Context, context.CancelFunc)
+		wantItem      *model.Item
+		wantErr       bool
+		wantErrTarget error
 	}{
 		{
 			name: "honor provided item id",
@@ -1582,11 +1585,19 @@ func TestCreateItem(t *testing.T) {
 				Title:          "Orphan Item",
 				Modified:       time.Now(),
 			},
-			wantErr: true,
+			wantErr:       true,
+			wantErrTarget: ErrNotFound,
 		},
 		{
-			name:    "empty title",
-			setupDB: nil,
+			name: "empty title",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
+				)
+			},
 			item: &model.Item{
 				ListID: "list-1",
 				Title:  "",
@@ -1594,8 +1605,15 @@ func TestCreateItem(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "cannot create deleted item",
-			setupDB: nil,
+			name: "cannot create deleted item",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
+				)
+			},
 			item: &model.Item{
 				ListID:   "list-1",
 				Title:    "Deleted Task",
@@ -1662,6 +1680,8 @@ func TestCreateItem(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Error("CreateItem() expected error, got nil")
+				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Errorf("CreateItem() expected error target %v, got: %v", tt.wantErrTarget, err)
 				}
 
 				return
@@ -1682,10 +1702,6 @@ func TestCreateItem(t *testing.T) {
 
 			if count != 1 {
 				t.Errorf("expected 1 item with title %q, got %d", wantTitle, count)
-			}
-
-			if tt.wantItem == nil {
-				return
 			}
 
 			var (
@@ -1743,6 +1759,8 @@ func TestCreateItem(t *testing.T) {
 
 			if tt.item.ID != "" && gotItem.ID != tt.item.ID {
 				t.Errorf("CreateItem() ID mismatch: want %q, got %q", tt.item.ID, gotItem.ID)
+			} else if tt.item.ID == "" && gotItem.ID == "" {
+				t.Errorf("CreateItem() failed to generate an ID for the item")
 			}
 
 			if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {
@@ -2157,10 +2175,11 @@ func TestDeleteItem(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		setupDB  func(t *testing.T, db *sql.DB) model.Item
-		setupCtx func() (context.Context, context.CancelFunc)
-		wantErr  bool
+		name          string
+		setupDB       func(t *testing.T, db *sql.DB) model.Item
+		setupCtx      func() (context.Context, context.CancelFunc)
+		wantErr       bool
+		wantErrTarget error
 	}{
 		{
 			name: "valid delete",
@@ -2245,7 +2264,8 @@ func TestDeleteItem(t *testing.T) {
 
 				return item
 			},
-			wantErr: true,
+			wantErr:       true,
+			wantErrTarget: ErrNotFound,
 		},
 		{
 			name: "nonexistent id",
@@ -2335,6 +2355,8 @@ func TestDeleteItem(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Error("DeleteItem() expected error, got nil")
+				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Errorf("DeleteItem() expected error target %v, got: %v", tt.wantErrTarget, err)
 				}
 
 				return

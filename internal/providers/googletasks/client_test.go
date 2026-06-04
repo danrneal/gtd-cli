@@ -882,10 +882,15 @@ func TestCreateItem(t *testing.T) {
 			name:   "invalid item (validation failed)",
 			listID: "L1",
 			item: &model.Item{
-				Title: "",
+				Title:          "",
+				ExternalListID: stringPtr("L1"),
+				Status:         model.StatusNotStarted,
+				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
-			wantErr:   true,
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{}
+			},
+			wantErr: true,
 		},
 		{
 			name:   "completed item",
@@ -962,8 +967,10 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: stringPtr("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
-			wantErr:   true,
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{}
+			},
+			wantErr: true,
 		},
 		{
 			name:   "missing external list id",
@@ -1017,21 +1024,19 @@ func TestCreateItem(t *testing.T) {
 				return
 			}
 
-			if tt.wantTask != nil {
-				gotTasks, ok := fakeTasks.Tasks[tt.listID]
-				if !ok || len(gotTasks) == 0 {
-					t.Fatalf("CreateItem() expected task in fake tasks under list %q, but none found", tt.listID)
-				}
+			gotTasks, ok := fakeTasks.Tasks[tt.listID]
+			if !ok || len(gotTasks) == 0 {
+				t.Fatalf("CreateItem() expected task in fake tasks under list %q, but none found", tt.listID)
+			}
 
-				gotTask := gotTasks[len(gotTasks)-1]
+			gotTask := gotTasks[len(gotTasks)-1]
 
-				opts := []cmp.Option{
-					cmpopts.IgnoreFields(tasks.Task{}, "Updated"),
-				}
+			opts := []cmp.Option{
+				cmpopts.IgnoreFields(tasks.Task{}, "Updated"),
+			}
 
-				if diff := cmp.Diff(tt.wantTask, gotTask, opts...); diff != "" {
-					t.Errorf("CreateItem() Task mismatch (-want +got):\n%s", diff)
-				}
+			if diff := cmp.Diff(tt.wantTask, gotTask, opts...); diff != "" {
+				t.Errorf("CreateItem() Task mismatch (-want +got):\n%s", diff)
 			}
 
 			if tt.item.ExternalID == nil {
@@ -1233,7 +1238,7 @@ func TestListItems(t *testing.T) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{
 						Id:       "t1",
-						Title:    "Task +ProjectA",
+						Title:    "Task +P",
 						Position: "0001",
 					},
 				}
@@ -1242,7 +1247,7 @@ func TestListItems(t *testing.T) {
 				{
 					ListID:         "1",
 					Title:          "Task",
-					ProjectID:      stringPtr("ProjectA"),
+					ProjectID:      stringPtr("P"),
 					Status:         model.StatusOpen,
 					ExternalID:     stringPtr("t1"),
 					ExternalListID: stringPtr("L1"),
@@ -1317,7 +1322,7 @@ func TestListItems(t *testing.T) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{
 						Id:       "t1",
-						Title:    "Task #tag1 #tag2",
+						Title:    "Task #t #tag2",
 						Position: "0001",
 					},
 				}
@@ -1326,7 +1331,7 @@ func TestListItems(t *testing.T) {
 				{
 					ListID:         "1",
 					Title:          "Task",
-					Tags:           []string{"tag1", "tag2"},
+					Tags:           []string{"t", "tag2"},
 					Status:         model.StatusOpen,
 					ExternalID:     stringPtr("t1"),
 					ExternalListID: stringPtr("L1"),
@@ -1662,10 +1667,18 @@ func TestUpdateItem(t *testing.T) {
 		{
 			name: "invalid item (validation failed)",
 			item: &model.Item{
-				Title: "",
+				Title:          "",
+				ExternalID:     stringPtr("T1"),
+				ExternalListID: stringPtr("L1"),
+				Status:         model.StatusNotStarted,
+				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
-			wantErr:   true,
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{Id: "T1"},
+				}
+			},
+			wantErr: true,
 		},
 		{
 			name: "missing external identifiers",

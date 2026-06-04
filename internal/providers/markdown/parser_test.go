@@ -288,7 +288,7 @@ func TestParse(t *testing.T) {
 			name: "item metadata parsing",
 			reader: strings.NewReader(`
 				# Action {{list-1}}
-				* [ ] Complex task +proj-123 due:2024-01-02 snoozed:2024-01-01 #tag1 #tag2 {{item-456}}
+				* [ ] Complex task +P due:2024-01-02 snoozed:2024-01-01 #t #tag2 {{item-456}}
 			`),
 			want: []model.List{
 				{
@@ -306,10 +306,10 @@ func TestParse(t *testing.T) {
 							Position:       0,
 							Status:         model.StatusNotStarted,
 							Modified:       modified,
-							ProjectID:      stringPtr("proj-123"),
+							ProjectID:      stringPtr("P"),
 							Due:            iso8601ToDate("2024-01-02"),
 							Snoozed:        iso8601ToDate("2024-01-01"),
-							Tags:           []string{"tag1", "tag2"},
+							Tags:           []string{"t", "tag2"},
 						},
 					},
 				},

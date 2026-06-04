@@ -3,6 +3,8 @@ package googletasks
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -23,10 +25,11 @@ func TestTokenFromFile(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		setupFile func(t *testing.T, dir string) string
-		wantToken *oauth2.Token
-		wantErr   bool
+		name          string
+		setupFile     func(t *testing.T, dir string) string
+		wantToken     *oauth2.Token
+		wantErr       bool
+		wantErrTarget error
 	}{
 		{
 			name: "valid token file",
@@ -51,8 +54,9 @@ func TestTokenFromFile(t *testing.T) {
 			setupFile: func(_ *testing.T, dir string) string {
 				return filepath.Join(dir, "nonexistent.json")
 			},
-			wantToken: nil,
-			wantErr:   true,
+			wantToken:     nil,
+			wantErr:       true,
+			wantErrTarget: fs.ErrNotExist,
 		},
 		{
 			name: "invalid json",
@@ -80,6 +84,8 @@ func TestTokenFromFile(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Error("tokenFromFile() expected error, got nil")
+				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Errorf("tokenFromFile() expected error target %v, got: %v", tt.wantErrTarget, err)
 				}
 
 				return
@@ -111,10 +117,11 @@ func TestSaveToken(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		setupFile func(t *testing.T, dir string) string
-		token     *oauth2.Token
-		wantErr   bool
+		name          string
+		setupFile     func(t *testing.T, dir string) string
+		token         *oauth2.Token
+		wantErr       bool
+		wantErrTarget error
 	}{
 		{
 			name: "valid save",
@@ -123,6 +130,15 @@ func TestSaveToken(t *testing.T) {
 			},
 			token:   validToken,
 			wantErr: false,
+		},
+		{
+			name: "invalid path",
+			setupFile: func(t *testing.T, dir string) string {
+				return "/invalid/path/that/does/not/exist/token.json"
+			},
+			token:         validToken,
+			wantErr:       true,
+			wantErrTarget: fs.ErrNotExist,
 		},
 	}
 
@@ -137,6 +153,8 @@ func TestSaveToken(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Error("saveToken() expected error, got nil")
+				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Errorf("saveToken() expected error target %v, got: %v", tt.wantErrTarget, err)
 				}
 
 				return
@@ -147,7 +165,7 @@ func TestSaveToken(t *testing.T) {
 				return
 			}
 
-			if _, err = os.Stat(tokenFile); os.IsNotExist(err) {
+			if _, err = os.Stat(tokenFile); errors.Is(err, fs.ErrNotExist) {
 				t.Fatalf("token file was not created at %s", tokenFile)
 			}
 
@@ -318,18 +336,18 @@ func TestFileTokenSource_Token(t *testing.T) {
 				wantToken = tt.token
 			}
 
+			if tt.wantLog && logBuffer.Len() == 0 {
+				t.Error("Token() expected to log a warning, but buffer was empty")
+			} else if !tt.wantLog && logBuffer.Len() > 0 {
+				t.Errorf("Token() expected to remain silent, but logged:\n%s", logBuffer.String())
+			}
+
 			if !tt.wantSave && tt.token == nil {
 				return
 			}
 
 			if diff := cmp.Diff(*wantToken, savedToken, opts...); diff != "" {
 				t.Errorf("File save mismatch (-want +got):\n%s", diff)
-			}
-
-			if tt.wantLog && logBuffer.Len() == 0 {
-				t.Error("Token() expected to log a warning, but buffer was empty")
-			} else if !tt.wantLog && logBuffer.Len() > 0 {
-				t.Errorf("Token() expected to remain silent, but logged:\n%s", logBuffer.String())
 			}
 		})
 	}

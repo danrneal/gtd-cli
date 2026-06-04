@@ -317,11 +317,11 @@ func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
 func (c *Client) readFile() ([]model.List, error) {
 	stat, err := os.Stat(c.filepath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("markdown file not found: %w", err)
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("failed to stat markdown file: %w", err)
 		}
 
-		return nil, fmt.Errorf("failed to stat markdown file: %w", err)
+		return nil, fmt.Errorf("markdown file not found: %w", err)
 	}
 
 	fileBytes, err := os.ReadFile(c.filepath)

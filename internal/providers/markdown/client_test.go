@@ -2,7 +2,9 @@ package markdown
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -319,12 +321,13 @@ func TestClient_UpdateList(t *testing.T) {
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name        string
-		setup       func(t *testing.T) string
-		list        *model.List
-		currentList *model.List
-		want        []model.List
-		wantErr     bool
+		name          string
+		setup         func(t *testing.T) string
+		list          *model.List
+		currentList   *model.List
+		want          []model.List
+		wantErr       bool
+		wantErrTarget error
 	}{
 		{
 			name: "success (reorder list)",
@@ -763,12 +766,21 @@ func TestClient_UpdateList(t *testing.T) {
 			name: "invalid list",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "invalid.md")
+				if err := os.WriteFile(path, []byte("# Inbox {{list-1}}\n"), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
 				return path
 			},
 			list: &model.List{
+				ID:       "list-1",
 				Name:     "",
 				Status:   model.StatusOpen,
 				Modified: modified,
+			},
+			currentList: &model.List{
+				Name:  "Inbox",
+				Items: []*model.Item{},
 			},
 			wantErr: true,
 		},
@@ -802,7 +814,8 @@ func TestClient_UpdateList(t *testing.T) {
 				Status:   model.StatusOpen,
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr:       true,
+			wantErrTarget: fs.ErrPermission,
 		},
 		{
 			name: "list not found",
@@ -950,6 +963,12 @@ func TestClient_UpdateList(t *testing.T) {
 			}
 
 			if tt.wantErr {
+				if err == nil {
+					t.Error("UpdateList() expected error, got nil")
+				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Errorf("UpdateList() expected error target %v, got: %v", tt.wantErrTarget, err)
+				}
+
 				return
 			}
 
@@ -976,11 +995,12 @@ func TestClient_DeleteList(t *testing.T) {
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name    string
-		setup   func(t *testing.T) string
-		list    *model.List
-		want    []model.List
-		wantErr bool
+		name          string
+		setup         func(t *testing.T) string
+		list          *model.List
+		want          []model.List
+		wantErr       bool
+		wantErrTarget error
 	}{
 		{
 			name: "success",
@@ -1049,8 +1069,9 @@ func TestClient_DeleteList(t *testing.T) {
 				ID:       "list-1",
 				Modified: modified,
 			},
-			want:    nil,
-			wantErr: true,
+			want:          nil,
+			wantErr:       true,
+			wantErrTarget: fs.ErrPermission,
 		},
 		{
 			name: "list not found",
@@ -1103,6 +1124,12 @@ func TestClient_DeleteList(t *testing.T) {
 			}
 
 			if tt.wantErr {
+				if err == nil {
+					t.Error("DeleteList() expected error, got nil")
+				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Errorf("DeleteList() expected error target %v, got: %v", tt.wantErrTarget, err)
+				}
+
 				return
 			}
 
@@ -1134,6 +1161,7 @@ func TestClient_CreateItem(t *testing.T) {
 		previousItemID string
 		want           []model.List
 		wantErr        bool
+		wantErrTarget  error
 	}{
 		{
 			name: "success (insert at top - no previous item)",
@@ -1250,6 +1278,10 @@ func TestClient_CreateItem(t *testing.T) {
 			name: "invalid item",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "invalid.md")
+				if err := os.WriteFile(path, []byte("# Inbox {{list-1}}\n"), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
 				return path
 			},
 			item: &model.Item{
@@ -1263,6 +1295,10 @@ func TestClient_CreateItem(t *testing.T) {
 			name: "cannot create item with status deleted",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "deleted.md")
+				if err := os.WriteFile(path, []byte("# Inbox {{list-1}}\n"), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
 				return path
 			},
 			item: &model.Item{
@@ -1301,7 +1337,8 @@ func TestClient_CreateItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr:       true,
+			wantErrTarget: fs.ErrPermission,
 		},
 		{
 			name: "list not found",
@@ -1384,6 +1421,12 @@ func TestClient_CreateItem(t *testing.T) {
 			}
 
 			if tt.wantErr {
+				if err == nil {
+					t.Error("CreateItem() expected error, got nil")
+				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Errorf("CreateItem() expected error target %v, got: %v", tt.wantErrTarget, err)
+				}
+
 				return
 			}
 
@@ -1410,11 +1453,12 @@ func TestClient_UpdateItem(t *testing.T) {
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name    string
-		setup   func(t *testing.T) string
-		item    *model.Item
-		want    []model.List
-		wantErr bool
+		name          string
+		setup         func(t *testing.T) string
+		item          *model.Item
+		want          []model.List
+		wantErr       bool
+		wantErrTarget error
 	}{
 		{
 			name: "success (backfill fallback)",
@@ -1508,6 +1552,11 @@ func TestClient_UpdateItem(t *testing.T) {
 			name: "invalid item",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "invalid.md")
+				content := "# Inbox {{list-1}}\n* [ ] Valid Title {{item-1}}\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
 				return path
 			},
 			item: &model.Item{
@@ -1572,7 +1621,8 @@ func TestClient_UpdateItem(t *testing.T) {
 				ID:       "item-1",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr:       true,
+			wantErrTarget: fs.ErrPermission,
 		},
 		{
 			name: "list not found",
@@ -1645,6 +1695,12 @@ func TestClient_UpdateItem(t *testing.T) {
 			}
 
 			if tt.wantErr {
+				if err == nil {
+					t.Error("UpdateItem() expected error, got nil")
+				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Errorf("UpdateItem() expected error target %v, got: %v", tt.wantErrTarget, err)
+				}
+
 				return
 			}
 
@@ -1671,11 +1727,12 @@ func TestClient_DeleteItem(t *testing.T) {
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name    string
-		setup   func(t *testing.T) string
-		item    *model.Item
-		want    []model.List
-		wantErr bool
+		name          string
+		setup         func(t *testing.T) string
+		item          *model.Item
+		want          []model.List
+		wantErr       bool
+		wantErrTarget error
 	}{
 		{
 			name: "success",
@@ -1770,7 +1827,8 @@ func TestClient_DeleteItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr:       true,
+			wantErrTarget: fs.ErrPermission,
 		},
 		{
 			name: "list not found",
@@ -1840,6 +1898,12 @@ func TestClient_DeleteItem(t *testing.T) {
 			}
 
 			if tt.wantErr {
+				if err == nil {
+					t.Error("DeleteItem() expected error, got nil")
+				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Errorf("DeleteItem() expected error target %v, got: %v", tt.wantErrTarget, err)
+				}
+
 				return
 			}
 
@@ -2000,7 +2064,7 @@ func TestClient_readFile(t *testing.T) {
 				t.Errorf("readFile() mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr || tt.wantLists == nil {
+			if tt.wantErr {
 				return
 			}
 
@@ -2098,7 +2162,7 @@ func TestClient_writeFile(t *testing.T) {
 		{
 			name: "failed to write to markdown file",
 			setup: func(t *testing.T) string {
-				if _, err := os.Stat("/dev/full"); os.IsNotExist(err) {
+				if _, err := os.Stat("/dev/full"); errors.Is(err, fs.ErrNotExist) {
 					t.Skip("skipping test; /dev/full not available on this OS")
 				}
 

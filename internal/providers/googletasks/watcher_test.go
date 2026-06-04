@@ -83,6 +83,10 @@ func TestClient_Watch(t *testing.T) {
 				t.Fatalf("Watch() returned an unexpected error: %v", err)
 			}
 
+			if cap(events) != 1 {
+				t.Errorf("Watch() channel capacity = %d, want 1", cap(events))
+			}
+
 			tt.verify(t, events, cancel)
 		})
 	}
