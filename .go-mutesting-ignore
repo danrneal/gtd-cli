@@ -1,10 +1,18 @@
-# Last-Synced-Commit: c7a801745f50ba87de7b34bceaaa37496c93108b
+# Last-Synced-Commit: 4f96ae535c241fa6c3843d895f070f5bc901d9fc
 # format: filepath:line:mutatorName
 
-internal/app/runner.go:122:branch/if
-internal/app/runner.go:140:branch/if
-internal/app/runner.go:149:branch/if
-internal/app/runner.go:159:statement/remove
-internal/app/runner.go:163:statement/remove
-internal/app/runner.go:185:statement/remove
-internal/app/runner.go:191:statement/remove
+internal/app/syncer.go:114:branch/if
+internal/app/syncer.go:122:branch/if
+internal/providers/googletasks/client.go:66:statement/remove
+internal/providers/googletasks/client.go:127:statement/remove
+internal/providers/markdown/client.go:65:statement/remove
+internal/providers/markdown/client.go:150:statement/remove
+internal/providers/markdown/client.go:197:statement/remove
+internal/providers/markdown/client.go:240:statement/remove
+internal/providers/markdown/client.go:308:statement/remove
+internal/providers/sqlite/store.go:163:statement/remove
+internal/providers/sqlite/store.go:316:statement/remove
+internal/providers/sqlite/store.go:359:statement/remove
+internal/providers/sqlite/store.go:424:statement/remove
+internal/providers/sqlite/store.go:595:statement/remove
+internal/providers/sqlite/store.go:689:statement/remove
