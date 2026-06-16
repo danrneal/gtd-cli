@@ -38,13 +38,13 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime.Add(1),
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								Title:          "I1",
 								Modified:       baseTime,
-								ExternalID:     stringPtr("external-task-1"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
 							},
 						},
 					},
@@ -73,15 +73,15 @@ func TestPushGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -90,13 +90,13 @@ func TestPushGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Status:         model.StatusOpen,
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -136,7 +136,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 					},
 				})
 
@@ -151,7 +151,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -159,7 +159,7 @@ func TestPushGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -196,7 +196,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:       "store-item-1",
@@ -211,8 +211,8 @@ func TestPushGoogleTasks(t *testing.T) {
 							Status:         model.StatusNotStarted,
 							Position:       1,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -221,13 +221,13 @@ func TestPushGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "I2",
 							Status:         model.StatusOpen,
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -240,7 +240,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								Title:    "I1",
@@ -267,15 +267,15 @@ func TestPushGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-task-1"),
+							ExternalListID: new("external-list-1"),
+							ExternalID:     new("external-task-1"),
 						},
 					},
 				},
@@ -284,13 +284,13 @@ func TestPushGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Status:         model.StatusOpen,
-							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-task-1"),
+							ExternalListID: new("external-list-1"),
+							ExternalID:     new("external-task-1"),
 						},
 					},
 				},
@@ -327,23 +327,23 @@ func TestPushGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-task-1"),
+							ExternalListID: new("external-list-1"),
+							ExternalID:     new("external-task-1"),
 						},
 						{
 							ID:             "store-item-2",
 							Title:          "I2",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-task-2"),
+							ExternalListID: new("external-list-1"),
+							ExternalID:     new("external-task-2"),
 						},
 					},
 				},
@@ -352,21 +352,21 @@ func TestPushGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Status:         model.StatusOpen,
 							Position:       0,
-							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-task-1"),
+							ExternalListID: new("external-list-1"),
+							ExternalID:     new("external-task-1"),
 						},
 						{
 							Title:          "I2",
 							Status:         model.StatusOpen,
 							Position:       1,
-							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-task-2"),
+							ExternalListID: new("external-list-1"),
+							ExternalID:     new("external-task-2"),
 						},
 					},
 				},
@@ -379,19 +379,19 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 					},
 					{
 						Name:       "L2",
 						Modified:   baseTime.Add(1),
-						ExternalID: stringPtr("external-list-2"),
+						ExternalID: new("external-list-2"),
 						Items: []*model.Item{
 							{
 								ID:             "store-item-1",
 								Title:          "I1",
 								Modified:       baseTime.Add(1),
-								ExternalID:     stringPtr("external-task-1"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
 							},
 							{
 								ID:       "store-item-2",
@@ -430,7 +430,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					Position:   0,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 				{
@@ -438,7 +438,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					Name:       "L2",
 					Status:     model.StatusOpen,
 					Position:   1,
-					ExternalID: stringPtr("external-list-2"),
+					ExternalID: new("external-list-2"),
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
@@ -446,8 +446,8 @@ func TestPushGoogleTasks(t *testing.T) {
 							Status:         model.StatusNotStarted,
 							Position:       0,
 							ListID:         "store-list-2",
-							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-task-1"),
+							ExternalListID: new("external-list-2"),
+							ExternalID:     new("external-task-1"),
 						},
 						{
 							ID:             "store-item-2",
@@ -455,8 +455,8 @@ func TestPushGoogleTasks(t *testing.T) {
 							Status:         model.StatusNotStarted,
 							Position:       1,
 							ListID:         "store-list-2",
-							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-task-2"),
+							ExternalListID: new("external-list-2"),
+							ExternalID:     new("external-task-2"),
 						},
 					},
 				},
@@ -466,28 +466,28 @@ func TestPushGoogleTasks(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					Position:   0,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 				{
 					Name:       "L2",
 					Status:     model.StatusOpen,
 					Position:   1,
-					ExternalID: stringPtr("external-list-2"),
+					ExternalID: new("external-list-2"),
 					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Status:         model.StatusOpen,
 							Position:       0,
-							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-task-1"),
+							ExternalListID: new("external-list-2"),
+							ExternalID:     new("external-task-1"),
 						},
 						{
 							Title:          "I2",
 							Status:         model.StatusOpen,
 							Position:       1,
-							ExternalListID: stringPtr("external-list-2"),
-							ExternalID:     stringPtr("external-task-2"),
+							ExternalListID: new("external-list-2"),
+							ExternalID:     new("external-task-2"),
 						},
 					},
 				},
@@ -501,7 +501,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						Name:       "L1 Updated",
 						Status:     model.StatusDeleted,
 						Modified:   baseTime.Add(1),
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 					},
 				})
 
@@ -522,7 +522,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1 Updated",
 					Status:     model.StatusDeleted,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -530,7 +530,7 @@ func TestPushGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1 Original",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -542,13 +542,13 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1 Updated",
 						Modified:   baseTime.Add(1),
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								Title:          "I1 Original",
 								Modified:       baseTime,
-								ExternalID:     stringPtr("external-task-1"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
 							},
 						},
 					},
@@ -577,15 +577,15 @@ func TestPushGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1 Original",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -594,13 +594,13 @@ func TestPushGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "I1 Original",
 							Status:         model.StatusOpen,
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -613,7 +613,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1 Updated",
 						Modified:   baseTime.Add(1),
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								ID:       "store-item-3",
@@ -628,8 +628,8 @@ func TestPushGoogleTasks(t *testing.T) {
 								Status:         model.StatusNotStarted,
 								Modified:       baseTime.Add(1),
 								Position:       1,
-								ExternalID:     stringPtr("external-task-2"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-2"),
+								ExternalListID: new("external-list-1"),
 							},
 							{
 								ID:             "store-item-1",
@@ -637,8 +637,8 @@ func TestPushGoogleTasks(t *testing.T) {
 								Status:         model.StatusNotStarted,
 								Modified:       baseTime,
 								Position:       2,
-								ExternalID:     stringPtr("external-task-1"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
 							},
 						},
 					},
@@ -673,7 +673,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:     "store-item-3",
@@ -686,16 +686,16 @@ func TestPushGoogleTasks(t *testing.T) {
 							ListID:         "store-list-1",
 							Title:          "Valid Synced Item Updated",
 							Status:         model.StatusNotStarted,
-							ExternalID:     stringPtr("external-task-2"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-1"),
 						},
 						{
 							ID:             "store-item-1",
 							ListID:         "store-list-1",
 							Title:          "Active Item",
 							Status:         model.StatusNotStarted,
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -704,21 +704,21 @@ func TestPushGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "Valid Synced Item Updated",
 							Status:         model.StatusOpen,
 							Position:       0,
-							ExternalID:     stringPtr("external-task-2"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-1"),
 						},
 						{
 							Title:          "Active Item",
 							Status:         model.StatusOpen,
 							Position:       1,
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -731,14 +731,14 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								Title:          "I1",
 								Status:         model.StatusDeleted,
 								Modified:       baseTime,
-								ExternalID:     stringPtr("external-task-1"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
 							},
 						},
 					},
@@ -767,15 +767,15 @@ func TestPushGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
 							Status:         model.StatusDeleted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -784,13 +784,13 @@ func TestPushGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Status:         model.StatusOpen,
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -803,7 +803,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								ID:       "store-item-2",
@@ -814,8 +814,8 @@ func TestPushGoogleTasks(t *testing.T) {
 								ID:             "store-item-1",
 								Title:          "I1 Updated",
 								Modified:       baseTime.Add(1),
-								ExternalID:     stringPtr("external-task-1"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
 							},
 						},
 					},
@@ -844,23 +844,23 @@ func TestPushGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:             "store-item-2",
 							Title:          "I2 Unsynced",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalListID: stringPtr("external-list-1"),
-							ExternalID:     stringPtr("external-task-2"),
+							ExternalListID: new("external-list-1"),
+							ExternalID:     new("external-task-2"),
 						},
 						{
 							ID:             "store-item-1",
 							Title:          "I1 Updated",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -869,19 +869,19 @@ func TestPushGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "I2 Unsynced",
 							Status:         model.StatusOpen,
-							ExternalID:     stringPtr("external-task-2"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-1"),
 						},
 						{
 							Title:          "I1 Updated",
 							Status:         model.StatusOpen,
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -900,7 +900,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						Name:       "L1",
 						Status:     model.StatusDeleted,
 						Modified:   baseTime.Add(1),
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 					},
 				})
 
@@ -922,7 +922,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					Name:       "L2",
 					Status:     model.StatusOpen,
 					Position:   0,
-					ExternalID: stringPtr("external-list-2"),
+					ExternalID: new("external-list-2"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -931,7 +931,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					Name:       "L2",
 					Status:     model.StatusOpen,
 					Position:   0,
-					ExternalID: stringPtr("external-list-2"),
+					ExternalID: new("external-list-2"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -943,14 +943,14 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime.Add(1),
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								Title:          "I1",
 								Status:         model.StatusDeleted,
 								Modified:       baseTime.Add(1),
-								ExternalID:     stringPtr("external-task-1"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
 							},
 						},
 					},
@@ -979,7 +979,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -987,7 +987,7 @@ func TestPushGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -1108,7 +1108,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						{
 							Name:       "L1",
 							Modified:   baseTime,
-							ExternalID: stringPtr("external-list-1"),
+							ExternalID: new("external-list-1"),
 							Items: []*model.Item{
 								{
 									Title:    "I1",
@@ -1142,7 +1142,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1 Updated",
 						Modified:   baseTime.Add(1),
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 					},
 				})
 
@@ -1170,13 +1170,13 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								Title:          "I1 Updated",
 								Modified:       baseTime.Add(1),
-								ExternalID:     stringPtr("external-task-1"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
 							},
 						},
 					},
@@ -1213,7 +1213,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						Name:       "L1",
 						Status:     model.StatusDeleted,
 						Modified:   baseTime.Add(1),
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 					},
 				})
 
@@ -1243,7 +1243,7 @@ func TestPushGoogleTasks(t *testing.T) {
 							Name:       "L1",
 							Status:     model.StatusDeleted,
 							Modified:   baseTime.Add(1),
-							ExternalID: stringPtr("external-list-1"),
+							ExternalID: new("external-list-1"),
 						},
 					}),
 					errDeleteList: errors.New("boom"),
@@ -1270,14 +1270,14 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								Title:          "I1",
 								Status:         model.StatusDeleted,
 								Modified:       baseTime.Add(1),
-								ExternalID:     stringPtr("external-task-1"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
 							},
 						},
 					},
@@ -1314,14 +1314,14 @@ func TestPushGoogleTasks(t *testing.T) {
 						{
 							Name:       "L1",
 							Modified:   baseTime,
-							ExternalID: stringPtr("external-list-1"),
+							ExternalID: new("external-list-1"),
 							Items: []*model.Item{
 								{
 									Title:          "I1",
 									Status:         model.StatusDeleted,
 									Modified:       baseTime.Add(1),
-									ExternalID:     stringPtr("external-task-1"),
-									ExternalListID: stringPtr("external-list-1"),
+									ExternalID:     new("external-task-1"),
+									ExternalListID: new("external-list-1"),
 								},
 							},
 						},
@@ -1433,12 +1433,12 @@ func TestPullGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								Title:      "I1",
 								Modified:   baseTime,
-								ExternalID: stringPtr("external-task-1"),
+								ExternalID: new("external-task-1"),
 							},
 						},
 					},
@@ -1450,13 +1450,13 @@ func TestPullGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Status:         model.StatusOpen,
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -1466,15 +1466,15 @@ func TestPullGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -1501,7 +1501,7 @@ func TestPullGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -1510,7 +1510,7 @@ func TestPullGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -1543,7 +1543,7 @@ func TestPullGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								Title:    "I3",
@@ -1552,7 +1552,7 @@ func TestPullGoogleTasks(t *testing.T) {
 							{
 								Title:      "I1",
 								Modified:   baseTime,
-								ExternalID: stringPtr("external-task-1"),
+								ExternalID: new("external-task-1"),
 							},
 						},
 					},
@@ -1564,19 +1564,19 @@ func TestPullGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Status:         model.StatusOpen,
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 						{
 							Title:          "I2",
 							Status:         model.StatusOpen,
-							ExternalID:     stringPtr("external-task-2"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -1586,30 +1586,30 @@ func TestPullGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I3",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalListID: new("external-list-1"),
 						},
 						{
 							ID:             "store-item-2",
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 						{
 							ID:             "store-item-3",
 							Title:          "I2",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-2"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -1646,21 +1646,21 @@ func TestPullGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Status:         model.StatusOpen,
 							Position:       0,
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 						{
 							Title:          "I2",
 							Status:         model.StatusOpen,
 							Position:       1,
-							ExternalID:     stringPtr("external-task-2"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -1670,23 +1670,23 @@ func TestPullGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 						{
 							ID:             "store-item-2",
 							Title:          "I2",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-2"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -1724,20 +1724,20 @@ func TestPullGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								Title:          "I1",
 								Modified:       baseTime,
-								ExternalID:     stringPtr("external-task-1"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
 							},
 						},
 					},
 					{
 						Name:       "L2",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-2"),
+						ExternalID: new("external-list-2"),
 					},
 				})
 
@@ -1748,28 +1748,28 @@ func TestPullGoogleTasks(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					Position:   0,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 				{
 					Name:       "L2",
 					Status:     model.StatusOpen,
 					Position:   1,
-					ExternalID: stringPtr("external-list-2"),
+					ExternalID: new("external-list-2"),
 					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Status:         model.StatusOpen,
 							Position:       0,
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-2"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-2"),
 						},
 						{
 							Title:          "I2",
 							Status:         model.StatusOpen,
 							Position:       1,
-							ExternalID:     stringPtr("external-task-2"),
-							ExternalListID: stringPtr("external-list-2"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-2"),
 						},
 					},
 				},
@@ -1780,7 +1780,7 @@ func TestPullGoogleTasks(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					Position:   0,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 				{
@@ -1788,7 +1788,7 @@ func TestPullGoogleTasks(t *testing.T) {
 					Name:       "L2",
 					Status:     model.StatusOpen,
 					Position:   1,
-					ExternalID: stringPtr("external-list-2"),
+					ExternalID: new("external-list-2"),
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
@@ -1796,8 +1796,8 @@ func TestPullGoogleTasks(t *testing.T) {
 							Status:         model.StatusNotStarted,
 							Position:       0,
 							ListID:         "store-list-2",
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-2"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-2"),
 						},
 						{
 							ID:             "store-item-2",
@@ -1805,8 +1805,8 @@ func TestPullGoogleTasks(t *testing.T) {
 							Status:         model.StatusNotStarted,
 							Position:       1,
 							ListID:         "store-list-2",
-							ExternalID:     stringPtr("external-task-2"),
-							ExternalListID: stringPtr("external-list-2"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-2"),
 						},
 					},
 				},
@@ -1841,13 +1841,13 @@ func TestPullGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1 Original",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								Title:          "I1 Original",
 								Modified:       baseTime,
-								ExternalID:     stringPtr("external-task-1"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
 							},
 						},
 					},
@@ -1860,14 +1860,14 @@ func TestPullGoogleTasks(t *testing.T) {
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
 					Position:   0,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "I1 Original",
 							Status:         model.StatusOpen,
 							Position:       0,
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -1885,7 +1885,7 @@ func TestPullGoogleTasks(t *testing.T) {
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
 					Position:   1,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
@@ -1893,8 +1893,8 @@ func TestPullGoogleTasks(t *testing.T) {
 							Status:         model.StatusNotStarted,
 							Position:       0,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -1924,14 +1924,14 @@ func TestPullGoogleTasks(t *testing.T) {
 						Name:       "L2",
 						Modified:   baseTime,
 						Position:   0,
-						ExternalID: stringPtr("external-list-2"),
+						ExternalID: new("external-list-2"),
 					},
 					{
 						ID:         "store-list-1",
 						Name:       "L1",
 						Modified:   baseTime,
 						Position:   1,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 					},
 				})
 
@@ -1942,14 +1942,14 @@ func TestPullGoogleTasks(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					Position:   0,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 				{
 					Name:       "L2",
 					Status:     model.StatusOpen,
 					Position:   1,
-					ExternalID: stringPtr("external-list-2"),
+					ExternalID: new("external-list-2"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -1959,7 +1959,7 @@ func TestPullGoogleTasks(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					Position:   0,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 				{
@@ -1967,7 +1967,7 @@ func TestPullGoogleTasks(t *testing.T) {
 					Name:       "L2",
 					Status:     model.StatusOpen,
 					Position:   1,
-					ExternalID: stringPtr("external-list-2"),
+					ExternalID: new("external-list-2"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -2000,23 +2000,23 @@ func TestPullGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1 Original",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								ID:             "store-item-2",
 								Title:          "I2",
 								Status:         model.StatusInProgress,
 								Modified:       baseTime,
-								ExternalID:     stringPtr("external-task-2"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-2"),
+								ExternalListID: new("external-list-1"),
 							},
 							{
 								ID:             "store-item-1",
 								Title:          "I1",
 								Status:         model.StatusNotStarted,
 								Modified:       baseTime,
-								ExternalID:     stringPtr("external-task-1"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
 							},
 						},
 					},
@@ -2028,19 +2028,19 @@ func TestPullGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "I1",
 							Status:         model.StatusOpen,
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 						{
 							Title:          "I2",
 							Status:         model.StatusOpen,
-							ExternalID:     stringPtr("external-task-2"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -2050,23 +2050,23 @@ func TestPullGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:             "store-item-2",
 							Title:          "I2",
 							Status:         model.StatusInProgress,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-2"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-1"),
 						},
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -2096,13 +2096,13 @@ func TestPullGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								Title:          "I1 Original",
 								Modified:       baseTime,
-								ExternalID:     stringPtr("external-task-1"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
 							},
 						},
 					},
@@ -2114,13 +2114,13 @@ func TestPullGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "I1 Updated",
 							Status:         model.StatusOpen,
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -2130,15 +2130,15 @@ func TestPullGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1 Updated",
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -2168,14 +2168,14 @@ func TestPullGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								Title:          "I1 Original",
 								Status:         model.StatusInProgress,
 								Modified:       baseTime,
-								ExternalID:     stringPtr("external-task-1"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
 							},
 						},
 					},
@@ -2187,13 +2187,13 @@ func TestPullGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "I1 Updated",
 							Status:         model.StatusOpen,
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -2203,15 +2203,15 @@ func TestPullGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1 Updated",
 							Status:         model.StatusInProgress,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-1"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -2285,7 +2285,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						Name:       "L1",
 						Status:     model.StatusOpen,
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 					},
 				})
 
@@ -2297,7 +2297,7 @@ func TestPullGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusDeleted,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -2321,7 +2321,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						Name:       "L1",
 						Status:     model.StatusOpen,
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								Title:    "I1",
@@ -2332,8 +2332,8 @@ func TestPullGoogleTasks(t *testing.T) {
 								Title:          "I2 To Be Deleted",
 								Status:         model.StatusNotStarted,
 								Modified:       baseTime,
-								ExternalID:     stringPtr("external-task-2"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-2"),
+								ExternalListID: new("external-list-1"),
 							},
 						},
 					},
@@ -2345,7 +2345,7 @@ func TestPullGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -2354,7 +2354,7 @@ func TestPullGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
@@ -2367,8 +2367,8 @@ func TestPullGoogleTasks(t *testing.T) {
 							Title:          "I2 To Be Deleted",
 							Status:         model.StatusDeleted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-2"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -2393,7 +2393,7 @@ func TestPullGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								Title:    "I1",
@@ -2402,8 +2402,8 @@ func TestPullGoogleTasks(t *testing.T) {
 							{
 								Title:          "I2 To Be Deleted",
 								Modified:       baseTime,
-								ExternalID:     stringPtr("external-task-2"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-2"),
+								ExternalListID: new("external-list-1"),
 							},
 						},
 					},
@@ -2415,7 +2415,7 @@ func TestPullGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -2424,7 +2424,7 @@ func TestPullGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
@@ -2437,8 +2437,8 @@ func TestPullGoogleTasks(t *testing.T) {
 							Title:          "I2 To Be Deleted",
 							Status:         model.StatusDeleted,
 							ListID:         "store-list-1",
-							ExternalID:     stringPtr("external-task-2"),
-							ExternalListID: stringPtr("external-list-1"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
@@ -2463,13 +2463,13 @@ func TestPullGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
 								Title:          "I1",
 								Modified:       baseTime,
-								ExternalID:     stringPtr("external-task-1"),
-								ExternalListID: stringPtr("external-list-1"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
 							},
 						},
 					},
@@ -2481,7 +2481,7 @@ func TestPullGoogleTasks(t *testing.T) {
 				{
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -2490,7 +2490,7 @@ func TestPullGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:     "store-item-1",
@@ -2608,7 +2608,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							Name:       "L1 Original",
 							Modified:   baseTime,
-							ExternalID: stringPtr("external-list-1"),
+							ExternalID: new("external-list-1"),
 						},
 					}),
 					errUpdateList: errors.New("boom"),
@@ -2642,13 +2642,13 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							Name:       "L1",
 							Modified:   baseTime,
-							ExternalID: stringPtr("external-list-1"),
+							ExternalID: new("external-list-1"),
 							Items: []*model.Item{
 								{
 									Title:          "I1 Original",
 									Modified:       baseTime,
-									ExternalID:     stringPtr("external-task-1"),
-									ExternalListID: stringPtr("external-list-1"),
+									ExternalID:     new("external-task-1"),
+									ExternalListID: new("external-list-1"),
 								},
 							},
 						},
@@ -2672,7 +2672,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							Name:       "L1",
 							Modified:   baseTime,
-							ExternalID: stringPtr("external-list-1"),
+							ExternalID: new("external-list-1"),
 						},
 					}),
 					errUpdateList: errors.New("boom"),
@@ -2701,13 +2701,13 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							Name:       "L1",
 							Modified:   baseTime,
-							ExternalID: stringPtr("external-list-1"),
+							ExternalID: new("external-list-1"),
 							Items: []*model.Item{
 								{
 									Title:          "I1",
 									Modified:       baseTime,
-									ExternalID:     stringPtr("external-task-1"),
-									ExternalListID: stringPtr("external-list-1"),
+									ExternalID:     new("external-task-1"),
+									ExternalListID: new("external-list-1"),
 								},
 							},
 						},

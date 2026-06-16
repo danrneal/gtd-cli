@@ -29,7 +29,7 @@ func TestGetKey(t *testing.T) {
 		{
 			name: "list pointer with id",
 			resource: &model.List{
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 			},
 			wantKey: "L1",
 		},
@@ -166,17 +166,17 @@ func TestListLists(t *testing.T) {
 			wantLists: []model.List{
 				{
 					Name:       "Inbox",
-					ExternalID: stringPtr("L1"),
+					ExternalID: new("L1"),
 					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
 							Title:          "Task 1",
-							ExternalID:     stringPtr("T1"),
+							ExternalID:     new("T1"),
 							Position:       0,
 							ListID:         "",
 							Status:         model.StatusOpen,
-							ExternalListID: stringPtr("L1"),
+							ExternalListID: new("L1"),
 						},
 					},
 				},
@@ -259,20 +259,20 @@ func TestUpdateList(t *testing.T) {
 			name: "success (no updates needed)",
 			list: &model.List{
 				Name:       "Same List",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 				Items: []*model.Item{
 					{
 						Title:          "Task 1",
 						Status:         model.StatusDone,
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 					{
 						Title:          "Task 2",
 						Status:         model.StatusDone,
-						ExternalID:     stringPtr("B"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("B"),
+						ExternalListID: new("L1"),
 					},
 				},
 			},
@@ -282,14 +282,14 @@ func TestUpdateList(t *testing.T) {
 					{
 						Title:          "Task 2",
 						Status:         model.StatusDone,
-						ExternalID:     stringPtr("B"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("B"),
+						ExternalListID: new("L1"),
 					},
 					{
 						Title:          "Task 1",
 						Status:         model.StatusDone,
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 				},
 			},
@@ -334,7 +334,7 @@ func TestUpdateList(t *testing.T) {
 			name: "success (rename only)",
 			list: &model.List{
 				Name:       "  Updated List  \n",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 			},
 			currentList: &model.List{
@@ -356,29 +356,29 @@ func TestUpdateList(t *testing.T) {
 			name: "success with reordering",
 			list: &model.List{
 				Name:       "My List",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 				Items: []*model.Item{
 					{
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("B"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("B"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("C"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("C"),
+						ExternalListID: new("L1"),
 					},
 				},
 			},
 			currentList: &model.List{
 				Name: "My List",
 				Items: []*model.Item{
-					{ExternalID: stringPtr("B")},
-					{ExternalID: stringPtr("C")},
-					{ExternalID: stringPtr("A")},
+					{ExternalID: new("B")},
+					{ExternalID: new("C")},
+					{ExternalID: new("A")},
 				},
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -408,32 +408,32 @@ func TestUpdateList(t *testing.T) {
 			name: "success (completed items ignored during reorder)",
 			list: &model.List{
 				Name:       "Same List",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 				Items: []*model.Item{
 					{
 						Title:          "Task B",
 						Status:         model.StatusInProgress,
-						ExternalID:     stringPtr("B"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("B"),
+						ExternalListID: new("L1"),
 					},
 					{
 						Title:          "Task A",
 						Status:         model.StatusInProgress,
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 					{
 						Title:          "Task D",
 						Status:         model.StatusDone,
-						ExternalID:     stringPtr("D"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("D"),
+						ExternalListID: new("L1"),
 					},
 					{
 						Title:          "Task C",
 						Status:         model.StatusDone,
-						ExternalID:     stringPtr("C"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("C"),
+						ExternalListID: new("L1"),
 					},
 				},
 			},
@@ -443,26 +443,26 @@ func TestUpdateList(t *testing.T) {
 					{
 						Title:          "Task A",
 						Status:         model.StatusInProgress,
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 					{
 						Title:          "Task B",
 						Status:         model.StatusInProgress,
-						ExternalID:     stringPtr("B"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("B"),
+						ExternalListID: new("L1"),
 					},
 					{
 						Title:          "Task C",
 						Status:         model.StatusDone,
-						ExternalID:     stringPtr("C"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("C"),
+						ExternalListID: new("L1"),
 					},
 					{
 						Title:          "Task D",
 						Status:         model.StatusDone,
-						ExternalID:     stringPtr("D"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("D"),
+						ExternalListID: new("L1"),
 					},
 				},
 			},
@@ -495,12 +495,12 @@ func TestUpdateList(t *testing.T) {
 			name: "success with relocation (change list)",
 			list: &model.List{
 				Name:       "Target List",
-				ExternalID: stringPtr("L2"),
+				ExternalID: new("L2"),
 				Modified:   time.Now(),
 				Items: []*model.Item{
 					{
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 				},
 			},
@@ -539,23 +539,23 @@ func TestUpdateList(t *testing.T) {
 			name: "success with relocation and reorder",
 			list: &model.List{
 				Name:       "Target List",
-				ExternalID: stringPtr("L2"),
+				ExternalID: new("L2"),
 				Modified:   time.Now(),
 				Items: []*model.Item{
 					{
-						ExternalID:     stringPtr("B"),
-						ExternalListID: stringPtr("L2"),
+						ExternalID:     new("B"),
+						ExternalListID: new("L2"),
 					},
 					{
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 				},
 			},
 			currentList: &model.List{
 				Name: "Target List",
 				Items: []*model.Item{
-					{ExternalID: stringPtr("B")},
+					{ExternalID: new("B")},
 				},
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -595,7 +595,7 @@ func TestUpdateList(t *testing.T) {
 		{
 			name: "invalid list (validation failed)",
 			list: &model.List{
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Name:       "",
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
@@ -605,7 +605,7 @@ func TestUpdateList(t *testing.T) {
 			name: "update failure",
 			list: &model.List{
 				Name:       "Fail List",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 			},
 			currentList: &model.List{
@@ -620,24 +620,24 @@ func TestUpdateList(t *testing.T) {
 			name: "move failure",
 			list: &model.List{
 				Name:       "My List",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 				Items: []*model.Item{
 					{
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("B"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("B"),
+						ExternalListID: new("L1"),
 					},
 				},
 			},
 			currentList: &model.List{
 				Name: "My List",
 				Items: []*model.Item{
-					{ExternalID: stringPtr("B")},
-					{ExternalID: stringPtr("A")},
+					{ExternalID: new("B")},
+					{ExternalID: new("A")},
 				},
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -649,13 +649,13 @@ func TestUpdateList(t *testing.T) {
 			name: "success (skips done item with nil external list ID)",
 			list: &model.List{
 				Name:       "Same List",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 				Items: []*model.Item{
 					{
 						Title:          "Task 1",
 						Status:         model.StatusDone,
-						ExternalID:     stringPtr("A"),
+						ExternalID:     new("A"),
 						ExternalListID: nil,
 					},
 				},
@@ -687,14 +687,14 @@ func TestUpdateList(t *testing.T) {
 			name: "success (moves done item to new list)",
 			list: &model.List{
 				Name:       "Target List",
-				ExternalID: stringPtr("L2"),
+				ExternalID: new("L2"),
 				Modified:   time.Now(),
 				Items: []*model.Item{
 					{
 						Title:          "Task 1",
 						Status:         model.StatusDone,
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 				},
 			},
@@ -795,7 +795,7 @@ func TestDeleteList(t *testing.T) {
 		{
 			name: "success",
 			list: &model.List{
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{Id: "L1"})
@@ -813,7 +813,7 @@ func TestDeleteList(t *testing.T) {
 		{
 			name: "api error",
 			list: &model.List{
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.FailDeleteTaskList = true
@@ -864,7 +864,7 @@ func TestCreateItem(t *testing.T) {
 			listID: "L1",
 			item: &model.Item{
 				Title:          "  Simple  \n",
-				ExternalListID: stringPtr("L1"),
+				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -883,7 +883,7 @@ func TestCreateItem(t *testing.T) {
 			listID: "L1",
 			item: &model.Item{
 				Title:          "",
-				ExternalListID: stringPtr("L1"),
+				ExternalListID: new("L1"),
 				Status:         model.StatusNotStarted,
 				Modified:       time.Now(),
 			},
@@ -898,7 +898,7 @@ func TestCreateItem(t *testing.T) {
 			item: &model.Item{
 				Title:          "Done",
 				Status:         model.StatusDone,
-				ExternalListID: stringPtr("L1"),
+				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -918,7 +918,7 @@ func TestCreateItem(t *testing.T) {
 			item: &model.Item{
 				Title:          "Snoozed",
 				Snoozed:        iso8601ToDate("2024-01-01"),
-				ExternalListID: stringPtr("L1"),
+				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -938,7 +938,7 @@ func TestCreateItem(t *testing.T) {
 			listID: "L1",
 			item: &model.Item{
 				Title:          "Task",
-				ExternalListID: stringPtr("L1"),
+				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
 			previousItemID: "P1",
@@ -964,7 +964,7 @@ func TestCreateItem(t *testing.T) {
 				ListID:         "list-1",
 				Title:          "Deleted Task",
 				Status:         model.StatusDeleted,
-				ExternalListID: stringPtr("L1"),
+				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -989,7 +989,7 @@ func TestCreateItem(t *testing.T) {
 			item: &model.Item{
 				ListID:         "list-1",
 				Title:          "Fail",
-				ExternalListID: stringPtr("L1"),
+				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1063,7 +1063,7 @@ func TestListItems(t *testing.T) {
 			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1094,24 +1094,24 @@ func TestListItems(t *testing.T) {
 					Title:          "Task 1",
 					Position:       0,
 					Status:         model.StatusOpen,
-					ExternalID:     stringPtr("t1"),
-					ExternalListID: stringPtr("L1"),
+					ExternalID:     new("t1"),
+					ExternalListID: new("L1"),
 				},
 				{
 					ListID:         "1",
 					Title:          "Task 3",
 					Position:       1,
 					Status:         model.StatusOpen,
-					ExternalID:     stringPtr("t3"),
-					ExternalListID: stringPtr("L1"),
+					ExternalID:     new("t3"),
+					ExternalListID: new("L1"),
 				},
 				{
 					ListID:         "1",
 					Title:          "Task 2",
 					Position:       2,
 					Status:         model.StatusOpen,
-					ExternalID:     stringPtr("t2"),
-					ExternalListID: stringPtr("L1"),
+					ExternalID:     new("t2"),
+					ExternalListID: new("L1"),
 				},
 			},
 		},
@@ -1120,7 +1120,7 @@ func TestListItems(t *testing.T) {
 			list: &model.List{
 				ID:         "1",
 				Name:       "Waiting For",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.Tasks["L1"] = []*tasks.Task{
@@ -1135,10 +1135,10 @@ func TestListItems(t *testing.T) {
 				{
 					ListID:         "1",
 					Title:          "Send Mail",
-					WaitingOn:      stringPtr("Alice"),
+					WaitingOn:      new("Alice"),
 					Status:         model.StatusOpen,
-					ExternalID:     stringPtr("t1"),
-					ExternalListID: stringPtr("L1"),
+					ExternalID:     new("t1"),
+					ExternalListID: new("L1"),
 				},
 			},
 		},
@@ -1147,7 +1147,7 @@ func TestListItems(t *testing.T) {
 			list: &model.List{
 				ID:         "1",
 				Name:       "Waiting For",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.Tasks["L1"] = []*tasks.Task{
@@ -1164,8 +1164,8 @@ func TestListItems(t *testing.T) {
 					Title:          "Send Mail",
 					WaitingOn:      nil,
 					Status:         model.StatusOpen,
-					ExternalID:     stringPtr("t1"),
-					ExternalListID: stringPtr("L1"),
+					ExternalID:     new("t1"),
+					ExternalListID: new("L1"),
 				},
 			},
 		},
@@ -1174,7 +1174,7 @@ func TestListItems(t *testing.T) {
 			list: &model.List{
 				ID:         "1",
 				Name:       "Waiting For",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.Tasks["L1"] = []*tasks.Task{
@@ -1189,10 +1189,10 @@ func TestListItems(t *testing.T) {
 				{
 					ListID:         "1",
 					Title:          "Send Mail",
-					WaitingOn:      stringPtr("Alice"),
+					WaitingOn:      new("Alice"),
 					Status:         model.StatusOpen,
-					ExternalID:     stringPtr("t1"),
-					ExternalListID: stringPtr("L1"),
+					ExternalID:     new("t1"),
+					ExternalListID: new("L1"),
 					Created: rfc3339ToDate(
 						"0000-01-23T00:00:00Z",
 					),
@@ -1204,7 +1204,7 @@ func TestListItems(t *testing.T) {
 			list: &model.List{
 				ID:         "1",
 				Name:       "Waiting For",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.Tasks["L1"] = []*tasks.Task{
@@ -1219,10 +1219,10 @@ func TestListItems(t *testing.T) {
 				{
 					ListID:         "1",
 					Title:          "Send Mail",
-					WaitingOn:      stringPtr("Alice"),
+					WaitingOn:      new("Alice"),
 					Status:         model.StatusOpen,
-					ExternalID:     stringPtr("t1"),
-					ExternalListID: stringPtr("L1"),
+					ExternalID:     new("t1"),
+					ExternalListID: new("L1"),
 				},
 			},
 		},
@@ -1231,7 +1231,7 @@ func TestListItems(t *testing.T) {
 			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1247,10 +1247,10 @@ func TestListItems(t *testing.T) {
 				{
 					ListID:         "1",
 					Title:          "Task",
-					ProjectID:      stringPtr("P"),
+					ProjectID:      new("P"),
 					Status:         model.StatusOpen,
-					ExternalID:     stringPtr("t1"),
-					ExternalListID: stringPtr("L1"),
+					ExternalID:     new("t1"),
+					ExternalListID: new("L1"),
 				},
 			},
 		},
@@ -1259,7 +1259,7 @@ func TestListItems(t *testing.T) {
 			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1277,8 +1277,8 @@ func TestListItems(t *testing.T) {
 					Title:          "Task",
 					ProjectID:      nil,
 					Status:         model.StatusOpen,
-					ExternalID:     stringPtr("t1"),
-					ExternalListID: stringPtr("L1"),
+					ExternalID:     new("t1"),
+					ExternalListID: new("L1"),
 				},
 			},
 		},
@@ -1287,7 +1287,7 @@ func TestListItems(t *testing.T) {
 			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1305,8 +1305,8 @@ func TestListItems(t *testing.T) {
 					Title:          "Task",
 					Due:            iso8601ToDate("2024-01-01"),
 					Status:         model.StatusOpen,
-					ExternalID:     stringPtr("t1"),
-					ExternalListID: stringPtr("L1"),
+					ExternalID:     new("t1"),
+					ExternalListID: new("L1"),
 				},
 			},
 		},
@@ -1315,7 +1315,7 @@ func TestListItems(t *testing.T) {
 			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1333,8 +1333,8 @@ func TestListItems(t *testing.T) {
 					Title:          "Task",
 					Tags:           []string{"t", "tag2"},
 					Status:         model.StatusOpen,
-					ExternalID:     stringPtr("t1"),
-					ExternalListID: stringPtr("L1"),
+					ExternalID:     new("t1"),
+					ExternalListID: new("L1"),
 				},
 			},
 		},
@@ -1343,7 +1343,7 @@ func TestListItems(t *testing.T) {
 			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1360,8 +1360,8 @@ func TestListItems(t *testing.T) {
 					ListID:         "1",
 					Title:          "Task",
 					Status:         model.StatusOpen,
-					ExternalID:     stringPtr("t1"),
-					ExternalListID: stringPtr("L1"),
+					ExternalID:     new("t1"),
+					ExternalListID: new("L1"),
 				},
 			},
 		},
@@ -1370,7 +1370,7 @@ func TestListItems(t *testing.T) {
 			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1388,8 +1388,8 @@ func TestListItems(t *testing.T) {
 					ListID:         "1",
 					Title:          "Task",
 					Status:         model.StatusDone,
-					ExternalID:     stringPtr("t1"),
-					ExternalListID: stringPtr("L1"),
+					ExternalID:     new("t1"),
+					ExternalListID: new("L1"),
 				},
 			},
 		},
@@ -1398,7 +1398,7 @@ func TestListItems(t *testing.T) {
 			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1417,8 +1417,8 @@ func TestListItems(t *testing.T) {
 					Title:          "Task",
 					Description:    "My notes",
 					Status:         model.StatusOpen,
-					ExternalID:     stringPtr("t1"),
-					ExternalListID: stringPtr("L1"),
+					ExternalID:     new("t1"),
+					ExternalListID: new("L1"),
 				},
 			},
 		},
@@ -1427,7 +1427,7 @@ func TestListItems(t *testing.T) {
 			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1446,8 +1446,8 @@ func TestListItems(t *testing.T) {
 					Title:          "Task",
 					Snoozed:        iso8601ToDate("2024-01-01"),
 					Status:         model.StatusOpen,
-					ExternalID:     stringPtr("t1"),
-					ExternalListID: stringPtr("L1"),
+					ExternalID:     new("t1"),
+					ExternalListID: new("L1"),
 				},
 			},
 		},
@@ -1456,7 +1456,7 @@ func TestListItems(t *testing.T) {
 			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1475,8 +1475,8 @@ func TestListItems(t *testing.T) {
 					Title:          "Task",
 					Modified:       rfc3339ToDate("2024-01-01T12:00:00Z"),
 					Status:         model.StatusOpen,
-					ExternalID:     stringPtr("t1"),
-					ExternalListID: stringPtr("L1"),
+					ExternalID:     new("t1"),
+					ExternalListID: new("L1"),
 				},
 			},
 		},
@@ -1485,7 +1485,7 @@ func TestListItems(t *testing.T) {
 			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Modified:   time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1560,8 +1560,8 @@ func TestUpdateItem(t *testing.T) {
 				Title:          "  Updated Task  \n",
 				Description:    "Has desc",
 				Snoozed:        iso8601ToDate("2024-01-01"),
-				ExternalID:     stringPtr("T1"),
-				ExternalListID: stringPtr("L1"),
+				ExternalID:     new("T1"),
+				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1589,8 +1589,8 @@ func TestUpdateItem(t *testing.T) {
 				Description:    "Has desc",
 				Snoozed:        iso8601ToDate("2024-01-01"),
 				Status:         model.StatusDone,
-				ExternalID:     stringPtr("T1"),
-				ExternalListID: stringPtr("L1"),
+				ExternalID:     new("T1"),
+				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1617,8 +1617,8 @@ func TestUpdateItem(t *testing.T) {
 				Title:          "Task",
 				Description:    "Has desc",
 				Snoozed:        iso8601ToDate("2024-01-01"),
-				ExternalID:     stringPtr("T1"),
-				ExternalListID: stringPtr("L1"),
+				ExternalID:     new("T1"),
+				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1642,8 +1642,8 @@ func TestUpdateItem(t *testing.T) {
 				Title:          "Task",
 				Description:    "",
 				Snoozed:        nil,
-				ExternalID:     stringPtr("T1"),
-				ExternalListID: stringPtr("L1"),
+				ExternalID:     new("T1"),
+				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1668,8 +1668,8 @@ func TestUpdateItem(t *testing.T) {
 			name: "invalid item (validation failed)",
 			item: &model.Item{
 				Title:          "",
-				ExternalID:     stringPtr("T1"),
-				ExternalListID: stringPtr("L1"),
+				ExternalID:     new("T1"),
+				ExternalListID: new("L1"),
 				Status:         model.StatusNotStarted,
 				Modified:       time.Now(),
 			},
@@ -1696,7 +1696,7 @@ func TestUpdateItem(t *testing.T) {
 				ListID:     "list-1",
 				Title:      "Update Task",
 				Modified:   time.Now(),
-				ExternalID: stringPtr("T1"),
+				ExternalID: new("T1"),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:   true,
@@ -1708,8 +1708,8 @@ func TestUpdateItem(t *testing.T) {
 				Title:          "Fail",
 				Description:    "Has desc",
 				Snoozed:        iso8601ToDate("2024-01-01"),
-				ExternalID:     stringPtr("T1"),
-				ExternalListID: stringPtr("L1"),
+				ExternalID:     new("T1"),
+				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
@@ -1777,8 +1777,8 @@ func TestDeleteItem(t *testing.T) {
 		{
 			name: "success",
 			item: &model.Item{
-				ExternalID:     stringPtr("T1"),
-				ExternalListID: stringPtr("L1"),
+				ExternalID:     new("T1"),
+				ExternalListID: new("L1"),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.Tasks["L1"] = []*tasks.Task{{Id: "T1"}}
@@ -1799,7 +1799,7 @@ func TestDeleteItem(t *testing.T) {
 			item: &model.Item{
 				ListID:     "list-1",
 				Title:      "Delete Task",
-				ExternalID: stringPtr("T1"),
+				ExternalID: new("T1"),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantErr:   true,
@@ -1807,8 +1807,8 @@ func TestDeleteItem(t *testing.T) {
 		{
 			name: "api error",
 			item: &model.Item{
-				ExternalID:     stringPtr("T1"),
-				ExternalListID: stringPtr("L1"),
+				ExternalID:     new("T1"),
+				ExternalListID: new("L1"),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.FailDeleteTask = true
@@ -1860,7 +1860,7 @@ func TestRenderTitle(t *testing.T) {
 			name: "title with projectid",
 			item: &model.Item{
 				Title:     "Task",
-				ProjectID: stringPtr("P1"),
+				ProjectID: new("P1"),
 			},
 			wantTitle: "Task +P1",
 		},
@@ -1884,7 +1884,7 @@ func TestRenderTitle(t *testing.T) {
 			name: "title with waiting on",
 			item: &model.Item{
 				Title:     "Task",
-				WaitingOn: stringPtr("Alice"),
+				WaitingOn: new("Alice"),
 				Created:   rfc3339ToDate("2024-01-02T10:00:00Z"),
 			},
 			wantTitle: "Alice - Task - Jan 2",
@@ -1901,10 +1901,6 @@ func TestRenderTitle(t *testing.T) {
 			}
 		})
 	}
-}
-
-func stringPtr(s string) *string {
-	return &s
 }
 
 func iso8601ToDate(s string) *time.Time {

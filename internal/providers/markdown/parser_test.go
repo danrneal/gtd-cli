@@ -300,13 +300,13 @@ func TestParse(t *testing.T) {
 					Items: []*model.Item{
 						{
 							ID:             "item-456",
-							ExternalListID: stringPtr("list-1"),
+							ExternalListID: new("list-1"),
 							ListID:         "list-1",
 							Title:          "Complex task",
 							Position:       0,
 							Status:         model.StatusNotStarted,
 							Modified:       modified,
-							ProjectID:      stringPtr("P"),
+							ProjectID:      new("P"),
 							Due:            iso8601ToDate("2024-01-02"),
 							Snoozed:        iso8601ToDate("2024-01-01"),
 							Tags:           []string{"t", "tag2"},
@@ -427,7 +427,7 @@ func TestParse(t *testing.T) {
 					Items: []*model.Item{
 						{
 							Title:     "Send report",
-							WaitingOn: stringPtr("Alice"),
+							WaitingOn: new("Alice"),
 							Position:  0,
 							Status:    model.StatusNotStarted,
 							Modified:  modified,
@@ -435,7 +435,7 @@ func TestParse(t *testing.T) {
 						},
 						{
 							Title:     "Review PR",
-							WaitingOn: stringPtr("Bob"),
+							WaitingOn: new("Bob"),
 							Position:  1,
 							Status:    model.StatusNotStarted,
 							Modified:  modified,
@@ -486,7 +486,7 @@ func TestParse(t *testing.T) {
 							Title:     "Review PR",
 							Position:  0,
 							Status:    model.StatusNotStarted,
-							WaitingOn: stringPtr("Bob"),
+							WaitingOn: new("Bob"),
 							Modified:  modified,
 							Created:   modified,
 						},
@@ -511,7 +511,7 @@ func TestParse(t *testing.T) {
 							Title:     "Send budget report",
 							Position:  0,
 							Status:    model.StatusNotStarted,
-							WaitingOn: stringPtr("Alice"),
+							WaitingOn: new("Alice"),
 							Created:   time.Date(0, time.May, 15, 0, 0, 0, 0, time.UTC),
 							Modified:  modified,
 						},

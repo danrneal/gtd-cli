@@ -360,7 +360,7 @@ func TestList_Equal(t *testing.T) {
 
 	baseList := &List{
 		ID:         "1",
-		ExternalID: stringPtr("ext-1"),
+		ExternalID: new("ext-1"),
 		Name:       "Inbox",
 		Status:     StatusOpen,
 		Position:   0,
@@ -384,7 +384,7 @@ func TestList_Equal(t *testing.T) {
 			name: "equal when one ID is empty",
 			list: baseList,
 			other: &List{
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 			},
@@ -395,7 +395,7 @@ func TestList_Equal(t *testing.T) {
 			list: baseList,
 			other: &List{
 				ID:         "2",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
@@ -407,7 +407,7 @@ func TestList_Equal(t *testing.T) {
 			list: baseList,
 			other: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-2"),
+				ExternalID: new("ext-2"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
@@ -431,7 +431,7 @@ func TestList_Equal(t *testing.T) {
 			list: baseList,
 			other: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Projects",
 				Status:     StatusOpen,
 				Position:   0,
@@ -443,7 +443,7 @@ func TestList_Equal(t *testing.T) {
 			list: baseList,
 			other: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusDeleted,
 				Position:   0,
@@ -479,7 +479,7 @@ func TestList_Equal(t *testing.T) {
 			list: baseList,
 			other: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
@@ -493,7 +493,7 @@ func TestList_Equal(t *testing.T) {
 			name: "different item IDs when both set",
 			list: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
@@ -503,7 +503,7 @@ func TestList_Equal(t *testing.T) {
 			},
 			other: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
@@ -517,7 +517,7 @@ func TestList_Equal(t *testing.T) {
 			name: "different item IDs (one empty)",
 			list: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
@@ -527,7 +527,7 @@ func TestList_Equal(t *testing.T) {
 			},
 			other: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
@@ -541,27 +541,27 @@ func TestList_Equal(t *testing.T) {
 			name: "different item ExternalIDs when both set",
 			list: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
 				Items: []*Item{
 					{
 						ID:         "item-1",
-						ExternalID: stringPtr("ext-item-1"),
+						ExternalID: new("ext-item-1"),
 					},
 				},
 			},
 			other: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
 				Items: []*Item{
 					{
 						ID:         "item-1",
-						ExternalID: stringPtr("ext-item-2"),
+						ExternalID: new("ext-item-2"),
 						Position:   0,
 					},
 				},
@@ -572,20 +572,20 @@ func TestList_Equal(t *testing.T) {
 			name: "different item ExternalIDs (one nil)",
 			list: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
 				Items: []*Item{
 					{
 						ID:         "item-1",
-						ExternalID: stringPtr("ext-item-1"),
+						ExternalID: new("ext-item-1"),
 					},
 				},
 			},
 			other: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
@@ -604,7 +604,7 @@ func TestList_Equal(t *testing.T) {
 			list: baseList,
 			other: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
@@ -617,7 +617,7 @@ func TestList_Equal(t *testing.T) {
 			name: "equal when list has deleted items",
 			list: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
@@ -636,7 +636,7 @@ func TestList_Equal(t *testing.T) {
 			},
 			other: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
@@ -654,7 +654,7 @@ func TestList_Equal(t *testing.T) {
 			name: "equal when other has deleted items",
 			list: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
@@ -668,7 +668,7 @@ func TestList_Equal(t *testing.T) {
 			},
 			other: &List{
 				ID:         "1",
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 				Name:       "Inbox",
 				Status:     StatusOpen,
 				Position:   0,
@@ -699,10 +699,6 @@ func TestList_Equal(t *testing.T) {
 			}
 		})
 	}
-}
-
-func stringPtr(s string) *string {
-	return &s
 }
 
 func iso8601ToDate(s string) *time.Time {

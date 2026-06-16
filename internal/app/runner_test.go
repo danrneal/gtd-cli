@@ -90,7 +90,7 @@ func TestRun(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "New Offline List",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -106,7 +106,7 @@ func TestRun(t *testing.T) {
 				{
 					Name:       "New Offline List",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -139,7 +139,7 @@ func TestRun(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "New List",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -155,7 +155,7 @@ func TestRun(t *testing.T) {
 				{
 					Name:       "New List",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -188,7 +188,7 @@ func TestRun(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "Remote List",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -204,7 +204,7 @@ func TestRun(t *testing.T) {
 				{
 					Name:       "Remote List",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -272,7 +272,7 @@ func TestRun(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "New List",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -288,7 +288,7 @@ func TestRun(t *testing.T) {
 				{
 					Name:       "New List",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -301,7 +301,7 @@ func TestRun(t *testing.T) {
 						ID:         "store-list-1",
 						Name:       "Inbox",
 						Status:     model.StatusOpen,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Modified:   modified,
 						Items:      []*model.Item{},
 					},
@@ -311,7 +311,7 @@ func TestRun(t *testing.T) {
 					{
 						Name:       "Inbox",
 						Status:     model.StatusOpen,
-						ExternalID: stringPtr("external-list-1"),
+						ExternalID: new("external-list-1"),
 						Modified:   modified,
 						Items:      []*model.Item{},
 					},
@@ -332,7 +332,7 @@ func TestRun(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "Inbox",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Modified:   modified,
 					Items:      []*model.Item{},
 				},
@@ -341,7 +341,7 @@ func TestRun(t *testing.T) {
 				{
 					Name:       "Inbox",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Modified:   modified,
 					Items:      []*model.Item{},
 				},
@@ -392,7 +392,7 @@ func TestRun(t *testing.T) {
 					Name:       "New List",
 					Status:     model.StatusOpen,
 					Position:   0,
-					ExternalID: stringPtr("external-list-2"),
+					ExternalID: new("external-list-2"),
 					Items:      []*model.Item{},
 				},
 				{
@@ -400,7 +400,7 @@ func TestRun(t *testing.T) {
 					Name:       "Old Remote List",
 					Status:     model.StatusOpen,
 					Position:   1,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -425,14 +425,14 @@ func TestRun(t *testing.T) {
 					Name:       "Old Remote List",
 					Status:     model.StatusOpen,
 					Position:   0,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 				{
 					Name:       "New List",
 					Status:     model.StatusOpen,
 					Position:   1,
-					ExternalID: stringPtr("external-list-2"),
+					ExternalID: new("external-list-2"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -466,7 +466,7 @@ func TestRun(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "New List",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -482,7 +482,7 @@ func TestRun(t *testing.T) {
 				{
 					Name:       "New List",
 					Status:     model.StatusOpen,
-					ExternalID: stringPtr("external-list-1"),
+					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -744,8 +744,4 @@ func assertEventually(t *testing.T, timeout time.Duration, verify func() error) 
 	}
 
 	t.Fatalf("assertEventually timed out after %v. Last error: %v", timeout, lastErr)
-}
-
-func stringPtr(s string) *string {
-	return &s
 }

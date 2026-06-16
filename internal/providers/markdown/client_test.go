@@ -1317,7 +1317,7 @@ func TestClient_CreateItem(t *testing.T) {
 			},
 			item: &model.Item{
 				Title:          "Orphan Item",
-				ExternalListID: stringPtr("ext-list-1"),
+				ExternalListID: new("ext-list-1"),
 				Modified:       modified,
 			},
 			wantErr: true,
@@ -2256,8 +2256,4 @@ func TestClient_Concurrency(t *testing.T) {
 			t.Fatalf("mutation failed during concurrency test: %v", err)
 		}
 	}
-}
-
-func stringPtr(s string) *string {
-	return &s
 }

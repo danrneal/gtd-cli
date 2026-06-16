@@ -20,54 +20,54 @@ func TestCalculateMoves(t *testing.T) {
 		{
 			name: "no change",
 			updatedList: &model.List{
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Items: []*model.Item{
 					{
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("B"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("B"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("C"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("C"),
+						ExternalListID: new("L1"),
 					},
 				},
 			},
 			currentItems: []*model.Item{
-				{ExternalID: stringPtr("A")},
-				{ExternalID: stringPtr("B")},
-				{ExternalID: stringPtr("C")},
-				{ExternalID: stringPtr("D")},
+				{ExternalID: new("A")},
+				{ExternalID: new("B")},
+				{ExternalID: new("C")},
+				{ExternalID: new("D")},
 			},
 			wantMoves: nil,
 		},
 		{
 			name: "reorder to top (A moves to top)",
 			updatedList: &model.List{
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Items: []*model.Item{
 					{
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("B"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("B"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("C"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("C"),
+						ExternalListID: new("L1"),
 					},
 				},
 			},
 			currentItems: []*model.Item{
-				{ExternalID: stringPtr("B")},
-				{ExternalID: stringPtr("C")},
-				{ExternalID: stringPtr("A")},
-				{ExternalID: stringPtr("D")},
+				{ExternalID: new("B")},
+				{ExternalID: new("C")},
+				{ExternalID: new("A")},
+				{ExternalID: new("D")},
 			},
 			wantMoves: []Move{
 				{
@@ -81,27 +81,27 @@ func TestCalculateMoves(t *testing.T) {
 		{
 			name: "reorder within list (C moves down)",
 			updatedList: &model.List{
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Items: []*model.Item{
 					{
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("B"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("B"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("C"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("C"),
+						ExternalListID: new("L1"),
 					},
 				},
 			},
 			currentItems: []*model.Item{
-				{ExternalID: stringPtr("A")},
-				{ExternalID: stringPtr("C")},
-				{ExternalID: stringPtr("D")},
-				{ExternalID: stringPtr("B")},
+				{ExternalID: new("A")},
+				{ExternalID: new("C")},
+				{ExternalID: new("D")},
+				{ExternalID: new("B")},
 			},
 			wantMoves: []Move{
 				{
@@ -115,15 +115,15 @@ func TestCalculateMoves(t *testing.T) {
 		{
 			name: "initial sync (current items empty)",
 			updatedList: &model.List{
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Items: []*model.Item{
 					{
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("B"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("B"),
+						ExternalListID: new("L1"),
 					},
 				},
 			},
@@ -146,26 +146,26 @@ func TestCalculateMoves(t *testing.T) {
 		{
 			name: "move from other list / insert (B is new)",
 			updatedList: &model.List{
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Items: []*model.Item{
 					{
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("B"),
-						ExternalListID: stringPtr("L2"),
+						ExternalID:     new("B"),
+						ExternalListID: new("L2"),
 					},
 					{
-						ExternalID:     stringPtr("C"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("C"),
+						ExternalListID: new("L1"),
 					},
 				},
 			},
 			currentItems: []*model.Item{
-				{ExternalID: stringPtr("A")},
-				{ExternalID: stringPtr("C")},
-				{ExternalID: stringPtr("D")},
+				{ExternalID: new("A")},
+				{ExternalID: new("C")},
+				{ExternalID: new("D")},
 			},
 			wantMoves: []Move{
 				{
@@ -179,44 +179,44 @@ func TestCalculateMoves(t *testing.T) {
 		{
 			name: "duplicate items in updated list",
 			updatedList: &model.List{
-				ExternalID: stringPtr("L1"),
+				ExternalID: new("L1"),
 				Items: []*model.Item{
 					{
-						ExternalID:     stringPtr("C"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("C"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("D"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("D"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("E"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("E"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("A"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
 					},
 					{
-						ExternalID:     stringPtr("B"),
-						ExternalListID: stringPtr("L1"),
+						ExternalID:     new("B"),
+						ExternalListID: new("L1"),
 					},
 				},
 			},
 			currentItems: []*model.Item{
-				{ExternalID: stringPtr("A")},
-				{ExternalID: stringPtr("B")},
-				{ExternalID: stringPtr("C")},
-				{ExternalID: stringPtr("D")},
-				{ExternalID: stringPtr("E")},
+				{ExternalID: new("A")},
+				{ExternalID: new("B")},
+				{ExternalID: new("C")},
+				{ExternalID: new("D")},
+				{ExternalID: new("E")},
 			},
 			wantMoves: []Move{
 				{
@@ -257,8 +257,4 @@ func TestCalculateMoves(t *testing.T) {
 			}
 		})
 	}
-}
-
-func stringPtr(s string) *string {
-	return &s
 }

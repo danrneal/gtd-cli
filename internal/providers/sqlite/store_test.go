@@ -149,13 +149,13 @@ func TestCreateList(t *testing.T) {
 				Position:   1,
 				Status:     "",
 				Modified:   time.Now(),
-				ExternalID: stringPtr("ext-123"),
+				ExternalID: new("ext-123"),
 			},
 			wantList: &model.List{
 				Name:       "Work",
 				Position:   1,
 				Status:     model.StatusOpen,
-				ExternalID: stringPtr("ext-123"),
+				ExternalID: new("ext-123"),
 			},
 		},
 		{
@@ -765,7 +765,7 @@ func TestUpdateList(t *testing.T) {
 			wantList: &model.List{
 				Name:       "Updated",
 				Status:     model.StatusOpen,
-				ExternalID: stringPtr("ext-1"),
+				ExternalID: new("ext-1"),
 			},
 		},
 		{
@@ -787,7 +787,7 @@ func TestUpdateList(t *testing.T) {
 			},
 			setupList: func(_ string) model.List {
 				list := model.List{
-					ExternalID: stringPtr("ext-L1"),
+					ExternalID: new("ext-L1"),
 					Name:       "Updated Name",
 					Status:     model.StatusOpen,
 					Modified:   time.Now(),
@@ -799,7 +799,7 @@ func TestUpdateList(t *testing.T) {
 				ID:         "list-1",
 				Name:       "Updated Name",
 				Status:     model.StatusOpen,
-				ExternalID: stringPtr("ext-L1"),
+				ExternalID: new("ext-L1"),
 			},
 		},
 
@@ -838,11 +838,11 @@ func TestUpdateList(t *testing.T) {
 			setupList: func(_ string) model.List {
 				list := model.List{
 					Name:       "List 1",
-					ExternalID: stringPtr("ext-L1"),
+					ExternalID: new("ext-L1"),
 					Modified:   time.Now(),
 					Items: []*model.Item{
 						{
-							ExternalID: stringPtr("ext-I1"),
+							ExternalID: new("ext-I1"),
 							Title:      "Updated Title",
 						},
 					},
@@ -861,8 +861,8 @@ func TestUpdateList(t *testing.T) {
 					Title:          "Original Title",
 					Status:         model.StatusNotStarted,
 					Tags:           []string{},
-					ExternalID:     stringPtr("ext-I1"),
-					ExternalListID: stringPtr("ext-L1"),
+					ExternalID:     new("ext-I1"),
+					ExternalListID: new("ext-L1"),
 				},
 			},
 		},
@@ -939,7 +939,7 @@ func TestUpdateList(t *testing.T) {
 			},
 			setupList: func(_ string) model.List {
 				list := model.List{
-					ExternalID: stringPtr("ext-list-delete"),
+					ExternalID: new("ext-list-delete"),
 					Name:       "Tombstoned List",
 					Status:     model.StatusDeleted,
 					Modified:   time.Now(),
@@ -951,7 +951,7 @@ func TestUpdateList(t *testing.T) {
 				ID:         "list-delete",
 				Name:       "Tombstoned List",
 				Status:     model.StatusDeleted,
-				ExternalID: stringPtr("ext-list-delete"),
+				ExternalID: new("ext-list-delete"),
 			},
 		},
 		{
@@ -976,7 +976,7 @@ func TestUpdateList(t *testing.T) {
 			},
 			setupList: func(_ string) model.List {
 				return model.List{
-					ExternalID: stringPtr("non-existent-ext-id"),
+					ExternalID: new("non-existent-ext-id"),
 					Name:       "Headless Update",
 					Modified:   time.Now(),
 				}
@@ -1142,7 +1142,7 @@ func TestUpdateList(t *testing.T) {
 					Modified: time.Now(),
 					Items: []*model.Item{
 						{
-							ExternalID: stringPtr("missing-ext-item"),
+							ExternalID: new("missing-ext-item"),
 							ListID:     id,
 							Position:   0,
 							Title:      "Valid Title",
@@ -1347,7 +1347,7 @@ func TestDeleteList(t *testing.T) {
 				)
 
 				list := model.List{
-					ExternalID: stringPtr("ext-del-1"),
+					ExternalID: new("ext-del-1"),
 				}
 
 				return list
@@ -1368,7 +1368,7 @@ func TestDeleteList(t *testing.T) {
 			name: "delete list with nonexistent external id",
 			setupDB: func(_ *testing.T, _ *sql.DB) model.List {
 				list := model.List{
-					ExternalID: stringPtr("non-existent-ext"),
+					ExternalID: new("non-existent-ext"),
 				}
 
 				return list
@@ -1537,8 +1537,8 @@ func TestCreateItem(t *testing.T) {
 				Title:       "  Complex Task  ",
 				Description: "  Line 1   \n  Line 2   \n    Line 3",
 				Status:      model.StatusDone,
-				ProjectID:   stringPtr("proj-1"),
-				WaitingOn:   stringPtr("Alice"),
+				ProjectID:   new("proj-1"),
+				WaitingOn:   new("Alice"),
 				Tags:        []string{"work", "urgent"},
 				Modified:    time.Now(),
 				Created:     time.Now(),
@@ -1548,8 +1548,8 @@ func TestCreateItem(t *testing.T) {
 				Title:       "Complex Task",
 				Description: "Line 1\nLine 2\n  Line 3",
 				Status:      model.StatusDone,
-				ProjectID:   stringPtr("proj-1"),
-				WaitingOn:   stringPtr("Alice"),
+				ProjectID:   new("proj-1"),
+				WaitingOn:   new("Alice"),
 				Tags:        []string{"work", "urgent"},
 			},
 		},
@@ -1564,7 +1564,7 @@ func TestCreateItem(t *testing.T) {
 				)
 			},
 			item: &model.Item{
-				ExternalListID: stringPtr("ext-L1"),
+				ExternalListID: new("ext-L1"),
 				Title:          "Resolved Item",
 				Status:         model.StatusNotStarted,
 				Modified:       time.Now(),
@@ -1581,7 +1581,7 @@ func TestCreateItem(t *testing.T) {
 			name:    "create item with nonexistent external list id",
 			setupDB: func(_ *testing.T, _ *sql.DB) {},
 			item: &model.Item{
-				ExternalListID: stringPtr("non-existent-ext-id"),
+				ExternalListID: new("non-existent-ext-id"),
 				Title:          "Orphan Item",
 				Modified:       time.Now(),
 			},
@@ -1861,7 +1861,7 @@ func TestUpdateItem(t *testing.T) {
 			},
 			setupItem: func(_ string) model.Item {
 				item := model.Item{
-					ExternalID: stringPtr("ext-I1"),
+					ExternalID: new("ext-I1"),
 					ListID:     "list-1",
 					Title:      "Updated Title",
 					Status:     model.StatusNotStarted,
@@ -1875,7 +1875,7 @@ func TestUpdateItem(t *testing.T) {
 				Title:      "Updated Title",
 				Status:     model.StatusNotStarted,
 				Tags:       []string{},
-				ExternalID: stringPtr("ext-I1"),
+				ExternalID: new("ext-I1"),
 			},
 		},
 		{
@@ -1922,7 +1922,7 @@ func TestUpdateItem(t *testing.T) {
 				Title:      "Updated",
 				Status:     model.StatusNotStarted,
 				Tags:       []string{},
-				ExternalID: stringPtr("ext-I1"),
+				ExternalID: new("ext-I1"),
 			},
 		},
 		{
@@ -1948,7 +1948,7 @@ func TestUpdateItem(t *testing.T) {
 			},
 			setupItem: func(_ string) model.Item {
 				item := model.Item{
-					ExternalID: stringPtr("non-existent-ext"),
+					ExternalID: new("non-existent-ext"),
 					Title:      "Headless Update",
 					ListID:     "list-1",
 					Modified:   time.Now(),
@@ -2238,7 +2238,7 @@ func TestDeleteItem(t *testing.T) {
 				)
 
 				item := model.Item{
-					ExternalID: stringPtr("ext-I1"),
+					ExternalID: new("ext-I1"),
 				}
 
 				return item
@@ -2259,7 +2259,7 @@ func TestDeleteItem(t *testing.T) {
 			name: "delete item with nonexistent external id",
 			setupDB: func(_ *testing.T, _ *sql.DB) model.Item {
 				item := model.Item{
-					ExternalID: stringPtr("non-existent-ext"),
+					ExternalID: new("non-existent-ext"),
 				}
 
 				return item
@@ -2387,8 +2387,4 @@ func mustExec(t *testing.T, db *sql.DB, query string, args ...any) {
 	if _, err := db.Exec(query, args...); err != nil {
 		t.Fatalf("failed to execute query: %v", err)
 	}
-}
-
-func stringPtr(s string) *string {
-	return &s
 }
