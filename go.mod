@@ -1,6 +1,6 @@
 module github.com/danrneal/gtd.nvim
 
-go 1.24.8
+go 1.26.4
 
 require (
 	github.com/fsnotify/fsnotify v1.9.0
