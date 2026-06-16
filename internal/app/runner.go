@@ -22,9 +22,11 @@ type RunnerOption func(*Runner)
 
 // WithOnReady allows injecting a callback that fires when the runner is ready to accept events.
 func WithOnReady(fn func()) RunnerOption {
-	return func(r *Runner) {
+	onReady := func(r *Runner) {
 		r.onReady = fn
 	}
+
+	return onReady
 }
 
 // NewRunner creates a new Runner instance with the provided logger and configuration targets.

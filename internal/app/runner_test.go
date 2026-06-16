@@ -319,12 +319,19 @@ func TestRun(t *testing.T) {
 
 				md := &errorProvider{
 					Provider:     setupTestMarkdown(t, []model.List{}),
-					errListLists: fs.ErrNotExist,
+					errListLists: errors.New("transient i/o error"),
 				}
 
 				return store, md, tasks
 			},
-			triggerEvent: func(t *testing.T, mdWatcher, _ *FakeWatcher, _, _ RemoteProvider) {
+			triggerEvent: func(t *testing.T, mdWatcher, _ *FakeWatcher, md, _ RemoteProvider) {
+				errProvider, ok := md.(*errorProvider)
+				if !ok {
+					t.Fatalf("md is not an errorProvider")
+				}
+
+				errProvider.errListLists = fs.ErrNotExist
+
 				mdWatcher.Trigger(nil)
 			},
 			wantStore: []model.List{

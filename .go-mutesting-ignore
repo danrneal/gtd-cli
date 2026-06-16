@@ -1,0 +1,10 @@
+# Last-Synced-Commit: c7a801745f50ba87de7b34bceaaa37496c93108b
+# format: filepath:line:mutatorName
+
+internal/app/runner.go:122:branch/if
+internal/app/runner.go:140:branch/if
+internal/app/runner.go:149:branch/if
+internal/app/runner.go:159:statement/remove
+internal/app/runner.go:163:statement/remove
+internal/app/runner.go:185:statement/remove
+internal/app/runner.go:191:statement/remove
