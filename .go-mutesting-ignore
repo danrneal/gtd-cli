@@ -1,4 +1,4 @@
-# Last-Synced-Commit: a77f23a50b8c2a48dd5451d77f33e92982a11dab
+# Last-Synced-Commit: 16930caab36fc3d00a9c28575d7bd878ed90d41f
 # format: filepath:line:mutatorName
 
 internal/app/runner.go:122:branch/if
