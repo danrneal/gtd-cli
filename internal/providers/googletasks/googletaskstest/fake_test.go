@@ -14,6 +14,8 @@ import (
 func TestRoundTrip(t *testing.T) {
 	t.Parallel()
 
+	const baseRFC3339 = "2024-01-01T00:00:00Z"
+
 	tests := []struct {
 		name          string
 		setup         func(fake *FakeGoogleTasks)
@@ -58,8 +60,9 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 			},
@@ -89,8 +92,9 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 			},
@@ -112,8 +116,9 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 			},
@@ -143,16 +148,18 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 
 				fake.Tasks = map[string][]*tasks.Task{
 					"external-list-1": {
 						{
-							Id:    "external-task-1",
-							Title: "T1",
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
 						},
 					},
 				}
@@ -165,8 +172,9 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 			},
@@ -200,8 +208,9 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 
@@ -239,8 +248,9 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 
@@ -273,16 +283,18 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 
 				fake.Tasks = map[string][]*tasks.Task{
 					"external-list-1": {
 						{
-							Id:    "external-task-1",
-							Title: "T1",
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
 						},
 					},
 				}
@@ -323,16 +335,18 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 
 				fake.Tasks = map[string][]*tasks.Task{
 					"external-list-1": {
 						{
-							Id:    "external-task-1",
-							Title: "T1",
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
 						},
 					},
 				}
@@ -375,16 +389,18 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 
 				fake.Tasks = map[string][]*tasks.Task{
 					"external-list-1": {
 						{
-							Id:    "external-task-1",
-							Title: "T1",
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
 						},
 					},
 				}
@@ -411,8 +427,9 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 
@@ -454,16 +471,18 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 
 				fake.Tasks = map[string][]*tasks.Task{
 					"external-list-1": {
 						{
-							Id:    "external-task-1",
-							Title: "T1",
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
 						},
 					},
 				}
@@ -500,8 +519,9 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 
@@ -548,16 +568,18 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 
 				fake.Tasks = map[string][]*tasks.Task{
 					"external-list-1": {
 						{
-							Id:    "external-task-1",
-							Title: "T1",
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
 						},
 					},
 				}
@@ -592,16 +614,18 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 
 				fake.Tasks = map[string][]*tasks.Task{
 					"external-list-1": {
 						{
-							Id:    "external-task-1",
-							Title: "T1",
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
 						},
 					},
 				}
@@ -649,30 +673,35 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 					{
-						Id:    "external-list-2",
-						Title: "L2",
+						Id:      "external-list-2",
+						Title:   "L2",
+						Updated: baseRFC3339,
 					},
 				}
 
 				fake.Tasks = map[string][]*tasks.Task{
 					"external-list-1": {
 						{
-							Id:    "external-task-1",
-							Title: "T1",
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
 						},
 					},
 					"external-list-2": {
 						{
-							Id:    "external-task-2",
-							Title: "T2",
+							Id:      "external-task-2",
+							Title:   "T2",
+							Updated: baseRFC3339,
 						},
 						{
-							Id:    "external-task-3",
-							Title: "T3",
+							Id:      "external-task-3",
+							Title:   "T3",
+							Updated: baseRFC3339,
 						},
 					},
 				}
@@ -716,20 +745,23 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 
 				fake.Tasks = map[string][]*tasks.Task{
 					"external-list-1": {
 						{
-							Id:    "external-task-1",
-							Title: "T1",
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
 						},
 						{
-							Id:    "external-task-2",
-							Title: "T2",
+							Id:      "external-task-2",
+							Title:   "T2",
+							Updated: baseRFC3339,
 						},
 					},
 				}
@@ -765,26 +797,30 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 					{
-						Id:    "external-list-2",
-						Title: "L2",
+						Id:      "external-list-2",
+						Title:   "L2",
+						Updated: baseRFC3339,
 					},
 				}
 
 				fake.Tasks = map[string][]*tasks.Task{
 					"external-list-1": {
 						{
-							Id:    "external-task-1",
-							Title: "T1",
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
 						},
 					},
 					"external-list-2": {
 						{
-							Id:    "external-task-2",
-							Title: "T2",
+							Id:      "external-task-2",
+							Title:   "T2",
+							Updated: baseRFC3339,
 						},
 					},
 				}
@@ -826,25 +862,29 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 					{
-						Id:    "external-list-2",
-						Title: "L2",
+						Id:      "external-list-2",
+						Title:   "L2",
+						Updated: baseRFC3339,
 					},
 				}
 				fake.Tasks = map[string][]*tasks.Task{
 					"external-list-1": {
 						{
-							Id:    "external-task-1",
-							Title: "T1",
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
 						},
 					},
 					"external-list-2": {
 						{
-							Id:    "external-task-2",
-							Title: "T2",
+							Id:      "external-task-2",
+							Title:   "T2",
+							Updated: baseRFC3339,
 						},
 					},
 				}
@@ -886,26 +926,30 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 					{
-						Id:    "external-list-2",
-						Title: "L2",
+						Id:      "external-list-2",
+						Title:   "L2",
+						Updated: baseRFC3339,
 					},
 				}
 
 				fake.Tasks = map[string][]*tasks.Task{
 					"external-list-1": {
 						{
-							Id:    "external-task-1",
-							Title: "T1",
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
 						},
 					},
 					"external-list-2": {
 						{
-							Id:    "external-task-2",
-							Title: "T2",
+							Id:      "external-task-2",
+							Title:   "T2",
+							Updated: baseRFC3339,
 						},
 					},
 				}
@@ -947,26 +991,30 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 					{
-						Id:    "external-list-2",
-						Title: "L2",
+						Id:      "external-list-2",
+						Title:   "L2",
+						Updated: baseRFC3339,
 					},
 				}
 
 				fake.Tasks = map[string][]*tasks.Task{
 					"external-list-1": {
 						{
-							Id:    "external-task-1",
-							Title: "T1",
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
 						},
 					},
 					"external-list-2": {
 						{
-							Id:    "external-task-2",
-							Title: "T2",
+							Id:      "external-task-2",
+							Title:   "T2",
+							Updated: baseRFC3339,
 						},
 					},
 				}
@@ -1020,20 +1068,23 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 
 				fake.Tasks = map[string][]*tasks.Task{
 					"external-list-1": {
 						{
-							Id:    "external-task-1",
-							Title: "T1",
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
 						},
 						{
-							Id:    "external-task-2",
-							Title: "T2",
+							Id:      "external-task-2",
+							Title:   "T2",
+							Updated: baseRFC3339,
 						},
 					},
 				}
@@ -1064,16 +1115,18 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 
 				fake.Tasks = map[string][]*tasks.Task{
 					"external-list-1": {
 						{
-							Id:    "external-task-1",
-							Title: "T1",
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
 						},
 					},
 				}
@@ -1104,16 +1157,18 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *FakeGoogleTasks) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:    "external-list-1",
-						Title: "L1",
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
 					},
 				}
 
 				fake.Tasks = map[string][]*tasks.Task{
 					"external-list-1": {
 						{
-							Id:    "external-task-1",
-							Title: "T1",
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
 						},
 					},
 				}
@@ -1189,6 +1244,20 @@ func TestRoundTrip(t *testing.T) {
 
 			if diff := cmp.Diff(tt.wantTasks, fake.Tasks, cmpOpts...); diff != "" {
 				t.Errorf("Tasks mismatch (-want +got):\n%s", diff)
+			}
+
+			for _, taskList := range fake.TaskLists {
+				if taskList.Updated == "" {
+					t.Errorf("TaskList %q Updated timestamp is empty", taskList.Id)
+				}
+			}
+
+			for _, taskListTasks := range fake.Tasks {
+				for _, task := range taskListTasks {
+					if task.Updated == "" {
+						t.Errorf("Task %q Updated timestamp is empty", task.Id)
+					}
+				}
 			}
 		})
 	}
