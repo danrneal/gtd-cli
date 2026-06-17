@@ -15,7 +15,7 @@ func TestItem_Clean(t *testing.T) {
 		item        *Item
 		wantTitle   string
 		wantDesc    string
-		wantStat    Status
+		wantStatus  Status
 		wantCreated time.Time
 	}{
 		{
@@ -27,7 +27,7 @@ func TestItem_Clean(t *testing.T) {
 			},
 			wantTitle:   "Buy Milk",
 			wantDesc:    "",
-			wantStat:    StatusNotStarted,
+			wantStatus:  StatusNotStarted,
 			wantCreated: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
 		{
@@ -40,7 +40,7 @@ func TestItem_Clean(t *testing.T) {
 			},
 			wantTitle:   "Task",
 			wantDesc:    "First line\nSecond line\n  Nested third line\n  Nested fourth line",
-			wantStat:    StatusNotStarted,
+			wantStatus:  StatusNotStarted,
 			wantCreated: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
 		{
@@ -49,16 +49,16 @@ func TestItem_Clean(t *testing.T) {
 				Title: "Task",
 				Description: `
 
-  Description starts here
-  And ends here
+					Description starts here
+					And ends here
     
-`,
+				`,
 				Status:  StatusNotStarted,
 				Created: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 			},
 			wantTitle:   "Task",
 			wantDesc:    "Description starts here\nAnd ends here",
-			wantStat:    StatusNotStarted,
+			wantStatus:  StatusNotStarted,
 			wantCreated: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
 		{
@@ -70,7 +70,7 @@ func TestItem_Clean(t *testing.T) {
 			},
 			wantTitle:   "Task",
 			wantDesc:    "",
-			wantStat:    StatusNotStarted,
+			wantStatus:  StatusNotStarted,
 			wantCreated: time.Date(2024, 2, 2, 0, 0, 0, 0, time.UTC),
 		},
 	}
@@ -89,8 +89,8 @@ func TestItem_Clean(t *testing.T) {
 				t.Errorf("Clean() description mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.item.Status != tt.wantStat {
-				t.Errorf("Clean() status = %q, want %q", tt.item.Status, tt.wantStat)
+			if tt.item.Status != tt.wantStatus {
+				t.Errorf("Clean() status = %q, want %q", tt.item.Status, tt.wantStatus)
 			}
 
 			if !tt.item.Created.Equal(tt.wantCreated) {
@@ -188,8 +188,8 @@ func TestItem_Equal(t *testing.T) {
 		Snoozed:        iso8601ToDate("2024-01-01"),
 		Due:            iso8601ToDate("2024-01-01"),
 		Tags:           []string{"tag1"},
-		Modified:       time.Now(),
-		Created:        time.Now(),
+		Modified:       time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+		Created:        time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
 	}
 
 	tests := []struct {
