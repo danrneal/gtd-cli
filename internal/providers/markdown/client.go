@@ -92,7 +92,7 @@ func (c *Client) UpdateList(_ context.Context, list, currentList *model.List) er
 	}
 
 	idx := slices.IndexFunc(lists, func(l model.List) bool {
-		return l.ID == list.ID || l.Equal(list)
+		return l.ID == list.ID || l.Equivalent(list)
 	})
 
 	if idx == -1 {
@@ -228,7 +228,7 @@ func (c *Client) UpdateItem(ctx context.Context, item *model.Item) error {
 	list := lists[listIdx]
 
 	itemIdx := slices.IndexFunc(list.Items, func(i *model.Item) bool {
-		return i.ID == item.ID || i.Equal(item)
+		return i.ID == item.ID || i.Equivalent(item)
 	})
 
 	if itemIdx == -1 {

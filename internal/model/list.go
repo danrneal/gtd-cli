@@ -66,9 +66,9 @@ func (l *List) Validate() error {
 	return nil
 }
 
-// Equal compares the content of two lists, ignoring metadata like Modified timestamps
+// Equivalent compares the content of two lists, ignoring metadata like Modified timestamps
 // and dynamically applying nuanced checks for primary/external IDs.
-func (l *List) Equal(other *List) bool {
+func (l *List) Equivalent(other *List) bool {
 	if other == nil {
 		return false
 	}

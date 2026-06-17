@@ -75,9 +75,9 @@ func (i *Item) Validate() error {
 	return nil
 }
 
-// Equal compares the content of two items, ignoring metadata like Modified timestamps
+// Equivalent compares the content of two items, ignoring metadata like Modified timestamps
 // and dynamically applying nuanced checks for primary/external IDs.
-func (i *Item) Equal(other *Item) bool {
+func (i *Item) Equivalent(other *Item) bool {
 	if other == nil {
 		return false
 	}

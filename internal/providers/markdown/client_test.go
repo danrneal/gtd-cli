@@ -223,6 +223,7 @@ func TestClient_CreateList(t *testing.T) {
 
 			opts := []cmp.Option{
 				cmpopts.IgnoreFields(model.List{}, "Modified"),
+				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}
 
 			if diff := cmp.Diff(tt.want, got, opts...); diff != "" {
@@ -272,6 +273,7 @@ func TestClient_ListLists(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 					},
 				},
@@ -480,6 +482,7 @@ func TestClient_UpdateList(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 					},
 				},
@@ -537,6 +540,7 @@ func TestClient_UpdateList(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 					},
 				},
@@ -631,6 +635,7 @@ func TestClient_UpdateList(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 						{
 							ID:       "item-3",
@@ -639,6 +644,7 @@ func TestClient_UpdateList(t *testing.T) {
 							Position: 1,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 						{
 							ID:       "item-2",
@@ -647,6 +653,7 @@ func TestClient_UpdateList(t *testing.T) {
 							Position: 2,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 					},
 				},
@@ -731,6 +738,7 @@ func TestClient_UpdateList(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 						{
 							ID:       "item-3",
@@ -739,6 +747,7 @@ func TestClient_UpdateList(t *testing.T) {
 							Position: 1,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 						{
 							ID:       "item-1",
@@ -747,6 +756,7 @@ func TestClient_UpdateList(t *testing.T) {
 							Position: 2,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 					},
 				},
@@ -978,7 +988,7 @@ func TestClient_UpdateList(t *testing.T) {
 
 			opts := []cmp.Option{
 				cmpopts.IgnoreFields(model.List{}, "Modified"),
-				cmpopts.IgnoreFields(model.Item{}, "Modified"),
+				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}
 
 			if diff := cmp.Diff(tt.want, got, opts...); diff != "" {
@@ -1036,6 +1046,7 @@ func TestClient_DeleteList(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 					},
 				},
@@ -1139,6 +1150,7 @@ func TestClient_DeleteList(t *testing.T) {
 
 			opts := []cmp.Option{
 				cmpopts.IgnoreFields(model.List{}, "Modified"),
+				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}
 
 			if diff := cmp.Diff(tt.want, got, opts...); diff != "" {
@@ -1199,6 +1211,7 @@ func TestClient_CreateItem(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 						{
 							ID:       "item-2",
@@ -1207,6 +1220,7 @@ func TestClient_CreateItem(t *testing.T) {
 							Position: 1,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 					},
 				},
@@ -1252,6 +1266,7 @@ func TestClient_CreateItem(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 						{
 							ID:       "item-1",
@@ -1260,6 +1275,7 @@ func TestClient_CreateItem(t *testing.T) {
 							Position: 1,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 						{
 							Title:    "Task 2",
@@ -1267,6 +1283,7 @@ func TestClient_CreateItem(t *testing.T) {
 							Position: 2,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 					},
 				},
@@ -1436,7 +1453,7 @@ func TestClient_CreateItem(t *testing.T) {
 
 			opts := []cmp.Option{
 				cmpopts.IgnoreFields(model.List{}, "Modified"),
-				cmpopts.IgnoreFields(model.Item{}, "Modified"),
+				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}
 
 			if diff := cmp.Diff(tt.want, got, opts...); diff != "" {
@@ -1497,6 +1514,7 @@ func TestClient_UpdateItem(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 					},
 				},
@@ -1541,6 +1559,7 @@ func TestClient_UpdateItem(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusDone,
 							Modified: modified,
+							Created:  modified,
 						},
 					},
 				},
@@ -1710,7 +1729,7 @@ func TestClient_UpdateItem(t *testing.T) {
 
 			opts := []cmp.Option{
 				cmpopts.IgnoreFields(model.List{}, "Modified"),
-				cmpopts.IgnoreFields(model.Item{}, "Modified"),
+				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}
 
 			if diff := cmp.Diff(tt.want, got, opts...); diff != "" {
@@ -1769,6 +1788,7 @@ func TestClient_DeleteItem(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 					},
 				},
@@ -1913,7 +1933,7 @@ func TestClient_DeleteItem(t *testing.T) {
 
 			opts := []cmp.Option{
 				cmpopts.IgnoreFields(model.List{}, "Modified"),
-				cmpopts.IgnoreFields(model.Item{}, "Modified"),
+				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}
 
 			if diff := cmp.Diff(tt.want, got, opts...); diff != "" {
@@ -1964,6 +1984,7 @@ func TestClient_readFile(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 					},
 				},
@@ -2000,6 +2021,7 @@ func TestClient_readFile(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 					},
 				},
@@ -2111,6 +2133,7 @@ func TestClient_writeFile(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
+							Created:  modified,
 						},
 					},
 				},

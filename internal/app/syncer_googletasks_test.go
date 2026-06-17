@@ -199,11 +199,12 @@ func TestPushGoogleTasks(t *testing.T) {
 					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
-							ID:       "store-item-1",
-							Title:    "I1",
-							Status:   model.StatusDeleted,
-							Position: 0,
-							ListID:   "store-list-1",
+							ID:             "store-item-1",
+							Title:          "I1",
+							Status:         model.StatusDeleted,
+							Position:       0,
+							ListID:         "store-list-1",
+							ExternalListID: new("external-list-1"),
 						},
 						{
 							ID:             "store-item-2",
@@ -340,6 +341,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						{
 							ID:             "store-item-2",
 							Title:          "I2",
+							Position:       1,
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
 							ExternalListID: new("external-list-1"),
@@ -730,15 +732,17 @@ func TestPushGoogleTasks(t *testing.T) {
 					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
-							ID:     "store-item-3",
-							ListID: "store-list-1",
-							Title:  "Deleted Item",
-							Status: model.StatusDeleted,
+							ID:             "store-item-3",
+							ListID:         "store-list-1",
+							Title:          "Deleted Item",
+							Status:         model.StatusDeleted,
+							ExternalListID: new("external-list-1"),
 						},
 						{
 							ID:             "store-item-2",
 							ListID:         "store-list-1",
 							Title:          "Valid Synced Item Updated",
+							Position:       1,
 							Status:         model.StatusNotStarted,
 							ExternalID:     new("external-task-2"),
 							ExternalListID: new("external-list-1"),
@@ -747,6 +751,7 @@ func TestPushGoogleTasks(t *testing.T) {
 							ID:             "store-item-1",
 							ListID:         "store-list-1",
 							Title:          "Active Item",
+							Position:       2,
 							Status:         model.StatusNotStarted,
 							ExternalID:     new("external-task-1"),
 							ExternalListID: new("external-list-1"),
@@ -911,6 +916,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						{
 							ID:             "store-item-1",
 							Title:          "I1 Updated",
+							Position:       1,
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
 							ExternalID:     new("external-task-1"),
@@ -934,6 +940,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						{
 							Title:          "I1 Updated",
 							Status:         model.StatusOpen,
+							Position:       1,
 							ExternalID:     new("external-task-1"),
 							ExternalListID: new("external-list-1"),
 						},
@@ -1629,6 +1636,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							Title:          "I2",
 							Status:         model.StatusOpen,
+							Position:       1,
 							ExternalID:     new("external-task-2"),
 							ExternalListID: new("external-list-1"),
 						},
@@ -1652,6 +1660,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							ID:             "store-item-2",
 							Title:          "I1",
+							Position:       1,
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
 							ExternalID:     new("external-task-1"),
@@ -1660,6 +1669,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							ID:             "store-item-3",
 							Title:          "I2",
+							Position:       1,
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
 							ExternalID:     new("external-task-2"),
@@ -1737,6 +1747,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							ID:             "store-item-2",
 							Title:          "I2",
+							Position:       1,
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
 							ExternalID:     new("external-task-2"),
@@ -2093,6 +2104,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							Title:          "I2",
 							Status:         model.StatusOpen,
+							Position:       1,
 							ExternalID:     new("external-task-2"),
 							ExternalListID: new("external-list-1"),
 						},
@@ -2117,6 +2129,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
+							Position:       1,
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
 							ExternalID:     new("external-task-1"),
@@ -2411,14 +2424,16 @@ func TestPullGoogleTasks(t *testing.T) {
 					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
-							ID:     "store-item-1",
-							Title:  "I1",
-							Status: model.StatusDeleted,
-							ListID: "store-list-1",
+							ID:             "store-item-1",
+							Title:          "I1",
+							Status:         model.StatusDeleted,
+							ListID:         "store-list-1",
+							ExternalListID: new("external-list-1"),
 						},
 						{
 							ID:             "store-item-2",
 							Title:          "I2 To Be Deleted",
+							Position:       1,
 							Status:         model.StatusDeleted,
 							ListID:         "store-list-1",
 							ExternalID:     new("external-task-2"),
@@ -2481,14 +2496,16 @@ func TestPullGoogleTasks(t *testing.T) {
 					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
-							ID:     "store-item-1",
-							Title:  "I1",
-							Status: model.StatusNotStarted,
-							ListID: "store-list-1",
+							ID:             "store-item-1",
+							Title:          "I1",
+							Status:         model.StatusNotStarted,
+							ListID:         "store-list-1",
+							ExternalListID: new("external-list-1"),
 						},
 						{
 							ID:             "store-item-2",
 							Title:          "I2 To Be Deleted",
+							Position:       1,
 							Status:         model.StatusDeleted,
 							ListID:         "store-list-1",
 							ExternalID:     new("external-task-2"),
@@ -2547,10 +2564,12 @@ func TestPullGoogleTasks(t *testing.T) {
 					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
-							ID:     "store-item-1",
-							Title:  "I1",
-							Status: model.StatusDeleted,
-							ListID: "store-list-1",
+							ID:             "store-item-1",
+							Title:          "I1",
+							Status:         model.StatusDeleted,
+							ListID:         "store-list-1",
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
 						},
 					},
 				},

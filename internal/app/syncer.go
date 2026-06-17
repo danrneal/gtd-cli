@@ -223,7 +223,8 @@ func (ss *syncSession) syncListUpdate(ctx context.Context, srcList *model.List) 
 	listKey := ss.getKey(srcList)
 	dstList := ss.dstState.listsMap[listKey]
 
-	if (srcList.Modified.After(dstList.Modified) && !srcList.Equal(dstList)) || srcList.Position != dstList.Position {
+	if (srcList.Modified.After(dstList.Modified) && !srcList.Equivalent(dstList)) ||
+		srcList.Position != dstList.Position {
 		if err := ss.updateList(ctx, srcList, dstList); err != nil {
 			return updated, err
 		}
@@ -238,7 +239,7 @@ func (ss *syncSession) syncListUpdate(ctx context.Context, srcList *model.List) 
 
 		itemKey := ss.getKey(srcItem)
 		dstItem, ok := ss.dstState.itemsMap[itemKey]
-		if ok && srcItem.Modified.After(dstItem.Modified) && !srcItem.Equal(dstItem) {
+		if ok && srcItem.Modified.After(dstItem.Modified) && !srcItem.Equivalent(dstItem) {
 			if err := ss.updateItem(ctx, srcItem, dstItem); err != nil {
 				return updated, err
 			}

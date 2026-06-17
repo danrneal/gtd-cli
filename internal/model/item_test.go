@@ -11,12 +11,9 @@ func TestItem_Clean(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		item        *Item
-		wantTitle   string
-		wantDesc    string
-		wantStatus  Status
-		wantCreated time.Time
+		name string
+		item *Item
+		want *Item
 	}{
 		{
 			name: "title is trimmed and empty status defaults to not started",
@@ -25,10 +22,11 @@ func TestItem_Clean(t *testing.T) {
 				Status:  "",
 				Created: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 			},
-			wantTitle:   "Buy Milk",
-			wantDesc:    "",
-			wantStatus:  StatusNotStarted,
-			wantCreated: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+			want: &Item{
+				Title:   "Buy Milk",
+				Status:  StatusNotStarted,
+				Created: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+			},
 		},
 		{
 			name: "standard markdown indentation with trailing whitespace",
@@ -38,10 +36,12 @@ func TestItem_Clean(t *testing.T) {
 				Status:      StatusNotStarted,
 				Created:     time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 			},
-			wantTitle:   "Task",
-			wantDesc:    "First line\nSecond line\n  Nested third line\n  Nested fourth line",
-			wantStatus:  StatusNotStarted,
-			wantCreated: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+			want: &Item{
+				Title:       "Task",
+				Description: "First line\nSecond line\n  Nested third line\n  Nested fourth line",
+				Status:      StatusNotStarted,
+				Created:     time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+			},
 		},
 		{
 			name: "leading and trailing blank lines",
@@ -56,10 +56,12 @@ func TestItem_Clean(t *testing.T) {
 				Status:  StatusNotStarted,
 				Created: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 			},
-			wantTitle:   "Task",
-			wantDesc:    "Description starts here\nAnd ends here",
-			wantStatus:  StatusNotStarted,
-			wantCreated: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+			want: &Item{
+				Title:       "Task",
+				Description: "Description starts here\nAnd ends here",
+				Status:      StatusNotStarted,
+				Created:     time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+			},
 		},
 		{
 			name: "zero created defaults to modified",
@@ -68,10 +70,12 @@ func TestItem_Clean(t *testing.T) {
 				Status:   StatusNotStarted,
 				Modified: time.Date(2024, 2, 2, 0, 0, 0, 0, time.UTC),
 			},
-			wantTitle:   "Task",
-			wantDesc:    "",
-			wantStatus:  StatusNotStarted,
-			wantCreated: time.Date(2024, 2, 2, 0, 0, 0, 0, time.UTC),
+			want: &Item{
+				Title:    "Task",
+				Status:   StatusNotStarted,
+				Modified: time.Date(2024, 2, 2, 0, 0, 0, 0, time.UTC),
+				Created:  time.Date(2024, 2, 2, 0, 0, 0, 0, time.UTC),
+			},
 		},
 	}
 
@@ -81,20 +85,8 @@ func TestItem_Clean(t *testing.T) {
 
 			tt.item.Clean()
 
-			if tt.item.Title != tt.wantTitle {
-				t.Errorf("Clean() title = %q, want %q", tt.item.Title, tt.wantTitle)
-			}
-
-			if diff := cmp.Diff(tt.wantDesc, tt.item.Description); diff != "" {
-				t.Errorf("Clean() description mismatch (-want +got):\n%s", diff)
-			}
-
-			if tt.item.Status != tt.wantStatus {
-				t.Errorf("Clean() status = %q, want %q", tt.item.Status, tt.wantStatus)
-			}
-
-			if !tt.item.Created.Equal(tt.wantCreated) {
-				t.Errorf("Clean() created = %v, want %v", tt.item.Created, tt.wantCreated)
+			if diff := cmp.Diff(tt.want, tt.item); diff != "" {
+				t.Errorf("Clean() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -171,7 +163,7 @@ func TestItem_Validate(t *testing.T) {
 	}
 }
 
-func TestItem_Equal(t *testing.T) {
+func TestItem_Equivalent(t *testing.T) {
 	t.Parallel()
 
 	baseItem := &Item{
@@ -675,7 +667,7 @@ func TestItem_Equal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := tt.item.Equal(tt.other)
+			got := tt.item.Equivalent(tt.other)
 			if got != tt.want {
 				t.Errorf("Equal() = %v, want %v", got, tt.want)
 			}

@@ -3,6 +3,8 @@ package model
 import (
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestList_Clean(t *testing.T) {
@@ -288,27 +290,8 @@ func TestList_Clean(t *testing.T) {
 
 			tt.list.Clean()
 
-			if tt.list.Name != tt.want.Name {
-				t.Errorf("Clean() Name = %q, want %q", tt.list.Name, tt.want.Name)
-			}
-
-			if tt.list.Status != tt.want.Status {
-				t.Errorf("Clean() Status = %q, want %q", tt.list.Status, tt.want.Status)
-			}
-
-			if len(tt.list.Items) != len(tt.want.Items) {
-				t.Fatalf("Clean() items length = %d, want %d", len(tt.list.Items), len(tt.want.Items))
-			}
-
-			for i, wantItem := range tt.want.Items {
-				gotItem := tt.list.Items[i]
-				if gotItem.ID != wantItem.ID {
-					t.Errorf("Clean() item[%d] ID = %q, want %q", i, gotItem.ID, wantItem.ID)
-				}
-
-				if gotItem.Position != wantItem.Position {
-					t.Errorf("Clean() item[%d] Position = %d, want %d", i, gotItem.Position, wantItem.Position)
-				}
+			if diff := cmp.Diff(tt.want, tt.list); diff != "" {
+				t.Errorf("Clean() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -372,7 +355,7 @@ func TestList_Validate(t *testing.T) {
 	}
 }
 
-func TestList_Equal(t *testing.T) {
+func TestList_Equivalent(t *testing.T) {
 	t.Parallel()
 
 	baseList := &List{
@@ -710,7 +693,7 @@ func TestList_Equal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := tt.list.Equal(tt.other)
+			got := tt.list.Equivalent(tt.other)
 			if got != tt.want {
 				t.Errorf("Equal() = %v, want %v", got, tt.want)
 			}

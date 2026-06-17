@@ -1529,31 +1529,6 @@ func TestListItems(t *testing.T) {
 			if diff := cmp.Diff(tt.wantItems, got); diff != "" {
 				t.Errorf("listItems() mismatch (-want +got):\n%s", diff)
 			}
-
-			for i, wantItem := range tt.wantItems {
-				if got[i].Position != wantItem.Position {
-					t.Errorf("listItems() item[%d] Position = %d, want %d", i, got[i].Position, wantItem.Position)
-				}
-
-				if !wantItem.Modified.Equal(got[i].Modified) {
-					t.Errorf(
-						"listItems() Modified mismatch at index %d: want %v, got %v",
-						i,
-						wantItem.Modified,
-						got[i].Modified,
-					)
-				}
-
-				if got[i].ExternalID == nil || wantItem.ExternalID == nil ||
-					*got[i].ExternalID != *wantItem.ExternalID {
-					t.Errorf("listItems() item[%d] ExternalID mismatch", i)
-				}
-
-				if got[i].ExternalListID == nil || wantItem.ExternalListID == nil ||
-					*got[i].ExternalListID != *wantItem.ExternalListID {
-					t.Errorf("listItems() item[%d] ExternalListID mismatch", i)
-				}
-			}
 		})
 	}
 }
