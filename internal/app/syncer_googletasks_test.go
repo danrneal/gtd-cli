@@ -552,6 +552,18 @@ func TestPushGoogleTasks(t *testing.T) {
 							},
 						},
 					},
+					{
+						ID:         "store-list-2",
+						Name:       "L2 Unchanged",
+						Modified:   baseTime,
+						ExternalID: new("external-list-2"),
+					},
+					{
+						ID:         "store-list-3",
+						Name:       "L3 Older",
+						Modified:   baseTime,
+						ExternalID: new("external-list-3"),
+					},
 				})
 
 				return sqlite
@@ -568,6 +580,14 @@ func TestPushGoogleTasks(t *testing.T) {
 							},
 						},
 					},
+					{
+						Name:     "L2 Unchanged",
+						Modified: baseTime,
+					},
+					{
+						Name:     "L3 Newer",
+						Modified: baseTime.Add(1),
+					},
 				})
 
 				return tasks
@@ -577,32 +597,66 @@ func TestPushGoogleTasks(t *testing.T) {
 					ID:         "store-list-1",
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
+					Position:   0,
 					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
 							Title:          "I1 Original",
 							Status:         model.StatusNotStarted,
+							Position:       0,
 							ListID:         "store-list-1",
 							ExternalID:     new("external-task-1"),
 							ExternalListID: new("external-list-1"),
 						},
 					},
 				},
+				{
+					ID:         "store-list-2",
+					Name:       "L2 Unchanged",
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items:      []*model.Item{},
+				},
+				{
+					ID:         "store-list-3",
+					Name:       "L3 Older",
+					Status:     model.StatusOpen,
+					Position:   2,
+					ExternalID: new("external-list-3"),
+					Items:      []*model.Item{},
+				},
 			},
 			wantGoogleTasksLists: []model.List{
 				{
 					Name:       "L1 Updated",
 					Status:     model.StatusOpen,
+					Position:   0,
 					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "I1 Original",
 							Status:         model.StatusOpen,
+							Position:       0,
 							ExternalID:     new("external-task-1"),
 							ExternalListID: new("external-list-1"),
 						},
 					},
+				},
+				{
+					Name:       "L2 Unchanged",
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items:      []*model.Item{},
+				},
+				{
+					Name:       "L3 Newer",
+					Status:     model.StatusOpen,
+					Position:   2,
+					ExternalID: new("external-list-3"),
+					Items:      []*model.Item{},
 				},
 			},
 		},

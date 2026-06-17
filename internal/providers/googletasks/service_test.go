@@ -325,6 +325,10 @@ func TestFileTokenSource_Token(t *testing.T) {
 				t.Errorf("Token() mismatch (-want +got):\n%s", diff)
 			}
 
+			if diff := cmp.Diff(tt.wantToken, fts.token, opts...); diff != "" {
+				t.Errorf("Internal cache mismatch (-want +got):\n%s", diff)
+			}
+
 			var savedToken oauth2.Token
 			content, _ := os.ReadFile(tokenFile)
 			_ = json.Unmarshal(content, &savedToken)

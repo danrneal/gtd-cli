@@ -1991,6 +1991,11 @@ func TestPullMarkdown(t *testing.T) {
 							},
 						},
 					},
+					{
+						ID:       "store-list-2",
+						Name:     "L2 Unchanged",
+						Modified: baseTime,
+					},
 				})
 
 				return md
@@ -2006,6 +2011,11 @@ func TestPullMarkdown(t *testing.T) {
 								Modified: baseTime,
 							},
 						},
+					},
+					{
+						ID:       "store-list-2",
+						Name:     "L2 Unchanged",
+						Modified: baseTime,
 					},
 				})
 
@@ -2025,6 +2035,13 @@ func TestPullMarkdown(t *testing.T) {
 						},
 					},
 				},
+				{
+					ID:       "store-list-2",
+					Name:     "L2 Unchanged",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
+				},
 			},
 			wantSqliteLists: []model.List{
 				{
@@ -2039,6 +2056,13 @@ func TestPullMarkdown(t *testing.T) {
 							ListID: "store-list-1",
 						},
 					},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L2 Unchanged",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
 				},
 			},
 			wantUpdated: true,

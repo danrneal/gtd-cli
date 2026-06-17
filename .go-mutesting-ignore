@@ -1,8 +1,17 @@
-# Last-Synced-Commit: 4f96ae535c241fa6c3843d895f070f5bc901d9fc
+# Last-Synced-Commit: ae6054a868b4f3a3741bc644c713ef654ddf13f7
 # format: filepath:line:mutatorName
 
+internal/app/runner.go:122:branch/if
+internal/app/runner.go:140:branch/if
+internal/app/runner.go:149:branch/if
+internal/app/runner.go:159:statement/remove
+internal/app/runner.go:163:statement/remove
+internal/app/runner.go:185:statement/remove
+internal/app/runner.go:191:statement/remove
 internal/app/syncer.go:114:branch/if
 internal/app/syncer.go:122:branch/if
+internal/app/syncer.go:278:branch/if
+internal/app/syncer.go:354:statement/remove
 internal/providers/googletasks/client.go:66:statement/remove
 internal/providers/googletasks/client.go:127:statement/remove
 internal/providers/markdown/client.go:65:statement/remove
