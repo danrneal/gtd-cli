@@ -1,4 +1,4 @@
-# Last-Synced-Commit: 16930caab36fc3d00a9c28575d7bd878ed90d41f
+# Last-Synced-Commit: 6ed217b25b536688016ad059d77dda3fbab5bae3
 # format: filepath:line:mutatorName
 
 internal/app/runner.go:122:branch/if
@@ -22,10 +22,17 @@ internal/model/list.go:153:numbers/incrementer
 internal/providers/googletasks/client.go:66:statement/remove
 internal/providers/googletasks/client.go:127:statement/remove
 internal/providers/markdown/client.go:65:statement/remove
+internal/providers/markdown/client.go:86:branch/if
+internal/providers/markdown/client.go:133:branch/if
 internal/providers/markdown/client.go:150:statement/remove
+internal/providers/markdown/client.go:165:branch/if
+internal/providers/markdown/client.go:168:branch/if
+internal/providers/markdown/client.go:169:branch/if
 internal/providers/markdown/client.go:197:statement/remove
 internal/providers/markdown/client.go:240:statement/remove
 internal/providers/markdown/client.go:308:statement/remove
+internal/providers/markdown/client.go:319:branch/if
+internal/providers/markdown/client.go:386:branch/if
 internal/providers/sqlite/store.go:163:statement/remove
 internal/providers/sqlite/store.go:316:statement/remove
 internal/providers/sqlite/store.go:359:statement/remove

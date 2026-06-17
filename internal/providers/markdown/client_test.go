@@ -80,8 +80,7 @@ func TestClient_CreateList(t *testing.T) {
 				return path
 			},
 			list: &model.List{
-				Name:     "Next Actions",
-				Status:   model.StatusOpen,
+				Name:     "  Next Actions  \n",
 				Modified: modified,
 				Items: []*model.Item{
 					{
@@ -505,7 +504,7 @@ func TestClient_UpdateList(t *testing.T) {
 			},
 			list: &model.List{
 				ID:       "list-1",
-				Name:     "Updated Inbox",
+				Name:     "  Updated Inbox  \n",
 				Position: 0,
 				Status:   model.StatusOpen,
 				Modified: modified,
@@ -666,11 +665,11 @@ func TestClient_UpdateList(t *testing.T) {
 			name: "success (reorder and relocate items)",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "update_success_reorder.md")
-				content := "# Inbox {{list-1}}\n" +
+				content := "# Other List {{list-2}}\n" +
+					"* [ ] Task 3 {{item-3}}\n\n" +
+					"# Inbox {{list-1}}\n" +
 					"* [ ] Task 1 {{item-1}}\n" +
-					"* [ ] Task 2 {{item-2}}\n\n" +
-					"# Other List {{list-2}}\n" +
-					"* [ ] Task 3 {{item-3}}\n"
+					"* [ ] Task 2 {{item-2}}\n"
 				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create valid file: %v", err)
 				}
@@ -2086,11 +2085,12 @@ func TestClient_writeFile(t *testing.T) {
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name    string
-		setup   func(t *testing.T) string
-		lists   []model.List
-		want    string
-		wantErr bool
+		name          string
+		setup         func(t *testing.T) string
+		lists         []model.List
+		want          string
+		wantErr       bool
+		wantErrTarget error
 	}{
 		{
 			name: "successfully write file",
@@ -2155,9 +2155,10 @@ func TestClient_writeFile(t *testing.T) {
 
 				return path
 			},
-			lists:   nil,
-			want:    "# Inbox",
-			wantErr: true,
+			lists:         nil,
+			want:          "# Inbox",
+			wantErr:       true,
+			wantErrTarget: fs.ErrPermission,
 		},
 		{
 			name: "failed to write to markdown file",
@@ -2197,6 +2198,14 @@ func TestClient_writeFile(t *testing.T) {
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("writeFile() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.wantErr {
+				if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Errorf("writeFile() expected error target %v, got: %v", tt.wantErrTarget, err)
+				}
+
+				return
 			}
 
 			if !tt.wantErr && client.lastModTime.IsZero() {

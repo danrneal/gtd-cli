@@ -236,7 +236,6 @@ func (c *Client) UpdateItem(ctx context.Context, item *model.Item) error {
 	}
 
 	list.Items[itemIdx] = item
-	lists[listIdx] = list
 
 	c.logger.InfoContext(ctx, "Markdown: Updating item", "id", item.ID, "title", item.Title, "listId", item.ListID)
 	err = c.writeFile(lists)
@@ -317,11 +316,7 @@ func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
 func (c *Client) readFile() ([]model.List, error) {
 	stat, err := os.Stat(c.filepath)
 	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			return nil, fmt.Errorf("failed to stat markdown file: %w", err)
-		}
-
-		return nil, fmt.Errorf("markdown file not found: %w", err)
+		return nil, fmt.Errorf("failed to access markdown file: %w", err)
 	}
 
 	fileBytes, err := os.ReadFile(c.filepath)
