@@ -112,7 +112,6 @@ func (p *parser) flushList(modified time.Time) {
 	p.list.Modified = modified
 	p.list.Clean()
 	p.lists = append(p.lists, *p.list)
-	p.list = nil
 }
 
 // parseWaitingForItemContent extracts the delegated person from a "Waiting For" item and parses the remaining content.

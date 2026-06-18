@@ -1,4 +1,4 @@
-# Last-Synced-Commit: e7c6a32715de23180722755e9e9941570e737ac1
+# Last-Synced-Commit: 16df44139cf45324c4359ce3116ff8574199ac3b
 # format: filepath:line:mutatorName
 
 internal/app/runner.go:122:branch/if
@@ -10,8 +10,8 @@ internal/app/runner.go:185:statement/remove
 internal/app/runner.go:191:statement/remove
 internal/app/syncer.go:114:branch/if
 internal/app/syncer.go:122:branch/if
-internal/app/syncer.go:278:branch/if
-internal/app/syncer.go:354:statement/remove
+internal/app/syncer.go:279:branch/if
+internal/app/syncer.go:355:statement/remove
 internal/model/list.go:126:numbers/incrementer
 internal/model/list.go:127:numbers/incrementer
 internal/model/list.go:140:numbers/incrementer
@@ -30,10 +30,25 @@ internal/providers/markdown/client.go:169:branch/if
 internal/providers/markdown/client.go:197:statement/remove
 internal/providers/markdown/client.go:239:statement/remove
 internal/providers/markdown/client.go:307:statement/remove
+internal/providers/markdown/client.go:319:branch/if
+internal/providers/markdown/client.go:386:branch/if
 internal/providers/markdown/parser.go:59:branch/case
+internal/providers/sqlite/store.go:62:branch/if
+internal/providers/sqlite/store.go:62:statement/remove
+internal/providers/sqlite/store.go:69:numbers/decrementer
+internal/providers/sqlite/store.go:69:numbers/incrementer
 internal/providers/sqlite/store.go:163:statement/remove
+internal/providers/sqlite/store.go:287:branch/if
 internal/providers/sqlite/store.go:316:statement/remove
 internal/providers/sqlite/store.go:359:statement/remove
 internal/providers/sqlite/store.go:424:statement/remove
+internal/providers/sqlite/store.go:556:branch/if
 internal/providers/sqlite/store.go:595:statement/remove
+internal/providers/sqlite/store.go:633:numbers/decrementer
+internal/providers/sqlite/store.go:634:branch/if
+internal/providers/sqlite/store.go:653:branch/if
 internal/providers/sqlite/store.go:689:statement/remove
+internal/providers/sqlite/store.go:711:branch/if
+internal/providers/util/reorder/move.go:78:numbers/decrementer
+internal/providers/util/reorder/move.go:78:numbers/incrementer
+internal/providers/util/reorder/move.go:86:numbers/incrementer
