@@ -98,7 +98,7 @@ func (i *Item) Equivalent(other *Item) bool {
 		return false
 	}
 
-	if i.Status != other.Status {
+	if !equalStatuses(i.Status, other.Status) {
 		return false
 	}
 
@@ -153,6 +153,18 @@ func equalTimePtr(a, b *time.Time) bool {
 	}
 
 	return a.Equal(*b)
+}
+
+func equalStatuses(a, b Status) bool {
+	if a == StatusOpen && (b == StatusNotStarted || b == StatusInProgress) {
+		return true
+	}
+
+	if b == StatusOpen && (a == StatusNotStarted || a == StatusInProgress) {
+		return true
+	}
+
+	return a == b
 }
 
 // equalTags safely compares two slices of tags.
