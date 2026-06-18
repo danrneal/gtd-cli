@@ -8,7 +8,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/danrneal/gtd.nvim/internal/model"
+	"github.com/danrneal/gtd-cli/internal/model"
 )
 
 // Syncer manages the synchronization of items and lists between a local provider and a remote provider.

@@ -1,4 +1,4 @@
-# gtd.nvim
+# gtd-cli
 
 A robust "Getting Things Done" (GTD) plugin for Neovim, built with a Lua frontend and a high-performance Go backend using SQLite for persistence.
 

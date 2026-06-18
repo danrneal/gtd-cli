@@ -15,7 +15,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/danrneal/gtd.nvim/internal/model"
+	"github.com/danrneal/gtd-cli/internal/model"
 )
 
 func TestNewStore(t *testing.T) {

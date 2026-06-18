@@ -1,4 +1,4 @@
-module github.com/danrneal/gtd.nvim
+module github.com/danrneal/gtd-cli
 
 go 1.26.4
 

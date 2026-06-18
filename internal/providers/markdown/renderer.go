@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/danrneal/gtd.nvim/internal/model"
+	"github.com/danrneal/gtd-cli/internal/model"
 )
 
 // render writes a slice of model.List to the provided [io.Writer] in Markdown format.

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/danrneal/gtd.nvim/internal/model"
+	"github.com/danrneal/gtd-cli/internal/model"
 )
 
 var (

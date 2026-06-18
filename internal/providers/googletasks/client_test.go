@@ -13,8 +13,8 @@ import (
 	"google.golang.org/api/option"
 	"google.golang.org/api/tasks/v1"
 
-	"github.com/danrneal/gtd.nvim/internal/model"
-	"github.com/danrneal/gtd.nvim/internal/providers/googletasks/googletaskstest"
+	"github.com/danrneal/gtd-cli/internal/model"
+	"github.com/danrneal/gtd-cli/internal/providers/googletasks/googletaskstest"
 )
 
 func TestGetKey(t *testing.T) {

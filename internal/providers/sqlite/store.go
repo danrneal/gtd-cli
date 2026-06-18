@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/danrneal/gtd.nvim/internal/model"
+	"github.com/danrneal/gtd-cli/internal/model"
 )
 
 // ErrNotFound is returned when a requested record is not found in the database.

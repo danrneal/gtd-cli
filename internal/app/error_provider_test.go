@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 
-	"github.com/danrneal/gtd.nvim/internal/model"
+	"github.com/danrneal/gtd-cli/internal/model"
 )
 
 // errorProvider wraps a Provider to inject errors for testing resilience.

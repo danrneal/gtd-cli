@@ -1,4 +1,4 @@
-# Last-Synced-Commit: d8d7239df663f78b3b0e71621208a330b8bc211b
+# Last-Synced-Commit: 1171b76178bf5754c12c6c21eb0365caed698f09
 # format: filepath:line:mutatorName
 
 internal/app/runner.go:122:branch/if
@@ -21,17 +21,17 @@ internal/model/list.go:148:numbers/incrementer
 internal/model/list.go:153:numbers/incrementer
 internal/providers/googletasks/client.go:66:statement/remove
 internal/providers/googletasks/client.go:127:statement/remove
-internal/providers/markdown/client.go:65:statement/remove
-internal/providers/markdown/client.go:86:branch/if
-internal/providers/markdown/client.go:133:branch/if
-internal/providers/markdown/client.go:150:statement/remove
-internal/providers/markdown/client.go:165:branch/if
+internal/providers/markdown/client.go:69:statement/remove
+internal/providers/markdown/client.go:90:branch/if
+internal/providers/markdown/client.go:137:branch/if
+internal/providers/markdown/client.go:154:statement/remove
 internal/providers/markdown/client.go:169:branch/if
-internal/providers/markdown/client.go:197:statement/remove
-internal/providers/markdown/client.go:239:statement/remove
-internal/providers/markdown/client.go:307:statement/remove
-internal/providers/markdown/client.go:319:branch/if
-internal/providers/markdown/client.go:386:branch/if
+internal/providers/markdown/client.go:173:branch/if
+internal/providers/markdown/client.go:201:statement/remove
+internal/providers/markdown/client.go:243:statement/remove
+internal/providers/markdown/client.go:311:statement/remove
+internal/providers/markdown/client.go:323:branch/if
+internal/providers/markdown/client.go:390:branch/if
 internal/providers/markdown/parser.go:59:branch/case
 internal/providers/markdown/watcher.go:79:branch/if
 internal/providers/markdown/watcher.go:83:branch/if

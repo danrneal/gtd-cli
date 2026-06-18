@@ -14,10 +14,10 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"google.golang.org/api/tasks/v1"
 
-	"github.com/danrneal/gtd.nvim/internal/app"
-	"github.com/danrneal/gtd.nvim/internal/providers/googletasks"
-	"github.com/danrneal/gtd.nvim/internal/providers/markdown"
-	"github.com/danrneal/gtd.nvim/internal/providers/sqlite"
+	"github.com/danrneal/gtd-cli/internal/app"
+	"github.com/danrneal/gtd-cli/internal/providers/googletasks"
+	"github.com/danrneal/gtd-cli/internal/providers/markdown"
+	"github.com/danrneal/gtd-cli/internal/providers/sqlite"
 )
 
 // Config holds all the command-line flag values required to initialize the application.

@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/danrneal/gtd.nvim/internal/model"
+	"github.com/danrneal/gtd-cli/internal/model"
 )
 
 // Client is a markdown file provider client.
