@@ -1,4 +1,4 @@
-# Last-Synced-Commit: 16df44139cf45324c4359ce3116ff8574199ac3b
+# Last-Synced-Commit: d8d7239df663f78b3b0e71621208a330b8bc211b
 # format: filepath:line:mutatorName
 
 internal/app/runner.go:122:branch/if
@@ -33,6 +33,8 @@ internal/providers/markdown/client.go:307:statement/remove
 internal/providers/markdown/client.go:319:branch/if
 internal/providers/markdown/client.go:386:branch/if
 internal/providers/markdown/parser.go:59:branch/case
+internal/providers/markdown/watcher.go:79:branch/if
+internal/providers/markdown/watcher.go:83:branch/if
 internal/providers/sqlite/store.go:62:branch/if
 internal/providers/sqlite/store.go:62:statement/remove
 internal/providers/sqlite/store.go:69:numbers/decrementer

@@ -31,6 +31,10 @@ func NewClient(filepath string, logger *slog.Logger) *Client {
 		logger:   logger,
 	}
 
+	if stat, err := os.Stat(filepath); err == nil {
+		client.lastModTime = stat.ModTime()
+	}
+
 	return client
 }
 

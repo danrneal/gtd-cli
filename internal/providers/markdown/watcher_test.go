@@ -26,6 +26,10 @@ func TestClient_Watch(t *testing.T) {
 			setup:   setupValidMarkdown,
 			wantErr: false,
 			verify: func(t *testing.T, client *Client, events <-chan error, cancel context.CancelFunc) {
+				client.mu.RLock()
+				initialModTime := client.lastModTime
+				client.mu.RUnlock()
+
 				errChan := make(chan error)
 				go func() {
 					errChan <- <-events
@@ -39,6 +43,18 @@ func TestClient_Watch(t *testing.T) {
 				case err := <-errChan:
 					if err != nil {
 						t.Errorf("expected nil error ping, got: %v", err)
+					}
+
+					client.mu.RLock()
+					finalModTime := client.lastModTime
+					client.mu.RUnlock()
+
+					if !finalModTime.After(initialModTime) {
+						t.Errorf(
+							"expected lastModTime to advance, but it did not. Initial: %v, Final: %v",
+							initialModTime,
+							finalModTime,
+						)
 					}
 				case <-time.After(1 * time.Second):
 					t.Fatal("Watch() failed to send an event within 1 second")
@@ -60,7 +76,7 @@ func TestClient_Watch(t *testing.T) {
 					return err
 				}
 
-				assertIgnoredEvent(t, 1*time.Second, client, events, trigger)
+				assertIgnoredEvent(t, client, events, trigger)
 			},
 		},
 		{
@@ -96,6 +112,8 @@ func TestClient_Watch(t *testing.T) {
 					if err := os.WriteFile(client.filepath, fmt.Appendf(nil, "burst %d", i), 0o600); err != nil {
 						t.Fatalf("failed to trigger fsnotify: %v", err)
 					}
+
+					time.Sleep(5 * time.Millisecond)
 				}
 
 				select {
@@ -118,7 +136,7 @@ func TestClient_Watch(t *testing.T) {
 					return err
 				}
 
-				assertIgnoredEvent(t, 1*time.Second, client, events, trigger)
+				assertIgnoredEvent(t, client, events, trigger)
 			},
 		},
 		{
@@ -131,7 +149,20 @@ func TestClient_Watch(t *testing.T) {
 					return err
 				}
 
-				assertIgnoredEvent(t, 1*time.Second, client, events, trigger)
+				assertIgnoredEvent(t, client, events, trigger)
+			},
+		},
+		{
+			name:    "ignored rename event (file deleted/moved)",
+			setup:   setupValidMarkdown,
+			wantErr: false,
+			verify: func(t *testing.T, client *Client, events <-chan error, cancel context.CancelFunc) {
+				trigger := func() error {
+					err := os.Rename(client.filepath, client.filepath+".bak")
+					return err
+				}
+
+				assertIgnoredEvent(t, client, events, trigger)
 			},
 		},
 	}
@@ -180,27 +211,29 @@ func setupValidMarkdown(t *testing.T) string {
 	return path
 }
 
-func assertIgnoredEvent(t *testing.T, timeout time.Duration, c *Client, events <-chan error, trigger func() error) {
+func assertIgnoredEvent(t *testing.T, c *Client, events <-chan error, trigger func() error) {
 	t.Helper()
-
-	collected := make(chan error, 2)
-	go func() {
-		for err := range events {
-			collected <- err
-		}
-	}()
 
 	if err := trigger(); err != nil {
 		t.Fatalf("failed to trigger ignored event: %v", err)
 	}
 
-	timeoutChan := time.After(timeout)
+	time.Sleep(50 * time.Millisecond)
+
+	select {
+	case <-events:
+		t.Fatal("Watch() incorrectly processed the ignored event")
+	default:
+		// Success! The ignored event was properly filtered out.
+	}
+
+	timeoutChan := time.After(1 * time.Second)
 	for {
 		c.mu.RLock()
 		modified := c.lastModTime.Add(1 * time.Hour)
 		c.mu.RUnlock()
 
-		file, err := os.OpenFile(c.filepath, os.O_WRONLY|os.O_APPEND, 0o600)
+		file, err := os.OpenFile(c.filepath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o600)
 		if err != nil {
 			t.Fatalf("failed to open sentinel file: %v", err)
 		}
@@ -218,16 +251,16 @@ func assertIgnoredEvent(t *testing.T, timeout time.Duration, c *Client, events <
 		}
 
 		select {
-		case <-collected:
+		case <-events:
 			select {
-			case <-collected:
+			case <-events:
 				t.Fatal("Watch() incorrectly processed the ignored event")
 			default:
 				// Success! The ignored event was dropped.
 			}
 
 			return
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(50 * time.Millisecond):
 			// We didn't get the event quickly. The OS might be backlogged or dropped it.
 			// The loop will retry triggering the sentinel.
 		case <-timeoutChan:
