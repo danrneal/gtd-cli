@@ -118,6 +118,20 @@ func (l *List) Equivalent(other *List) bool {
 	return true
 }
 
+// Contains evaluates if the provided item belongs to this list.
+// It checks both the internal ID and the external provider ID to support cross-system matching.
+func (l *List) Contains(item *Item) bool {
+	if item.ListID != "" && item.ListID == l.ID {
+		return true
+	}
+
+	if item.ExternalListID != nil && equalStringPtr(item.ExternalListID, l.ExternalID) {
+		return true
+	}
+
+	return false
+}
+
 // sortItems dynamically orders the list's items according to domain rules.
 // Default lists sort by Status (InProgress -> NotStarted -> Done).
 // "Waiting For" lists sort by Created date, and "Snoozed" lists sort by Snoozed date.
@@ -134,18 +148,22 @@ func (l *List) sortItems() {
 
 		switch l.Name {
 		case ListWaitingFor:
-			return b.Created.Compare(a.Created)
-		case ListSnoozed:
-			if a.Snoozed == nil && b.Snoozed == nil {
-				return 0
+			if a.WaitingOn == "" {
+				return 1
 			}
 
-			if a.Snoozed == nil {
+			if b.WaitingOn == "" {
 				return -1
 			}
 
-			if b.Snoozed == nil {
+			return b.Created.Compare(a.Created)
+		case ListSnoozed:
+			if a.Snoozed == nil {
 				return 1
+			}
+
+			if b.Snoozed == nil {
+				return -1
 			}
 
 			return a.Snoozed.Compare(*b.Snoozed)

@@ -113,38 +113,42 @@ func TestList_Clean(t *testing.T) {
 			},
 		},
 		{
-			name: "Waiting For list sorts by Status then Created date",
+			name: "Waiting For list sorts by Created date with empty handling",
 			list: &List{
 				Name:   ListWaitingFor,
 				Status: StatusOpen,
 				Items: []*Item{
 					{
-						ID:       "1",
-						Title:    "Task 1 (Done)",
-						Status:   StatusDone,
-						Created:  time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
-						Position: 0,
+						ID:        "empty1",
+						Title:     "Empty 1",
+						Status:    StatusNotStarted,
+						WaitingOn: "",
+						Created:   time.Date(2024, 1, 20, 0, 0, 0, 0, time.UTC),
+						Position:  0,
 					},
 					{
-						ID:       "2",
-						Title:    "Task 2 (NotStarted, Newest)",
-						Status:   StatusNotStarted,
-						Created:  time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC),
-						Position: 1,
+						ID:        "bob",
+						Title:     "Has Bob",
+						Status:    StatusNotStarted,
+						WaitingOn: "Bob",
+						Created:   time.Date(2024, 1, 5, 0, 0, 0, 0, time.UTC),
+						Position:  1,
 					},
 					{
-						ID:       "3",
-						Title:    "Task 3 (InProgress)",
-						Status:   StatusInProgress,
-						Created:  time.Date(2024, 1, 4, 0, 0, 0, 0, time.UTC),
-						Position: 2,
+						ID:        "alice",
+						Title:     "Has Alice",
+						Status:    StatusNotStarted,
+						WaitingOn: "Alice",
+						Created:   time.Date(2024, 1, 10, 0, 0, 0, 0, time.UTC),
+						Position:  2,
 					},
 					{
-						ID:       "4",
-						Title:    "Task 4 (NotStarted, Oldest)",
-						Status:   StatusNotStarted,
-						Created:  time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
-						Position: 3,
+						ID:        "empty2",
+						Title:     "Empty 2",
+						Status:    StatusNotStarted,
+						WaitingOn: "",
+						Created:   time.Date(2024, 1, 21, 0, 0, 0, 0, time.UTC),
+						Position:  3,
 					},
 				},
 			},
@@ -153,83 +157,73 @@ func TestList_Clean(t *testing.T) {
 				Status: StatusOpen,
 				Items: []*Item{
 					{
-						ID:       "3",
-						Title:    "Task 3 (InProgress)",
-						Status:   StatusInProgress,
-						Created:  time.Date(2024, 1, 4, 0, 0, 0, 0, time.UTC),
-						Position: 0,
+						ID:        "alice",
+						Title:     "Has Alice",
+						Status:    StatusNotStarted,
+						WaitingOn: "Alice",
+						Created:   time.Date(2024, 1, 10, 0, 0, 0, 0, time.UTC),
+						Position:  0,
 					},
 					{
-						ID:       "2",
-						Title:    "Task 2 (NotStarted, Newest)",
-						Status:   StatusNotStarted,
-						Created:  time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC),
-						Position: 1,
+						ID:        "bob",
+						Title:     "Has Bob",
+						Status:    StatusNotStarted,
+						WaitingOn: "Bob",
+						Created:   time.Date(2024, 1, 5, 0, 0, 0, 0, time.UTC),
+						Position:  1,
 					},
 					{
-						ID:       "4",
-						Title:    "Task 4 (NotStarted, Oldest)",
-						Status:   StatusNotStarted,
-						Created:  time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
-						Position: 2,
+						ID:        "empty1",
+						Title:     "Empty 1",
+						Status:    StatusNotStarted,
+						WaitingOn: "",
+						Created:   time.Date(2024, 1, 20, 0, 0, 0, 0, time.UTC),
+						Position:  2,
 					},
 					{
-						ID:       "1",
-						Title:    "Task 1 (Done)",
-						Status:   StatusDone,
-						Created:  time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
-						Position: 3,
+						ID:        "empty2",
+						Title:     "Empty 2",
+						Status:    StatusNotStarted,
+						WaitingOn: "",
+						Created:   time.Date(2024, 1, 21, 0, 0, 0, 0, time.UTC),
+						Position:  3,
 					},
 				},
 			},
 		},
 		{
-			name: "Snoozed list sorts by Status then Snoozed date with nil handling",
+			name: "Snoozed list sorts by Snoozed date with nil handling",
 			list: &List{
 				Name:   ListSnoozed,
 				Status: StatusOpen,
 				Items: []*Item{
 					{
-						ID:       "a",
-						Title:    "Task A (Done, Snoozed early)",
-						Status:   StatusDone,
-						Snoozed:  iso8601ToDate("2024-01-01"),
+						ID:       "nil1",
+						Title:    "Nil 1",
+						Status:   StatusNotStarted,
+						Snoozed:  nil,
 						Position: 0,
 					},
 					{
-						ID:       "b",
-						Title:    "Task B (NotStarted, Snoozed nil)",
+						ID:       "early",
+						Title:    "Snoozed early",
 						Status:   StatusNotStarted,
-						Snoozed:  nil,
+						Snoozed:  iso8601ToDate("2024-01-05"),
 						Position: 1,
 					},
 					{
-						ID:       "c",
-						Title:    "Task C (InProgress, Snoozed late)",
-						Status:   StatusInProgress,
+						ID:       "late",
+						Title:    "Snoozed late",
+						Status:   StatusNotStarted,
 						Snoozed:  iso8601ToDate("2024-01-10"),
 						Position: 2,
 					},
 					{
-						ID:       "d",
-						Title:    "Task D (NotStarted, Snoozed early)",
-						Status:   StatusNotStarted,
-						Snoozed:  iso8601ToDate("2024-01-05"),
-						Position: 3,
-					},
-					{
-						ID:       "e",
-						Title:    "Task E (NotStarted, Snoozed nil again)",
+						ID:       "nil2",
+						Title:    "Nil 2",
 						Status:   StatusNotStarted,
 						Snoozed:  nil,
-						Position: 4,
-					},
-					{
-						ID:       "f",
-						Title:    "Task F (NotStarted, Snoozed later)",
-						Status:   StatusNotStarted,
-						Snoozed:  iso8601ToDate("2024-01-06"),
-						Position: 5,
+						Position: 3,
 					},
 				},
 			},
@@ -238,46 +232,32 @@ func TestList_Clean(t *testing.T) {
 				Status: StatusOpen,
 				Items: []*Item{
 					{
-						ID:       "c",
-						Title:    "Task C (InProgress, Snoozed late)",
-						Status:   StatusInProgress,
-						Snoozed:  iso8601ToDate("2024-01-10"),
+						ID:       "early",
+						Title:    "Snoozed early",
+						Status:   StatusNotStarted,
+						Snoozed:  iso8601ToDate("2024-01-05"),
 						Position: 0,
 					},
 					{
-						ID:       "b",
-						Title:    "Task B (NotStarted, Snoozed nil)",
+						ID:       "late",
+						Title:    "Snoozed late",
 						Status:   StatusNotStarted,
-						Snoozed:  nil,
+						Snoozed:  iso8601ToDate("2024-01-10"),
 						Position: 1,
 					},
 					{
-						ID:       "e",
-						Title:    "Task E (NotStarted, Snoozed nil again)",
+						ID:       "nil1",
+						Title:    "Nil 1",
 						Status:   StatusNotStarted,
 						Snoozed:  nil,
 						Position: 2,
 					},
 					{
-						ID:       "d",
-						Title:    "Task D (NotStarted, Snoozed early)",
+						ID:       "nil2",
+						Title:    "Nil 2",
 						Status:   StatusNotStarted,
-						Snoozed:  iso8601ToDate("2024-01-05"),
+						Snoozed:  nil,
 						Position: 3,
-					},
-					{
-						ID:       "f",
-						Title:    "Task F (NotStarted, Snoozed later)",
-						Status:   StatusNotStarted,
-						Snoozed:  iso8601ToDate("2024-01-06"),
-						Position: 4,
-					},
-					{
-						ID:       "a",
-						Title:    "Task A (Done, Snoozed early)",
-						Status:   StatusDone,
-						Snoozed:  iso8601ToDate("2024-01-01"),
-						Position: 5,
 					},
 				},
 			},
@@ -696,6 +676,60 @@ func TestList_Equivalent(t *testing.T) {
 			got := tt.list.Equivalent(tt.other)
 			if got != tt.want {
 				t.Errorf("Equal() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestList_Contains(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		list *List
+		item *Item
+		want bool
+	}{
+		{
+			name: "item not contained in list",
+			list: &List{
+				ID: "list-1",
+			},
+			item: &Item{
+				ListID: "list-2",
+			},
+			want: false,
+		},
+		{
+			name: "matches internal ID",
+			list: &List{
+				ID: "list-1",
+			},
+			item: &Item{
+				ListID: "list-1",
+			},
+			want: true,
+		},
+		{
+			name: "matches external ID when internal ID is empty",
+			list: &List{
+				ExternalID: new("ext-1"),
+			},
+			item: &Item{
+				ListID:         "",
+				ExternalListID: new("ext-1"),
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := tt.list.Contains(tt.item)
+			if got != tt.want {
+				t.Errorf("Contains() = %v, want %v", got, tt.want)
 			}
 		})
 	}

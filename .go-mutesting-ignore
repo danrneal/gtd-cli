@@ -1,4 +1,4 @@
-# Last-Synced-Commit: bd56e97b236a1f024fb883dab4021bc7ab444c99
+# Last-Synced-Commit: 1c23c01d7603e6bdb21e7fc3d3cdf1fb024675c3
 # format: filepath:line:mutatorName
 
 internal/app/runner.go:122:branch/if
@@ -18,20 +18,23 @@ internal/model/list.go:140:numbers/incrementer
 internal/model/list.go:144:numbers/incrementer
 internal/model/list.go:148:numbers/decrementer
 internal/model/list.go:148:numbers/incrementer
-internal/model/list.go:153:numbers/incrementer
+internal/model/list.go:152:numbers/decrementer
+internal/model/list.go:152:numbers/incrementer
+internal/model/list.go:166:numbers/incrementer
+internal/model/list.go:168:numbers/incrementer
 internal/providers/googletasks/client.go:66:statement/remove
 internal/providers/googletasks/client.go:127:statement/remove
-internal/providers/markdown/client.go:69:statement/remove
-internal/providers/markdown/client.go:90:branch/if
-internal/providers/markdown/client.go:137:branch/if
-internal/providers/markdown/client.go:154:statement/remove
-internal/providers/markdown/client.go:169:branch/if
-internal/providers/markdown/client.go:173:branch/if
-internal/providers/markdown/client.go:201:statement/remove
-internal/providers/markdown/client.go:243:statement/remove
-internal/providers/markdown/client.go:311:statement/remove
-internal/providers/markdown/client.go:323:branch/if
-internal/providers/markdown/client.go:392:branch/if
+internal/providers/markdown/client.go:72:statement/remove
+internal/providers/markdown/client.go:93:branch/if
+internal/providers/markdown/client.go:140:branch/if
+internal/providers/markdown/client.go:157:statement/remove
+internal/providers/markdown/client.go:172:branch/if
+internal/providers/markdown/client.go:176:branch/if
+internal/providers/markdown/client.go:204:statement/remove
+internal/providers/markdown/client.go:246:statement/remove
+internal/providers/markdown/client.go:314:statement/remove
+internal/providers/markdown/client.go:326:branch/if
+internal/providers/markdown/client.go:395:branch/if
 internal/providers/markdown/parser.go:61:branch/case
 internal/providers/markdown/watcher.go:79:branch/if
 internal/providers/markdown/watcher.go:83:branch/if
