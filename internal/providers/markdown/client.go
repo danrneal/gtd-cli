@@ -63,9 +63,12 @@ func (c *Client) CreateList(ctx context.Context, list *model.List) error {
 		return err
 	}
 
+	list.Position = min(list.Position, len(lists))
+
 	newList := *list
 	newList.Items = nil
-	lists = append(lists, newList)
+
+	lists = slices.Insert(lists, newList.Position, newList)
 
 	c.logger.InfoContext(ctx, "Markdown: Creating list", "id", list.ID, "name", list.Name)
 	err = c.writeFile(lists)

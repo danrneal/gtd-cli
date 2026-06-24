@@ -103,12 +103,19 @@ func TestRender(t *testing.T) {
 							Status:   model.StatusDone,
 							Modified: modified,
 						},
+						{
+							Title:    "Empty status",
+							Position: 3,
+							Status:   "",
+							Modified: modified,
+						},
 					},
 				},
 			},
-			want: `# Statuses (3)
-* [ ] Not started
+			want: `# Statuses (4)
 * [-] In progress
+* [ ] Not started
+* [ ] Empty status
 * [x] ~~Done~~
 
 `,

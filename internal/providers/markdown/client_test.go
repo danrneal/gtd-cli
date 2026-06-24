@@ -571,9 +571,9 @@ func TestClient_UpdateList(t *testing.T) {
 			},
 			list: &model.List{
 				ID:       "list-1",
-				Name:     "Renamed Inbox",
+				Name:     "  Renamed Inbox  ",
 				Position: 0,
-				Status:   model.StatusOpen,
+				Status:   "",
 				Modified: modified,
 				Items: []*model.Item{
 					{

@@ -26,6 +26,8 @@ func render(writer io.Writer, lists []model.List) error {
 
 // renderList formats a single list and its items into the provided string builder.
 func renderList(buf *strings.Builder, list *model.List) error {
+	list.Clean()
+
 	listParts := []string{"#", list.Name}
 
 	count := fmt.Sprintf("(%d)", len(list.Items))
@@ -53,6 +55,8 @@ func renderList(buf *strings.Builder, list *model.List) error {
 
 // renderItem formats a single item, including its status and metadata, into the provided string builder.
 func renderItem(buf *strings.Builder, item *model.Item) error {
+	item.Clean()
+
 	title := renderTitle(item)
 
 	var itemStatus string
