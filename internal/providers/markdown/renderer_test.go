@@ -107,8 +107,8 @@ func TestRender(t *testing.T) {
 				},
 			},
 			want: `# Statuses (3)
-* [ ] Not started
 * [-] In progress
+* [ ] Not started
 * [x] ~~Done~~
 
 `,
@@ -230,7 +230,7 @@ func TestRender(t *testing.T) {
 					Items: []*model.Item{
 						{
 							Title:     "Send report",
-							WaitingOn: new("Alice"),
+							WaitingOn: "Alice",
 							Position:  0,
 							Status:    model.StatusNotStarted,
 							Modified:  modified,
@@ -240,7 +240,7 @@ func TestRender(t *testing.T) {
 				},
 			},
 			want: `# Waiting For (1)
-* [ ] Alice - Send report - Jan 2
+* [ ] Alice - Send report - 2024-01-02
 
 `,
 			wantErr: false,

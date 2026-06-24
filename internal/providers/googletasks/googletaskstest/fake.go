@@ -15,10 +15,14 @@ import (
 )
 
 var (
+	// Matches: /tasks/v1/users/@me/lists OR /tasks/v1/users/@me/lists/{taskListID}.
 	taskListRegex = regexp.MustCompile(`^/tasks/v1/users/@me/lists(?:/([^/]+))?$`)
-	taskRegex     = regexp.MustCompile(`^/tasks/v1/lists/([^/]+)/tasks(?:/([^/]+)(?:/move)?)?$`)
+	// Matches: /tasks/v1/lists/{taskListID}/tasks OR /tasks/v1/lists/{taskListID}/tasks/{taskID}
+	// OR /tasks/v1/lists/{taskListID}/tasks/{taskID}/move.
+	taskRegex = regexp.MustCompile(`^/tasks/v1/lists/([^/]+)/tasks(?:/([^/]+)(?:/move)?)?$`)
 )
 
+// FakeGoogleTasks provides a mock implementation of the Google Tasks API for testing purposes.
 type FakeGoogleTasks struct {
 	t                  *testing.T
 	TaskLists          []*tasks.TaskList
@@ -35,6 +39,7 @@ type FakeGoogleTasks struct {
 	FailDeleteTask     bool
 }
 
+// NewFakeGoogleTasks initializes and returns a new FakeGoogleTasks round tripper.
 func NewFakeGoogleTasks(t *testing.T) *FakeGoogleTasks {
 	googleTasks := &FakeGoogleTasks{
 		t:         t,
@@ -45,6 +50,7 @@ func NewFakeGoogleTasks(t *testing.T) *FakeGoogleTasks {
 	return googleTasks
 }
 
+// RoundTrip intercepts HTTP requests and routes them to the appropriate mock handler.
 func (f *FakeGoogleTasks) RoundTrip(req *http.Request) (*http.Response, error) {
 	if matches := taskListRegex.FindStringSubmatch(req.URL.Path); matches != nil {
 		taskListID := matches[1]
@@ -90,6 +96,7 @@ func (f *FakeGoogleTasks) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
+// InsertTaskList simulates the creation of a new task list in Google Tasks.
 func (f *FakeGoogleTasks) InsertTaskList(req *http.Request) (*http.Response, error) {
 	if f.FailInsertTaskList {
 		resp := &http.Response{
@@ -130,6 +137,7 @@ func (f *FakeGoogleTasks) InsertTaskList(req *http.Request) (*http.Response, err
 	return resp, nil
 }
 
+// ListTaskLists simulates retrieving all task lists from Google Tasks.
 func (f *FakeGoogleTasks) ListTaskLists(req *http.Request) (*http.Response, error) {
 	if f.FailListTaskLists {
 		resp := &http.Response{
@@ -159,6 +167,7 @@ func (f *FakeGoogleTasks) ListTaskLists(req *http.Request) (*http.Response, erro
 	return resp, nil
 }
 
+// PatchTaskList simulates updating an existing task list in Google Tasks.
 func (f *FakeGoogleTasks) PatchTaskList(taskListID string, req *http.Request) (*http.Response, error) {
 	if f.FailPatchTaskList {
 		resp := &http.Response{
@@ -210,6 +219,7 @@ func (f *FakeGoogleTasks) PatchTaskList(taskListID string, req *http.Request) (*
 	return resp, nil
 }
 
+// DeleteTaskList simulates deleting a task list from Google Tasks.
 func (f *FakeGoogleTasks) DeleteTaskList(taskListID string, req *http.Request) (*http.Response, error) {
 	if f.FailDeleteTaskList {
 		resp := &http.Response{
@@ -247,6 +257,7 @@ func (f *FakeGoogleTasks) DeleteTaskList(taskListID string, req *http.Request) (
 	return resp, nil
 }
 
+// InsertTask simulates inserting a new task into a task list in Google Tasks.
 func (f *FakeGoogleTasks) InsertTask(taskListID string, req *http.Request) (*http.Response, error) {
 	if f.FailInsertTask {
 		resp := &http.Response{
@@ -315,6 +326,7 @@ func (f *FakeGoogleTasks) InsertTask(taskListID string, req *http.Request) (*htt
 	return resp, nil
 }
 
+// ListTasks simulates retrieving all tasks for a given task list from Google Tasks.
 func (f *FakeGoogleTasks) ListTasks(taskListID string, req *http.Request) (*http.Response, error) {
 	if f.FailListTasks {
 		resp := &http.Response{
@@ -355,6 +367,7 @@ func (f *FakeGoogleTasks) ListTasks(taskListID string, req *http.Request) (*http
 	return resp, nil
 }
 
+// PatchTask simulates updating an existing task in Google Tasks.
 func (f *FakeGoogleTasks) PatchTask(taskListID, taskID string, req *http.Request) (*http.Response, error) {
 	if f.FailPatchTask {
 		resp := &http.Response{
@@ -425,6 +438,7 @@ func (f *FakeGoogleTasks) PatchTask(taskListID, taskID string, req *http.Request
 	return resp, nil
 }
 
+// MoveTask simulates changing the position of a task within or across task lists.
 func (f *FakeGoogleTasks) MoveTask(taskListID, taskID string, req *http.Request) (*http.Response, error) {
 	if f.FailMoveTask {
 		resp := &http.Response{
@@ -508,6 +522,7 @@ func (f *FakeGoogleTasks) MoveTask(taskListID, taskID string, req *http.Request)
 	return resp, nil
 }
 
+// DeleteTask simulates deleting a task from Google Tasks.
 func (f *FakeGoogleTasks) DeleteTask(taskListID, taskID string, req *http.Request) (*http.Response, error) {
 	if f.FailDeleteTask {
 		resp := &http.Response{

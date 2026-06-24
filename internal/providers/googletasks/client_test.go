@@ -1,7 +1,6 @@
 package googletasks
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -113,12 +112,12 @@ func TestCreateList(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
+			tasksService, _ := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
 			pollInterval := 30 * time.Second
 			logger := slog.New(slog.DiscardHandler)
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
-			err := tasksClient.CreateList(context.Background(), tt.list)
+			err := tasksClient.CreateList(t.Context(), tt.list)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateList() error = %v, wantErr %v", err, tt.wantErr)
@@ -216,12 +215,12 @@ func TestListLists(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
+			tasksService, _ := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
 			pollInterval := 30 * time.Second
 			logger := slog.New(slog.DiscardHandler)
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
-			got, err := tasksClient.ListLists(context.Background())
+			got, err := tasksClient.ListLists(t.Context())
 
 			if tt.wantErr {
 				if err == nil {
@@ -741,12 +740,12 @@ func TestUpdateList(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
+			tasksService, _ := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
 			pollInterval := 30 * time.Second
 			logger := slog.New(slog.DiscardHandler)
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
-			err := tasksClient.UpdateList(context.Background(), tt.list, tt.currentList)
+			err := tasksClient.UpdateList(t.Context(), tt.list, tt.currentList)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateList() error = %v, wantErr %v", err, tt.wantErr)
@@ -832,12 +831,12 @@ func TestDeleteList(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
+			tasksService, _ := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
 			pollInterval := 30 * time.Second
 			logger := slog.New(slog.DiscardHandler)
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
-			err := tasksClient.DeleteList(context.Background(), tt.list)
+			err := tasksClient.DeleteList(t.Context(), tt.list)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DeleteList() error = %v, wantErr %v", err, tt.wantErr)
@@ -1009,12 +1008,12 @@ func TestCreateItem(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
+			tasksService, _ := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
 			pollInterval := 30 * time.Second
 			logger := slog.New(slog.DiscardHandler)
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
-			err := tasksClient.CreateItem(context.Background(), tt.item, tt.previousItemID)
+			err := tasksClient.CreateItem(t.Context(), tt.item, tt.previousItemID)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateItem() error = %v, wantErr %v", err, tt.wantErr)
@@ -1135,7 +1134,7 @@ func TestListItems(t *testing.T) {
 				{
 					ListID:         "1",
 					Title:          "Send Mail",
-					WaitingOn:      new("Alice"),
+					WaitingOn:      "Alice",
 					Status:         model.StatusOpen,
 					ExternalID:     new("t1"),
 					ExternalListID: new("L1"),
@@ -1162,7 +1161,7 @@ func TestListItems(t *testing.T) {
 				{
 					ListID:         "1",
 					Title:          "Send Mail",
-					WaitingOn:      nil,
+					WaitingOn:      "",
 					Status:         model.StatusOpen,
 					ExternalID:     new("t1"),
 					ExternalListID: new("L1"),
@@ -1180,7 +1179,7 @@ func TestListItems(t *testing.T) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{
 						Id:       "t1",
-						Title:    "Alice - Send Mail - Jan 23",
+						Title:    "Alice - Send Mail - 2026-01-23",
 						Position: "0001",
 					},
 				}
@@ -1189,13 +1188,11 @@ func TestListItems(t *testing.T) {
 				{
 					ListID:         "1",
 					Title:          "Send Mail",
-					WaitingOn:      new("Alice"),
+					WaitingOn:      "Alice",
 					Status:         model.StatusOpen,
 					ExternalID:     new("t1"),
 					ExternalListID: new("L1"),
-					Created: rfc3339ToDate(
-						"0000-01-23T00:00:00Z",
-					),
+					Created:        rfc3339ToDate("2026-01-23T00:00:00Z"),
 				},
 			},
 		},
@@ -1210,7 +1207,7 @@ func TestListItems(t *testing.T) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{
 						Id:       "t1",
-						Title:    "Alice - Send Mail - Jan 42",
+						Title:    "Alice - Send Mail - 2026-01-42",
 						Position: "0001",
 					},
 				}
@@ -1219,7 +1216,7 @@ func TestListItems(t *testing.T) {
 				{
 					ListID:         "1",
 					Title:          "Send Mail",
-					WaitingOn:      new("Alice"),
+					WaitingOn:      "Alice",
 					Status:         model.StatusOpen,
 					ExternalID:     new("t1"),
 					ExternalListID: new("L1"),
@@ -1506,12 +1503,12 @@ func TestListItems(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
+			tasksService, _ := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
 			pollInterval := 30 * time.Second
 			logger := slog.New(slog.DiscardHandler)
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
-			got, err := tasksClient.listItems(context.Background(), tt.list)
+			got, err := tasksClient.listItems(t.Context(), tt.list)
 
 			if tt.wantErr {
 				if err == nil {
@@ -1720,12 +1717,12 @@ func TestUpdateItem(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
+			tasksService, _ := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
 			pollInterval := 30 * time.Second
 			logger := slog.New(slog.DiscardHandler)
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
-			err := tasksClient.UpdateItem(context.Background(), tt.item)
+			err := tasksClient.UpdateItem(t.Context(), tt.item)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateItem() error = %v, wantErr %v", err, tt.wantErr)
@@ -1818,12 +1815,12 @@ func TestDeleteItem(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, _ := tasks.NewService(context.Background(), option.WithHTTPClient(mockClient))
+			tasksService, _ := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
 			pollInterval := 30 * time.Second
 			logger := slog.New(slog.DiscardHandler)
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
-			err := tasksClient.DeleteItem(context.Background(), tt.item)
+			err := tasksClient.DeleteItem(t.Context(), tt.item)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DeleteItem() error = %v, wantErr %v", err, tt.wantErr)
@@ -1875,10 +1872,10 @@ func TestRenderTitle(t *testing.T) {
 			name: "title with waiting on",
 			item: &model.Item{
 				Title:     "Task",
-				WaitingOn: new("Alice"),
+				WaitingOn: "Alice",
 				Created:   rfc3339ToDate("2024-01-02T10:00:00Z"),
 			},
-			wantTitle: "Alice - Task - Jan 2",
+			wantTitle: "Alice - Task - 2024-01-02",
 		},
 	}
 

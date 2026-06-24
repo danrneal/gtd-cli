@@ -24,9 +24,9 @@ type Client struct {
 }
 
 const (
-	statusNeedsAction = "needsAction"
-	statusCompleted   = "completed"
-	maxTaskResults    = 100
+	statusNeedsAction = "needsAction" // Google Tasks API representation of an incomplete task
+	statusCompleted   = "completed"   // Google Tasks API representation of a completed task
+	maxTaskResults    = 100           // Maximum number of tasks to retrieve per API request
 )
 
 // NewClient creates a new Google Tasks client.
@@ -394,13 +394,13 @@ func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
 func renderTitle(item *model.Item) string {
 	titleParts := []string{item.Title}
 	if item.ProjectID != nil {
-		projectIDStr := fmt.Sprintf("+%s", *item.ProjectID)
-		titleParts = append(titleParts, projectIDStr)
+		projectID := fmt.Sprintf("+%s", *item.ProjectID)
+		titleParts = append(titleParts, projectID)
 	}
 
 	if item.Due != nil {
-		dueStr := fmt.Sprintf("due:%s", item.Due.Format("2006-01-02"))
-		titleParts = append(titleParts, dueStr)
+		due := fmt.Sprintf("due:%s", item.Due.Format("2006-01-02"))
+		titleParts = append(titleParts, due)
 	}
 
 	for _, tag := range item.Tags {
@@ -410,9 +410,9 @@ func renderTitle(item *model.Item) string {
 
 	title := strings.Join(titleParts, " ")
 
-	if item.WaitingOn != nil {
-		createdStr := item.Created.Format("Jan 2")
-		title = fmt.Sprintf("%s - %s - %s", *item.WaitingOn, title, createdStr)
+	if item.WaitingOn != "" {
+		created := item.Created.Format("2006-01-02")
+		title = fmt.Sprintf("%s - %s - %s", item.WaitingOn, title, created)
 	}
 
 	return title
@@ -430,12 +430,12 @@ func parseWaitingForTitle(title string) *model.Item {
 
 	item := parseTitle(title)
 	if waitingOn != "" {
-		item.WaitingOn = &waitingOn
+		item.WaitingOn = waitingOn
 	}
 
 	if parts[len(parts)-1] != title {
-		createdStr := strings.TrimSpace(parts[len(parts)-1])
-		if created, err := time.Parse("Jan 2", createdStr); err == nil {
+		created := strings.TrimSpace(parts[len(parts)-1])
+		if created, err := time.Parse("2006-01-02", created); err == nil {
 			item.Created = created
 		}
 	}
@@ -457,8 +457,8 @@ func parseTitle(title string) *model.Item {
 				item.ProjectID = &projectID
 			}
 		case strings.HasPrefix(titleField, "due:"):
-			dueStr := strings.TrimPrefix(titleField, "due:")
-			if due, err := time.Parse("2006-01-02", dueStr); err == nil {
+			due := strings.TrimPrefix(titleField, "due:")
+			if due, err := time.Parse("2006-01-02", due); err == nil {
 				item.Due = &due
 			}
 		case strings.HasPrefix(titleField, "#"):

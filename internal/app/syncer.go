@@ -204,7 +204,7 @@ func (ss *syncSession) syncListCreation(ctx context.Context, srcList *model.List
 			created = true
 		}
 
-		if dstItem.ListID == srcList.ID {
+		if srcList.Contains(dstItem) {
 			prevItemID = ss.getKey(srcItem)
 		}
 	}
@@ -239,7 +239,7 @@ func (ss *syncSession) syncListUpdate(ctx context.Context, srcList *model.List) 
 
 		itemKey := ss.getKey(srcItem)
 		dstItem, ok := ss.dstState.itemsMap[itemKey]
-		if ok && srcItem.Modified.After(dstItem.Modified) && !srcItem.Equivalent(dstItem) {
+		if ok && !srcItem.Modified.Before(dstItem.Modified) && !srcItem.Equivalent(dstItem) {
 			if err := ss.updateItem(ctx, srcItem, dstItem); err != nil {
 				return updated, err
 			}
@@ -274,6 +274,7 @@ func (ss *syncSession) syncListDeletion(ctx context.Context, dstList *model.List
 	}
 
 	deleted := false
+
 	for _, dstItem := range dstList.Items {
 		if dstItem.Status == model.StatusDeleted {
 			continue

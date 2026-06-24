@@ -26,18 +26,20 @@ func render(writer io.Writer, lists []model.List) error {
 
 // renderList formats a single list and its items into the provided string builder.
 func renderList(buf *strings.Builder, list *model.List) error {
+	list.Clean()
+
 	listParts := []string{"#", list.Name}
 
-	countStr := fmt.Sprintf("(%d)", len(list.Items))
-	listParts = append(listParts, countStr)
+	count := fmt.Sprintf("(%d)", len(list.Items))
+	listParts = append(listParts, count)
 
 	if list.ID != "" {
-		idStr := fmt.Sprintf("{{%s}}", list.ID)
-		listParts = append(listParts, idStr)
+		listID := fmt.Sprintf("{{%s}}", list.ID)
+		listParts = append(listParts, listID)
 	}
 
-	listStr := strings.Join(listParts, " ")
-	buf.WriteString(listStr)
+	listTitle := strings.Join(listParts, " ")
+	buf.WriteString(listTitle)
 	buf.WriteString("\n")
 
 	for _, item := range list.Items {
@@ -53,6 +55,8 @@ func renderList(buf *strings.Builder, list *model.List) error {
 
 // renderItem formats a single item, including its status and metadata, into the provided string builder.
 func renderItem(buf *strings.Builder, item *model.Item) error {
+	item.Clean()
+
 	title := renderTitle(item)
 
 	var itemStatus string
@@ -68,13 +72,13 @@ func renderItem(buf *strings.Builder, item *model.Item) error {
 		return fmt.Errorf("render received invalid status %q on item %s", item.Status, item.ID)
 	}
 
-	statusStr := fmt.Sprintf("* [%s] ", itemStatus)
-	buf.WriteString(statusStr)
+	status := fmt.Sprintf("* [%s] ", itemStatus)
+	buf.WriteString(status)
 	buf.WriteString(title)
 
 	if item.ID != "" {
-		idStr := fmt.Sprintf(" {{%s}}", item.ID)
-		buf.WriteString(idStr)
+		itemID := fmt.Sprintf(" {{%s}}", item.ID)
+		buf.WriteString(itemID)
 	}
 
 	buf.WriteString("\n")
@@ -92,30 +96,30 @@ func renderTitle(item *model.Item) string {
 	titleParts := []string{item.Title}
 
 	if item.ProjectID != nil {
-		projectIDStr := fmt.Sprintf("+%s", *item.ProjectID)
-		titleParts = append(titleParts, projectIDStr)
+		projectID := fmt.Sprintf("+%s", *item.ProjectID)
+		titleParts = append(titleParts, projectID)
 	}
 
 	if item.Due != nil {
-		dueStr := fmt.Sprintf("due:%s", item.Due.Format("2006-01-02"))
-		titleParts = append(titleParts, dueStr)
+		due := fmt.Sprintf("due:%s", item.Due.Format("2006-01-02"))
+		titleParts = append(titleParts, due)
 	}
 
 	if item.Snoozed != nil {
-		snoozedStr := fmt.Sprintf("snoozed:%s", item.Snoozed.Format("2006-01-02"))
-		titleParts = append(titleParts, snoozedStr)
+		snoozed := fmt.Sprintf("snoozed:%s", item.Snoozed.Format("2006-01-02"))
+		titleParts = append(titleParts, snoozed)
 	}
 
 	for _, tag := range item.Tags {
-		tagStr := fmt.Sprintf("#%s", tag)
-		titleParts = append(titleParts, tagStr)
+		tag = fmt.Sprintf("#%s", tag)
+		titleParts = append(titleParts, tag)
 	}
 
 	title := strings.Join(titleParts, " ")
 
-	if item.WaitingOn != nil {
-		createdStr := item.Created.Format("Jan 2")
-		title = fmt.Sprintf("%s - %s - %s", *item.WaitingOn, title, createdStr)
+	if item.WaitingOn != "" {
+		created := item.Created.Format("2006-01-02")
+		title = fmt.Sprintf("%s - %s - %s", item.WaitingOn, title, created)
 	}
 
 	return title

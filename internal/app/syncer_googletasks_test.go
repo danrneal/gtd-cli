@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -333,6 +332,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
+							Position:       0,
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
 							ExternalListID: new("external-list-1"),
@@ -381,11 +381,13 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime,
+						Position:   0,
 						ExternalID: new("external-list-1"),
 					},
 					{
 						Name:       "L2",
 						Modified:   baseTime.Add(1),
+						Position:   1,
 						ExternalID: new("external-list-2"),
 						Items: []*model.Item{
 							{
@@ -544,6 +546,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1 Updated",
 						Modified:   baseTime.Add(1),
+						Position:   0,
 						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
@@ -558,12 +561,14 @@ func TestPushGoogleTasks(t *testing.T) {
 						ID:         "store-list-2",
 						Name:       "L2 Unchanged",
 						Modified:   baseTime,
+						Position:   1,
 						ExternalID: new("external-list-2"),
 					},
 					{
 						ID:         "store-list-3",
 						Name:       "L3 Older",
 						Modified:   baseTime,
+						Position:   2,
 						ExternalID: new("external-list-3"),
 					},
 				})
@@ -908,6 +913,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						{
 							ID:             "store-item-2",
 							Title:          "I2 Unsynced",
+							Position:       0,
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
 							ExternalListID: new("external-list-1"),
@@ -934,6 +940,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						{
 							Title:          "I2 Unsynced",
 							Status:         model.StatusOpen,
+							Position:       0,
 							ExternalID:     new("external-task-2"),
 							ExternalListID: new("external-list-1"),
 						},
@@ -982,7 +989,6 @@ func TestPushGoogleTasks(t *testing.T) {
 					ID:         "store-list-2",
 					Name:       "L2",
 					Status:     model.StatusOpen,
-					Position:   0,
 					ExternalID: new("external-list-2"),
 					Items:      []*model.Item{},
 				},
@@ -991,7 +997,6 @@ func TestPushGoogleTasks(t *testing.T) {
 				{
 					Name:       "L2",
 					Status:     model.StatusOpen,
-					Position:   0,
 					ExternalID: new("external-list-2"),
 					Items:      []*model.Item{},
 				},
@@ -1422,7 +1427,7 @@ func TestPushGoogleTasks(t *testing.T) {
 			syncer := NewSyncer(sqlite, googleTasks)
 
 			syncStart := baseTime.Add(time.Hour)
-			err := syncer.Push(context.Background(), syncStart)
+			err := syncer.Push(t.Context(), syncStart)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Push error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -1437,7 +1442,7 @@ func TestPushGoogleTasks(t *testing.T) {
 				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}
 
-			gotSqliteLists, err := sqlite.ListLists(context.Background())
+			gotSqliteLists, err := sqlite.ListLists(t.Context())
 			if err != nil {
 				t.Fatalf("failed to list sqlite lists: %v", err)
 			}
@@ -1446,7 +1451,7 @@ func TestPushGoogleTasks(t *testing.T) {
 				t.Errorf("Sqlite state mismatch (-want +got):\n%s", diff)
 			}
 
-			gotGoogleTasksLists, err := googleTasks.ListLists(context.Background())
+			gotGoogleTasksLists, err := googleTasks.ListLists(t.Context())
 			if err != nil {
 				t.Fatalf("failed to list google tasks lists: %v", err)
 			}
@@ -1630,6 +1635,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							Title:          "I1",
 							Status:         model.StatusOpen,
+							Position:       0,
 							ExternalID:     new("external-task-1"),
 							ExternalListID: new("external-list-1"),
 						},
@@ -1653,17 +1659,9 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							ID:             "store-item-1",
 							Title:          "I3",
+							Position:       0,
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
-							ExternalListID: new("external-list-1"),
-						},
-						{
-							ID:             "store-item-2",
-							Title:          "I1",
-							Position:       1,
-							Status:         model.StatusNotStarted,
-							ListID:         "store-list-1",
-							ExternalID:     new("external-task-1"),
 							ExternalListID: new("external-list-1"),
 						},
 						{
@@ -1673,6 +1671,15 @@ func TestPullGoogleTasks(t *testing.T) {
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
 							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-1"),
+						},
+						{
+							ID:             "store-item-2",
+							Title:          "I1",
+							Position:       2,
+							Status:         model.StatusNotStarted,
+							ListID:         "store-list-1",
+							ExternalID:     new("external-task-1"),
 							ExternalListID: new("external-list-1"),
 						},
 					},
@@ -1739,6 +1746,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
+							Position:       0,
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
 							ExternalID:     new("external-task-1"),
@@ -1902,10 +1910,12 @@ func TestPullGoogleTasks(t *testing.T) {
 						ID:       "store-list-2",
 						Name:     "L2",
 						Modified: baseTime,
+						Position: 0,
 					},
 					{
 						Name:       "L1 Original",
 						Modified:   baseTime,
+						Position:   1,
 						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
@@ -2098,6 +2108,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							Title:          "I1",
 							Status:         model.StatusOpen,
+							Position:       0,
 							ExternalID:     new("external-task-1"),
 							ExternalListID: new("external-list-1"),
 						},
@@ -2121,6 +2132,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							ID:             "store-item-2",
 							Title:          "I2",
+							Position:       0,
 							Status:         model.StatusInProgress,
 							ListID:         "store-list-1",
 							ExternalID:     new("external-task-2"),
@@ -2426,6 +2438,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
+							Position:       0,
 							Status:         model.StatusDeleted,
 							ListID:         "store-list-1",
 							ExternalListID: new("external-list-1"),
@@ -2498,6 +2511,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
+							Position:       0,
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
 							ExternalListID: new("external-list-1"),
@@ -2804,7 +2818,7 @@ func TestPullGoogleTasks(t *testing.T) {
 			syncer := NewSyncer(sqlite, googleTasks)
 
 			syncStart := baseTime.Add(time.Hour)
-			updated, err := syncer.Pull(context.Background(), syncStart)
+			updated, err := syncer.Pull(t.Context(), syncStart)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Pull error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -2823,7 +2837,7 @@ func TestPullGoogleTasks(t *testing.T) {
 				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}
 
-			gotGoogleTasksLists, err := googleTasks.ListLists(context.Background())
+			gotGoogleTasksLists, err := googleTasks.ListLists(t.Context())
 			if err != nil {
 				t.Fatalf("failed to list google tasks lists: %v", err)
 			}
@@ -2832,7 +2846,7 @@ func TestPullGoogleTasks(t *testing.T) {
 				t.Errorf("Google Tasks state mismatch (-want +got):\n%s", diff)
 			}
 
-			gotSqliteLists, err := sqlite.ListLists(context.Background())
+			gotSqliteLists, err := sqlite.ListLists(t.Context())
 			if err != nil {
 				t.Fatalf("failed to list sqlite lists: %v", err)
 			}
@@ -2850,7 +2864,7 @@ func setupTestGoogleTasks(t *testing.T, lists []model.List) RemoteProvider {
 		Transport: fakeGoogleTasks,
 	}
 
-	tasksService, err := tasks.NewService(context.Background(), option.WithHTTPClient(mockHTTPClient))
+	tasksService, err := tasks.NewService(t.Context(), option.WithHTTPClient(mockHTTPClient))
 	if err != nil {
 		t.Fatalf("failed to create tasks service: %v", err)
 	}
@@ -2859,7 +2873,7 @@ func setupTestGoogleTasks(t *testing.T, lists []model.List) RemoteProvider {
 	client := googletasks.NewClient(tasksService, 30*time.Second, logger)
 
 	for _, list := range lists {
-		if err := client.CreateList(context.Background(), &list); err != nil {
+		if err := client.CreateList(t.Context(), &list); err != nil {
 			t.Fatalf("failed to create list: %v", err)
 		}
 
@@ -2878,7 +2892,7 @@ func setupTestGoogleTasks(t *testing.T, lists []model.List) RemoteProvider {
 		prevItemID := ""
 		for _, item := range list.Items {
 			item.ExternalListID = list.ExternalID
-			if err := client.CreateItem(context.Background(), item, prevItemID); err != nil {
+			if err := client.CreateItem(t.Context(), item, prevItemID); err != nil {
 				t.Fatalf("failed to create item: %v", err)
 			}
 

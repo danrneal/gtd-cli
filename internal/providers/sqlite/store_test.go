@@ -81,7 +81,7 @@ func TestNewStore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			ctx := context.Background()
+			ctx := t.Context()
 
 			dbPath := tt.setupDBPath(t)
 			logger := slog.New(slog.DiscardHandler)
@@ -182,7 +182,7 @@ func TestCreateList(t *testing.T) {
 				Modified: time.Now(),
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 
 				return ctx, cancel
@@ -204,13 +204,13 @@ func TestCreateList(t *testing.T) {
 				ctx, cancel = tt.setupCtx()
 				defer cancel()
 			} else {
-				ctx = context.Background()
+				ctx = t.Context()
 			}
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 			logger := slog.New(slog.DiscardHandler)
-			store, err := NewStore(context.Background(), dbPath, logger)
+			store, err := NewStore(t.Context(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -338,11 +338,12 @@ func TestListLists(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							tags,
 							modified,
 							created
-						) VALUES (?, ?, ?, ?, '[]', ?, ?)
-					`, "item-1", "Task 1", "", "list-2", time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Task 1", "", "list-2", "", time.Now(), time.Now(),
 				)
 			},
 			wantLists: []model.List{
@@ -379,11 +380,12 @@ func TestListLists(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							tags,
 							modified,
 							created
-						) VALUES (?, ?, ?, ?, ?, ?, ?)
-					`, "item-2", "Task 2", "", "list-3", `["a", "b"]`, time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-2", "Task 2", "", "list-3", "", `["a", "b"]`, time.Now(), time.Now(),
 				)
 			},
 			wantLists: []model.List{
@@ -420,11 +422,12 @@ func TestListLists(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							tags,
 							modified,
 							created
-						) VALUES (?, ?, ?, ?, ?, ?, ?)
-					`, "item-3", "Task 3", "", "list-4", `{badjson`, time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-3", "Task 3", "", "list-4", "", `{badjson`, time.Now(), time.Now(),
 				)
 			},
 			wantErr: true,
@@ -440,7 +443,7 @@ func TestListLists(t *testing.T) {
 				)
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 
 				return ctx, cancel
@@ -462,13 +465,13 @@ func TestListLists(t *testing.T) {
 				ctx, cancel = tt.setupCtx()
 				defer cancel()
 			} else {
-				ctx = context.Background()
+				ctx = t.Context()
 			}
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 			logger := slog.New(slog.DiscardHandler)
-			store, err := NewStore(context.Background(), dbPath, logger)
+			store, err := NewStore(t.Context(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -542,13 +545,14 @@ func TestUpdateList(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							position,
 							status,
 							modified,
 							created
 						)
-						VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-					`, "item-3", "C", "", "list-1", 0, "not_started", time.Now(), time.Now(),
+						VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-3", "C", "", "list-1", "", 0, "not_started", time.Now(), time.Now(),
 				)
 
 				mustExec(t, db,
@@ -558,13 +562,14 @@ func TestUpdateList(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							position,
 							status,
 							modified,
 							created
 						)
-						VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-					`, "item-1", "A", "", "list-1", 1, "not_started", time.Now(), time.Now(),
+						VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-1", "A", "", "list-1", "", 1, "not_started", time.Now(), time.Now(),
 				)
 
 				mustExec(t, db,
@@ -574,12 +579,13 @@ func TestUpdateList(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							position,
 							status,
 							modified,
 							created
-						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-					`, "item-2", "B", "", "list-1", 2, "not_started", time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-2", "B", "", "list-1", "", 2, "not_started", time.Now(), time.Now(),
 				)
 
 				return "list-1"
@@ -678,13 +684,14 @@ func TestUpdateList(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							position,
 							status,
 							tags,
 							modified,
 							created
-						) VALUES (?, ?, ?, ?, ?, ?, '[]', ?, ?)
-					`, "item-opt", "Task Opt", "", "list-opt", 99, "not_started", time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?)
+					`, "item-opt", "Task Opt", "", "list-opt", "", 99, "not_started", time.Now(), time.Now(),
 				)
 
 				return "list-opt"
@@ -825,12 +832,13 @@ func TestUpdateList(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							modified,
 							created,
 							external_id
 						)
-						VALUES (?, ?, ?, ?, ?, ?, ?)
-					`, "item-1", "Original Title", "", "list-1", time.Now(), time.Now(), "ext-I1",
+						VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-1", "Original Title", "", "list-1", "", time.Now(), time.Now(), "ext-I1",
 				)
 
 				return "list-1"
@@ -883,12 +891,13 @@ func TestUpdateList(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							position,
 							status,
 							modified,
 							created
-						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-					`, "item-delete", "Cleanup Item", "", "list-delete", 0, "not_started", time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-delete", "Cleanup Item", "", "list-delete", "", 0, "not_started", time.Now(), time.Now(),
 				)
 
 				return "list-delete"
@@ -929,10 +938,11 @@ func TestUpdateList(t *testing.T) {
 							id,
 							title,
 							list_id,
+							waiting_on,
 							modified,
 							created
-						) VALUES (?, ?, ?, ?, ?)
-					`, "item-delete", "Cleanup Item", "list-delete", time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, ?, ?)
+					`, "item-delete", "Cleanup Item", "list-delete", "", time.Now(), time.Now(),
 				)
 
 				return "list-delete"
@@ -1178,7 +1188,7 @@ func TestUpdateList(t *testing.T) {
 				return list
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 
 				return ctx, cancel
@@ -1200,13 +1210,13 @@ func TestUpdateList(t *testing.T) {
 				ctx, cancel = tt.setupCtx()
 				defer cancel()
 			} else {
-				ctx = context.Background()
+				ctx = t.Context()
 			}
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 			logger := slog.New(slog.DiscardHandler)
-			store, err := NewStore(context.Background(), dbPath, logger)
+			store, err := NewStore(t.Context(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -1271,8 +1281,8 @@ func TestUpdateList(t *testing.T) {
 				t.Errorf("UpdateList() mismatch (-want +got):\n%s", diff)
 			}
 
-			tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
-			items, err := store.listAllItems(context.Background(), tx)
+			tx, _ := store.db.BeginTx(t.Context(), &sql.TxOptions{ReadOnly: true})
+			items, err := store.listAllItems(t.Context(), tx)
 			tx.Rollback()
 			if err != nil {
 				t.Fatalf("failed to list all items: %v", err)
@@ -1317,11 +1327,12 @@ func TestDeleteList(t *testing.T) {
 							id,
 							title,
 							list_id,
+							waiting_on,
 							tags,
 							modified,
 							created
-						) VALUES (?, ?, ?, '[]', ?, ?)
-					`, "item-1", "Linked Item", "list-1", time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Linked Item", "list-1", "", time.Now(), time.Now(),
 				)
 
 				list := model.List{
@@ -1404,7 +1415,7 @@ func TestDeleteList(t *testing.T) {
 				return list
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 
 				return ctx, cancel
@@ -1426,13 +1437,13 @@ func TestDeleteList(t *testing.T) {
 				ctx, cancel = tt.setupCtx()
 				defer cancel()
 			} else {
-				ctx = context.Background()
+				ctx = t.Context()
 			}
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 			logger := slog.New(slog.DiscardHandler)
-			store, err := NewStore(context.Background(), dbPath, logger)
+			store, err := NewStore(t.Context(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -1462,7 +1473,7 @@ func TestDeleteList(t *testing.T) {
 				return
 			}
 
-			lists, err := store.ListLists(context.Background())
+			lists, err := store.ListLists(t.Context())
 			if err != nil {
 				t.Fatalf("failed to get all lists: %v", err)
 			}
@@ -1471,8 +1482,8 @@ func TestDeleteList(t *testing.T) {
 				t.Errorf("DeleteList() lists mismatch (-want +got):\n%s", diff)
 			}
 
-			tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
-			items, err := store.listAllItems(context.Background(), tx)
+			tx, _ := store.db.BeginTx(t.Context(), &sql.TxOptions{ReadOnly: true})
+			items, err := store.listAllItems(t.Context(), tx)
 			tx.Rollback()
 			if err != nil {
 				t.Fatalf("failed to get all items: %v", err)
@@ -1538,7 +1549,7 @@ func TestCreateItem(t *testing.T) {
 				Description: "  Line 1   \n  Line 2   \n    Line 3",
 				Status:      model.StatusDone,
 				ProjectID:   new("proj-1"),
-				WaitingOn:   new("Alice"),
+				WaitingOn:   "Alice",
 				Tags:        []string{"work", "urgent"},
 				Modified:    time.Now(),
 				Created:     time.Now(),
@@ -1549,7 +1560,7 @@ func TestCreateItem(t *testing.T) {
 				Description: "Line 1\nLine 2\n  Line 3",
 				Status:      model.StatusDone,
 				ProjectID:   new("proj-1"),
-				WaitingOn:   new("Alice"),
+				WaitingOn:   "Alice",
 				Tags:        []string{"work", "urgent"},
 			},
 		},
@@ -1631,7 +1642,7 @@ func TestCreateItem(t *testing.T) {
 				Modified: time.Now(),
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 
 				return ctx, cancel
@@ -1653,13 +1664,13 @@ func TestCreateItem(t *testing.T) {
 				ctx, cancel = tt.setupCtx()
 				defer cancel()
 			} else {
-				ctx = context.Background()
+				ctx = t.Context()
 			}
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 			logger := slog.New(slog.DiscardHandler)
-			store, err := NewStore(context.Background(), dbPath, logger)
+			store, err := NewStore(t.Context(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -1799,11 +1810,12 @@ func TestUpdateItem(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							tags,
 							modified,
 							created
-						) VALUES (?, ?, ?, ?, '[]', ?, ?)
-					`, "item-1", "Original", "", "list-1", time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Original", "", "list-1", "", time.Now(), time.Now(),
 				)
 
 				return "item-1"
@@ -1811,8 +1823,8 @@ func TestUpdateItem(t *testing.T) {
 			setupItem: func(id string) model.Item {
 				item := model.Item{
 					ID:          id,
-					ListID:      "list-2", // Should be ignored
-					Position:    99,       // Should be ignored
+					ListID:      "list-1",
+					Position:    99,
 					Title:       "  Updated Title  ",
 					Description: "  Line 1  \n    Line 2",
 					Status:      model.StatusDone,
@@ -1824,8 +1836,8 @@ func TestUpdateItem(t *testing.T) {
 				return item
 			},
 			wantItem: &model.Item{
-				ListID:      "list-1", // Verify original
-				Position:    0,        // Verify original
+				ListID:      "list-1",
+				Position:    0,
 				Title:       "Updated Title",
 				Description: "Line 1\n  Line 2",
 				Status:      model.StatusDone,
@@ -1849,12 +1861,13 @@ func TestUpdateItem(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							tags,
 							modified,
 							created,
 							external_id
-						) VALUES (?, ?, ?, ?, '[]', ?, ?, ?)
-					`, "item-1", "Original", "", "list-1", time.Now(), time.Now(), "ext-I1",
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?, ?)
+					`, "item-1", "Original", "", "list-1", "", time.Now(), time.Now(), "ext-I1",
 				)
 
 				return "item-1"
@@ -1895,12 +1908,13 @@ func TestUpdateItem(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							tags,
 							modified,
 							created,
 							external_id
-						) VALUES (?, ?, ?, ?, '[]', ?, ?, ?)
-					`, "item-1", "Original", "", "list-1", time.Now(), time.Now(), "ext-I1",
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?, ?)
+					`, "item-1", "Original", "", "list-1", "", time.Now(), time.Now(), "ext-I1",
 				)
 
 				return "item-1"
@@ -1976,11 +1990,12 @@ func TestUpdateItem(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							tags,
 							modified,
 							created
-						) VALUES (?, ?, ?, ?, '[]', ?, ?)
-					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Valid", "", "list-1", "", time.Now(), time.Now(),
 				)
 
 				return "item-1"
@@ -2031,11 +2046,12 @@ func TestUpdateItem(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							tags,
 							modified,
 							created
-						) VALUES (?, ?, ?, ?, '[]', ?, ?)
-					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Valid", "", "list-1", "", time.Now(), time.Now(),
 				)
 
 				return "item-1"
@@ -2051,7 +2067,7 @@ func TestUpdateItem(t *testing.T) {
 				return item
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 
 				return ctx, cancel
@@ -2073,13 +2089,13 @@ func TestUpdateItem(t *testing.T) {
 				ctx, cancel = tt.setupCtx()
 				defer cancel()
 			} else {
-				ctx = context.Background()
+				ctx = t.Context()
 			}
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 			logger := slog.New(slog.DiscardHandler)
-			store, err := NewStore(context.Background(), dbPath, logger)
+			store, err := NewStore(t.Context(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -2198,11 +2214,12 @@ func TestDeleteItem(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							tags,
 							modified,
 							created
-						) VALUES (?, ?, ?, ?, '[]', ?, ?)
-					`, "item-1", "Item to Delete", "", "list-1", time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Item to Delete", "", "list-1", "", time.Now(), time.Now(),
 				)
 
 				item := model.Item{
@@ -2229,12 +2246,13 @@ func TestDeleteItem(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							tags,
 							modified,
 							created,
 							external_id
-						) VALUES (?, ?, ?, ?, '[]', ?, ?, ?)
-					`, "item-1", "Item to Delete", "", "list-1", time.Now(), time.Now(), "ext-I1",
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?, ?)
+					`, "item-1", "Item to Delete", "", "list-1", "", time.Now(), time.Now(), "ext-I1",
 				)
 
 				item := model.Item{
@@ -2295,11 +2313,12 @@ func TestDeleteItem(t *testing.T) {
 							title,
 							description,
 							list_id,
+							waiting_on,
 							tags,
 							modified,
 							created
-						) VALUES (?, ?, ?, ?, '[]', ?, ?)
-					`, "item-1", "Valid", "", "list-1", time.Now(), time.Now(),
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Valid", "", "list-1", "", time.Now(), time.Now(),
 				)
 
 				item := model.Item{
@@ -2309,7 +2328,7 @@ func TestDeleteItem(t *testing.T) {
 				return item
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 
 				return ctx, cancel
@@ -2331,13 +2350,13 @@ func TestDeleteItem(t *testing.T) {
 				ctx, cancel = tt.setupCtx()
 				defer cancel()
 			} else {
-				ctx = context.Background()
+				ctx = t.Context()
 			}
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 			logger := slog.New(slog.DiscardHandler)
-			store, err := NewStore(context.Background(), dbPath, logger)
+			store, err := NewStore(t.Context(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -2367,8 +2386,8 @@ func TestDeleteItem(t *testing.T) {
 				return
 			}
 
-			tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
-			items, err := store.listAllItems(context.Background(), tx)
+			tx, _ := store.db.BeginTx(t.Context(), &sql.TxOptions{ReadOnly: true})
+			items, err := store.listAllItems(t.Context(), tx)
 			tx.Rollback()
 			if err != nil {
 				t.Fatalf("failed to get all items: %v", err)
