@@ -274,6 +274,7 @@ func (ss *syncSession) syncListDeletion(ctx context.Context, dstList *model.List
 	}
 
 	deleted := false
+
 	for _, dstItem := range dstList.Items {
 		if dstItem.Status == model.StatusDeleted {
 			continue

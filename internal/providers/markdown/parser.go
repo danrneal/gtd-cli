@@ -12,7 +12,9 @@ import (
 )
 
 var (
+	// Matches Markdown headers: # List Name OR # List Name (1) OR # List Name {{list-id}}.
 	listRegex = regexp.MustCompile(`^#+\s+(.+?)(?:\s+\(\d+\))?(?:\s+{{([^}]+)}})?$`)
+	// Matches Markdown list items: * [ ] Item Title OR - [x] ~~Item Title~~ OR * [ ] Item Title {{item-id}}.
 	itemRegex = regexp.MustCompile(`^[*-]\s+\[(.)\]\s+~*(.+?)~*(?:\s+{{([^}]+)}})?$`)
 )
 
@@ -149,15 +151,15 @@ func parseItemContent(content string) *model.Item {
 			projectID := field[1:]
 			item.ProjectID = &projectID
 		case strings.HasPrefix(field, "snoozed:"):
-			snoozedStr := strings.TrimPrefix(field, "snoozed:")
-			if snoozed, err := time.Parse("2006-01-02", snoozedStr); err == nil {
+			snoozed := strings.TrimPrefix(field, "snoozed:")
+			if snoozed, err := time.Parse("2006-01-02", snoozed); err == nil {
 				item.Snoozed = &snoozed
 			} else {
 				titleParts = append(titleParts, field)
 			}
 		case strings.HasPrefix(field, "due:"):
-			dueStr := strings.TrimPrefix(field, "due:")
-			if due, err := time.Parse("2006-01-02", dueStr); err == nil {
+			due := strings.TrimPrefix(field, "due:")
+			if due, err := time.Parse("2006-01-02", due); err == nil {
 				item.Due = &due
 			} else {
 				titleParts = append(titleParts, field)

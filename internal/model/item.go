@@ -155,6 +155,8 @@ func equalTimePtr(a, b *time.Time) bool {
 	return a.Equal(*b)
 }
 
+// equalStatuses safely compares two item statuses, accounting for equivalencies
+// between Google Tasks and internal representations.
 func equalStatuses(a, b Status) bool {
 	if a == StatusOpen && (b == StatusNotStarted || b == StatusInProgress) {
 		return true

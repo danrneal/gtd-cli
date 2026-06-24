@@ -82,6 +82,7 @@ func TestClient_CreateList(t *testing.T) {
 			list: &model.List{
 				Name:     "  Next Actions  \n",
 				Modified: modified,
+				Position: 1,
 				Items: []*model.Item{
 					{
 						Title:  "Task 1",
@@ -206,7 +207,7 @@ func TestClient_CreateList(t *testing.T) {
 			logger := slog.New(slog.DiscardHandler)
 			client := NewClient(testPath, logger)
 
-			err := client.CreateList(context.Background(), tt.list)
+			err := client.CreateList(t.Context(), tt.list)
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("CreateList() error = %v, wantErr %v", err, tt.wantErr)
@@ -303,7 +304,7 @@ func TestClient_ListLists(t *testing.T) {
 			logger := slog.New(slog.DiscardHandler)
 			client := NewClient(testPath, logger)
 
-			got, err := client.ListLists(context.Background())
+			got, err := client.ListLists(t.Context())
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("ListLists() error = %v, wantErr %v", err, tt.wantErr)
@@ -574,7 +575,7 @@ func TestClient_UpdateList(t *testing.T) {
 				Modified: modified,
 				Items: []*model.Item{
 					{
-						ID:       "item-1", // Skips (matches index 0)
+						ID:       "item-1",
 						ListID:   "list-1",
 						Title:    "Task 1",
 						Position: 0,
@@ -582,15 +583,15 @@ func TestClient_UpdateList(t *testing.T) {
 						Modified: modified,
 					},
 					{
-						ID:       "item-3", // Relocated from somewhere else
-						ListID:   "list-2", // Source ListID
+						ID:       "item-3",
+						ListID:   "list-2",
 						Title:    "Task 3",
 						Position: 1,
 						Status:   model.StatusNotStarted,
 						Modified: modified,
 					},
 					{
-						ID:       "item-2", // Reordered to bottom
+						ID:       "item-2",
 						ListID:   "list-1",
 						Title:    "Task 2",
 						Position: 2,
@@ -695,7 +696,7 @@ func TestClient_UpdateList(t *testing.T) {
 				Modified: modified,
 				Items: []*model.Item{
 					{
-						ID:       "item-2", // Reordered to top
+						ID:       "item-2",
 						ListID:   "list-1",
 						Title:    "Task 2",
 						Position: 0,
@@ -703,15 +704,15 @@ func TestClient_UpdateList(t *testing.T) {
 						Modified: modified,
 					},
 					{
-						ID:       "item-3", // Relocated from somewhere else
-						ListID:   "list-2", // Source ListID
+						ID:       "item-3",
+						ListID:   "list-2",
 						Title:    "Task 3",
 						Position: 1,
 						Status:   model.StatusNotStarted,
 						Modified: modified,
 					},
 					{
-						ID:       "item-1", // Reordered to bottom
+						ID:       "item-1",
 						ListID:   "list-1",
 						Title:    "Task 1",
 						Position: 2,
@@ -801,7 +802,7 @@ func TestClient_UpdateList(t *testing.T) {
 			},
 			list: &model.List{
 				Name:     "Valid Name",
-				ID:       "", // missing
+				ID:       "",
 				Status:   model.StatusOpen,
 				Modified: modified,
 			},
@@ -886,7 +887,7 @@ func TestClient_UpdateList(t *testing.T) {
 				Items: []*model.Item{
 					{
 						ID:       "item-1",
-						ListID:   "list-2", // Does not exist in file
+						ListID:   "list-2",
 						Title:    "Task 1",
 						Position: 0,
 						Status:   model.StatusNotStarted,
@@ -923,7 +924,7 @@ func TestClient_UpdateList(t *testing.T) {
 				Modified: modified,
 				Items: []*model.Item{
 					{
-						ID:       "item-2", // Does not exist in file
+						ID:       "item-2",
 						ListID:   "list-1",
 						Title:    "Task 2",
 						Position: 0,
@@ -965,7 +966,7 @@ func TestClient_UpdateList(t *testing.T) {
 			logger := slog.New(slog.DiscardHandler)
 			client := NewClient(testPath, logger)
 
-			err := client.UpdateList(context.Background(), tt.list, tt.currentList)
+			err := client.UpdateList(t.Context(), tt.list, tt.currentList)
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("UpdateList() error = %v, wantErr %v", err, tt.wantErr)
@@ -1127,7 +1128,7 @@ func TestClient_DeleteList(t *testing.T) {
 			logger := slog.New(slog.DiscardHandler)
 			client := NewClient(testPath, logger)
 
-			err := client.DeleteList(context.Background(), tt.list)
+			err := client.DeleteList(t.Context(), tt.list)
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("DeleteList() error = %v, wantErr %v", err, tt.wantErr)
@@ -1301,7 +1302,7 @@ func TestClient_CreateItem(t *testing.T) {
 				return path
 			},
 			item: &model.Item{
-				Title:    "", // invalid
+				Title:    "",
 				ListID:   "list-1",
 				Modified: modified,
 			},
@@ -1430,7 +1431,7 @@ func TestClient_CreateItem(t *testing.T) {
 			logger := slog.New(slog.DiscardHandler)
 			client := NewClient(testPath, logger)
 
-			err := client.CreateItem(context.Background(), tt.item, tt.previousItemID)
+			err := client.CreateItem(t.Context(), tt.item, tt.previousItemID)
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("CreateItem() error = %v, wantErr %v", err, tt.wantErr)
@@ -1706,7 +1707,7 @@ func TestClient_UpdateItem(t *testing.T) {
 			logger := slog.New(slog.DiscardHandler)
 			client := NewClient(testPath, logger)
 
-			err := client.UpdateItem(context.Background(), tt.item)
+			err := client.UpdateItem(t.Context(), tt.item)
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("UpdateItem() error = %v, wantErr %v", err, tt.wantErr)
@@ -1910,7 +1911,7 @@ func TestClient_DeleteItem(t *testing.T) {
 			logger := slog.New(slog.DiscardHandler)
 			client := NewClient(testPath, logger)
 
-			err := client.DeleteItem(context.Background(), tt.item)
+			err := client.DeleteItem(t.Context(), tt.item)
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("DeleteItem() error = %v, wantErr %v", err, tt.wantErr)
@@ -2138,10 +2139,7 @@ func TestClient_writeFile(t *testing.T) {
 					},
 				},
 			},
-			want: `# Inbox (1)
-* [ ] Task 1
-
-`,
+			want: "# Inbox (1)\n* [ ] Task 1\n\n",
 		},
 		{
 			name: "failed to render markdown file",

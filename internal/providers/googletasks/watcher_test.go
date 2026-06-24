@@ -75,7 +75,7 @@ func TestClient_Watch(t *testing.T) {
 			logger := slog.New(slog.DiscardHandler)
 			client := NewClient(nil, tt.interval, logger)
 
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
 			events, err := client.Watch(ctx)

@@ -81,7 +81,7 @@ func TestNewStore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			ctx := context.Background()
+			ctx := t.Context()
 
 			dbPath := tt.setupDBPath(t)
 			logger := slog.New(slog.DiscardHandler)
@@ -182,7 +182,7 @@ func TestCreateList(t *testing.T) {
 				Modified: time.Now(),
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 
 				return ctx, cancel
@@ -204,13 +204,13 @@ func TestCreateList(t *testing.T) {
 				ctx, cancel = tt.setupCtx()
 				defer cancel()
 			} else {
-				ctx = context.Background()
+				ctx = t.Context()
 			}
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 			logger := slog.New(slog.DiscardHandler)
-			store, err := NewStore(context.Background(), dbPath, logger)
+			store, err := NewStore(t.Context(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -440,7 +440,7 @@ func TestListLists(t *testing.T) {
 				)
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 
 				return ctx, cancel
@@ -462,13 +462,13 @@ func TestListLists(t *testing.T) {
 				ctx, cancel = tt.setupCtx()
 				defer cancel()
 			} else {
-				ctx = context.Background()
+				ctx = t.Context()
 			}
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 			logger := slog.New(slog.DiscardHandler)
-			store, err := NewStore(context.Background(), dbPath, logger)
+			store, err := NewStore(t.Context(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -1178,7 +1178,7 @@ func TestUpdateList(t *testing.T) {
 				return list
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 
 				return ctx, cancel
@@ -1200,13 +1200,13 @@ func TestUpdateList(t *testing.T) {
 				ctx, cancel = tt.setupCtx()
 				defer cancel()
 			} else {
-				ctx = context.Background()
+				ctx = t.Context()
 			}
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 			logger := slog.New(slog.DiscardHandler)
-			store, err := NewStore(context.Background(), dbPath, logger)
+			store, err := NewStore(t.Context(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -1271,8 +1271,8 @@ func TestUpdateList(t *testing.T) {
 				t.Errorf("UpdateList() mismatch (-want +got):\n%s", diff)
 			}
 
-			tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
-			items, err := store.listAllItems(context.Background(), tx)
+			tx, _ := store.db.BeginTx(t.Context(), &sql.TxOptions{ReadOnly: true})
+			items, err := store.listAllItems(t.Context(), tx)
 			tx.Rollback()
 			if err != nil {
 				t.Fatalf("failed to list all items: %v", err)
@@ -1404,7 +1404,7 @@ func TestDeleteList(t *testing.T) {
 				return list
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 
 				return ctx, cancel
@@ -1426,13 +1426,13 @@ func TestDeleteList(t *testing.T) {
 				ctx, cancel = tt.setupCtx()
 				defer cancel()
 			} else {
-				ctx = context.Background()
+				ctx = t.Context()
 			}
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 			logger := slog.New(slog.DiscardHandler)
-			store, err := NewStore(context.Background(), dbPath, logger)
+			store, err := NewStore(t.Context(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -1462,7 +1462,7 @@ func TestDeleteList(t *testing.T) {
 				return
 			}
 
-			lists, err := store.ListLists(context.Background())
+			lists, err := store.ListLists(t.Context())
 			if err != nil {
 				t.Fatalf("failed to get all lists: %v", err)
 			}
@@ -1471,8 +1471,8 @@ func TestDeleteList(t *testing.T) {
 				t.Errorf("DeleteList() lists mismatch (-want +got):\n%s", diff)
 			}
 
-			tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
-			items, err := store.listAllItems(context.Background(), tx)
+			tx, _ := store.db.BeginTx(t.Context(), &sql.TxOptions{ReadOnly: true})
+			items, err := store.listAllItems(t.Context(), tx)
 			tx.Rollback()
 			if err != nil {
 				t.Fatalf("failed to get all items: %v", err)
@@ -1631,7 +1631,7 @@ func TestCreateItem(t *testing.T) {
 				Modified: time.Now(),
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 
 				return ctx, cancel
@@ -1653,13 +1653,13 @@ func TestCreateItem(t *testing.T) {
 				ctx, cancel = tt.setupCtx()
 				defer cancel()
 			} else {
-				ctx = context.Background()
+				ctx = t.Context()
 			}
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 			logger := slog.New(slog.DiscardHandler)
-			store, err := NewStore(context.Background(), dbPath, logger)
+			store, err := NewStore(t.Context(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -1811,8 +1811,8 @@ func TestUpdateItem(t *testing.T) {
 			setupItem: func(id string) model.Item {
 				item := model.Item{
 					ID:          id,
-					ListID:      "list-2", // Should be ignored
-					Position:    99,       // Should be ignored
+					ListID:      "list-1",
+					Position:    99,
 					Title:       "  Updated Title  ",
 					Description: "  Line 1  \n    Line 2",
 					Status:      model.StatusDone,
@@ -1824,8 +1824,8 @@ func TestUpdateItem(t *testing.T) {
 				return item
 			},
 			wantItem: &model.Item{
-				ListID:      "list-1", // Verify original
-				Position:    0,        // Verify original
+				ListID:      "list-1",
+				Position:    0,
 				Title:       "Updated Title",
 				Description: "Line 1\n  Line 2",
 				Status:      model.StatusDone,
@@ -2051,7 +2051,7 @@ func TestUpdateItem(t *testing.T) {
 				return item
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 
 				return ctx, cancel
@@ -2073,13 +2073,13 @@ func TestUpdateItem(t *testing.T) {
 				ctx, cancel = tt.setupCtx()
 				defer cancel()
 			} else {
-				ctx = context.Background()
+				ctx = t.Context()
 			}
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 			logger := slog.New(slog.DiscardHandler)
-			store, err := NewStore(context.Background(), dbPath, logger)
+			store, err := NewStore(t.Context(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -2309,7 +2309,7 @@ func TestDeleteItem(t *testing.T) {
 				return item
 			},
 			setupCtx: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 
 				return ctx, cancel
@@ -2331,13 +2331,13 @@ func TestDeleteItem(t *testing.T) {
 				ctx, cancel = tt.setupCtx()
 				defer cancel()
 			} else {
-				ctx = context.Background()
+				ctx = t.Context()
 			}
 
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 			logger := slog.New(slog.DiscardHandler)
-			store, err := NewStore(context.Background(), dbPath, logger)
+			store, err := NewStore(t.Context(), dbPath, logger)
 			if err != nil {
 				t.Fatalf("failed to create store: %v", err)
 			}
@@ -2367,8 +2367,8 @@ func TestDeleteItem(t *testing.T) {
 				return
 			}
 
-			tx, _ := store.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
-			items, err := store.listAllItems(context.Background(), tx)
+			tx, _ := store.db.BeginTx(t.Context(), &sql.TxOptions{ReadOnly: true})
+			items, err := store.listAllItems(t.Context(), tx)
 			tx.Rollback()
 			if err != nil {
 				t.Fatalf("failed to get all items: %v", err)

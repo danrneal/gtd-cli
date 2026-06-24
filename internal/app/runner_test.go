@@ -127,7 +127,7 @@ func TestRun(t *testing.T) {
 					Items:    []*model.Item{},
 				}
 
-				err := md.CreateList(context.Background(), list)
+				err := md.CreateList(t.Context(), list)
 				if err != nil {
 					t.Fatalf("failed to insert data during event trigger: %v", err)
 				}
@@ -176,7 +176,7 @@ func TestRun(t *testing.T) {
 					Items:    []*model.Item{},
 				}
 
-				err := tasks.CreateList(context.Background(), list)
+				err := tasks.CreateList(t.Context(), list)
 				if err != nil {
 					t.Fatalf("failed to insert data during event trigger: %v", err)
 				}
@@ -584,7 +584,7 @@ func TestRun(t *testing.T) {
 					cmpopts.IgnoreFields(model.List{}, "Modified"),
 				}
 
-				gotStoreLists, err := store.ListLists(context.Background())
+				gotStoreLists, err := store.ListLists(t.Context())
 				if err != nil {
 					return fmt.Errorf("failed to list store lists: %w", err)
 				}
@@ -593,7 +593,7 @@ func TestRun(t *testing.T) {
 					return fmt.Errorf("Store state mismatch (-want +got):\n%s", diff)
 				}
 
-				gotMdLists, err := md.ListLists(context.Background())
+				gotMdLists, err := md.ListLists(t.Context())
 				if err != nil {
 					return fmt.Errorf("failed to list md lists: %w", err)
 				}
@@ -602,7 +602,7 @@ func TestRun(t *testing.T) {
 					return fmt.Errorf("Markdown state mismatch (-want +got):\n%s", diff)
 				}
 
-				gotTasksLists, err := tasks.ListLists(context.Background())
+				gotTasksLists, err := tasks.ListLists(t.Context())
 				if err != nil {
 					return fmt.Errorf("failed to list tasks lists: %w", err)
 				}
@@ -654,7 +654,7 @@ func setupTestSQLite(t *testing.T, lists []model.List) Provider {
 
 	opts := []sqlite.StoreOption{listIDGeneratorOpt, itemIDGeneratorOpt}
 
-	store, err := sqlite.NewStore(context.Background(), dbPath, logger, opts...)
+	store, err := sqlite.NewStore(t.Context(), dbPath, logger, opts...)
 	if err != nil {
 		t.Fatalf("failed to init sqlite: %v", err)
 	}
@@ -682,7 +682,7 @@ func setupTestSQLite(t *testing.T, lists []model.List) Provider {
 
 		if listStatus == model.StatusDeleted {
 			list.Status = listStatus
-			if err := store.UpdateList(context.Background(), &list, &list); err != nil {
+			if err := store.UpdateList(t.Context(), &list, &list); err != nil {
 				t.Fatalf("failed to update list to deleted: %v", err)
 			}
 		}
@@ -712,7 +712,7 @@ func setupTestSQLite(t *testing.T, lists []model.List) Provider {
 
 			if itemStatus == model.StatusDeleted {
 				item.Status = itemStatus
-				if err := store.UpdateItem(context.Background(), item); err != nil {
+				if err := store.UpdateItem(t.Context(), item); err != nil {
 					t.Fatalf("failed to update item to deleted: %v", err)
 				}
 			}

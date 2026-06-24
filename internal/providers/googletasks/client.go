@@ -24,9 +24,9 @@ type Client struct {
 }
 
 const (
-	statusNeedsAction = "needsAction"
-	statusCompleted   = "completed"
-	maxTaskResults    = 100
+	statusNeedsAction = "needsAction" // Google Tasks API representation of an incomplete task
+	statusCompleted   = "completed"   // Google Tasks API representation of a completed task
+	maxTaskResults    = 100           // Maximum number of tasks to retrieve per API request
 )
 
 // NewClient creates a new Google Tasks client.
@@ -394,13 +394,13 @@ func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
 func renderTitle(item *model.Item) string {
 	titleParts := []string{item.Title}
 	if item.ProjectID != nil {
-		projectIDStr := fmt.Sprintf("+%s", *item.ProjectID)
-		titleParts = append(titleParts, projectIDStr)
+		projectID := fmt.Sprintf("+%s", *item.ProjectID)
+		titleParts = append(titleParts, projectID)
 	}
 
 	if item.Due != nil {
-		dueStr := fmt.Sprintf("due:%s", item.Due.Format("2006-01-02"))
-		titleParts = append(titleParts, dueStr)
+		due := fmt.Sprintf("due:%s", item.Due.Format("2006-01-02"))
+		titleParts = append(titleParts, due)
 	}
 
 	for _, tag := range item.Tags {
@@ -457,8 +457,8 @@ func parseTitle(title string) *model.Item {
 				item.ProjectID = &projectID
 			}
 		case strings.HasPrefix(titleField, "due:"):
-			dueStr := strings.TrimPrefix(titleField, "due:")
-			if due, err := time.Parse("2006-01-02", dueStr); err == nil {
+			due := strings.TrimPrefix(titleField, "due:")
+			if due, err := time.Parse("2006-01-02", due); err == nil {
 				item.Due = &due
 			}
 		case strings.HasPrefix(titleField, "#"):

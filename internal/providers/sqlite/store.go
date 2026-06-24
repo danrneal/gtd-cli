@@ -52,13 +52,13 @@ func WithItemIDGenerator(fn func() string) StoreOption {
 // NewStore initializes a new SQLite store.
 // It opens the database at dbPath, ensures it is accessible, and creates the necessary schema.
 func NewStore(ctx context.Context, dbPath string, logger *slog.Logger, opts ...StoreOption) (*Store, error) {
-	dataSourceName := fmt.Sprintf("%s?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", dbPath)
+	dataSourceName := fmt.Sprintf("%s?_busy_timeout=5000&_foreign_keys=on&_journal_mode=WAL", dbPath)
 	db, err := sql.Open("sqlite3", dataSourceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	if err := db.PingContext(ctx); err != nil {
+	if err = db.PingContext(ctx); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
@@ -75,7 +75,8 @@ func NewStore(ctx context.Context, dbPath string, logger *slog.Logger, opts ...S
 		generateItemID: generateID,
 		logger:         logger,
 	}
-	if err := store.createTables(ctx); err != nil {
+
+	if err = store.createTables(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -220,15 +221,14 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 	i := 0
 	for rows.Next() {
 		var list model.List
-		err := rows.Scan(
+		if err := rows.Scan(
 			&list.ID,
 			&list.Name,
 			&list.Position,
 			&list.Status,
 			&list.Modified,
 			&list.ExternalID,
-		)
-		if err != nil {
+		); err != nil {
 			return nil, fmt.Errorf("failed to scan list: %w", err)
 		}
 
@@ -260,9 +260,8 @@ func (s *Store) getListID(ctx context.Context, tx *sql.Tx, externalID *string) (
 	var id string
 	query := `SELECT id FROM lists WHERE external_id = ?`
 	row := tx.QueryRowContext(ctx, query, externalID)
-	err := row.Scan(&id)
-	if err != nil {
-		if err == sql.ErrNoRows {
+	if err := row.Scan(&id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
 			return "", fmt.Errorf("list with external ID %v: %w", externalID, ErrNotFound)
 		}
 
@@ -443,7 +442,7 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 		return fmt.Errorf("failed to insert item %q: %w", item.Title, err)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
@@ -486,7 +485,7 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, er
 	for rows.Next() {
 		var tagsJSON string
 		item := &model.Item{}
-		err := rows.Scan(
+		if err := rows.Scan(
 			&item.ID,
 			&item.ListID,
 			&item.Position,
@@ -502,8 +501,7 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, er
 			&item.Created,
 			&item.ExternalID,
 			&item.ExternalListID,
-		)
-		if err != nil {
+		); err != nil {
 			return nil, fmt.Errorf("failed to scan item: %w", err)
 		}
 
@@ -532,9 +530,8 @@ func (s *Store) getItemID(ctx context.Context, tx *sql.Tx, externalID *string) (
 	var id string
 	query := `SELECT id FROM items WHERE external_id = ?`
 	row := tx.QueryRowContext(ctx, query, externalID)
-	err := row.Scan(&id)
-	if err != nil {
-		if err == sql.ErrNoRows {
+	if err := row.Scan(&id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
 			return "", fmt.Errorf("item with external ID %v: %w", externalID, ErrNotFound)
 		}
 
@@ -620,7 +617,7 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 		return fmt.Errorf("item with ID %q not found", item.ID)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 

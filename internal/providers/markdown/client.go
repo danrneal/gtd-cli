@@ -383,6 +383,8 @@ func (c *Client) writeFile(lists []model.List) error {
 	return nil
 }
 
+// calculateItemsToMove determines which items have been relocated or reordered within
+// a list and need their positions updated.
 func calculateItemsToMove(list *model.List, currentItems []*model.Item) []*model.Item {
 	var itemsToMove []*model.Item
 	for i, item := range list.Items {

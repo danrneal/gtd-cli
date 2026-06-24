@@ -28,16 +28,16 @@ func render(writer io.Writer, lists []model.List) error {
 func renderList(buf *strings.Builder, list *model.List) error {
 	listParts := []string{"#", list.Name}
 
-	countStr := fmt.Sprintf("(%d)", len(list.Items))
-	listParts = append(listParts, countStr)
+	count := fmt.Sprintf("(%d)", len(list.Items))
+	listParts = append(listParts, count)
 
 	if list.ID != "" {
-		idStr := fmt.Sprintf("{{%s}}", list.ID)
-		listParts = append(listParts, idStr)
+		listID := fmt.Sprintf("{{%s}}", list.ID)
+		listParts = append(listParts, listID)
 	}
 
-	listStr := strings.Join(listParts, " ")
-	buf.WriteString(listStr)
+	listTitle := strings.Join(listParts, " ")
+	buf.WriteString(listTitle)
 	buf.WriteString("\n")
 
 	for _, item := range list.Items {
@@ -68,13 +68,13 @@ func renderItem(buf *strings.Builder, item *model.Item) error {
 		return fmt.Errorf("render received invalid status %q on item %s", item.Status, item.ID)
 	}
 
-	statusStr := fmt.Sprintf("* [%s] ", itemStatus)
-	buf.WriteString(statusStr)
+	status := fmt.Sprintf("* [%s] ", itemStatus)
+	buf.WriteString(status)
 	buf.WriteString(title)
 
 	if item.ID != "" {
-		idStr := fmt.Sprintf(" {{%s}}", item.ID)
-		buf.WriteString(idStr)
+		itemID := fmt.Sprintf(" {{%s}}", item.ID)
+		buf.WriteString(itemID)
 	}
 
 	buf.WriteString("\n")
