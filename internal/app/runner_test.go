@@ -676,7 +676,9 @@ func setupTestSQLite(t *testing.T, lists []model.List) Provider {
 			list.Status = model.StatusOpen
 		}
 
-		if err := store.CreateList(context.Background(), &list); err != nil {
+		listModified := list.Modified
+
+		if err := store.CreateList(t.Context(), &list); err != nil {
 			t.Fatalf("failed to create list: %v", err)
 		}
 
@@ -687,18 +689,6 @@ func setupTestSQLite(t *testing.T, lists []model.List) Provider {
 			}
 		}
 
-		if !list.Modified.IsZero() {
-			_, err := db.ExecContext(
-				context.Background(),
-				"UPDATE lists SET modified = ? WHERE id = ?",
-				list.Modified,
-				list.ID,
-			)
-			if err != nil {
-				t.Fatalf("failed to override list modified time: %v", err)
-			}
-		}
-
 		for _, item := range list.Items {
 			item.ListID = list.ID
 			itemStatus := item.Status
@@ -706,7 +696,9 @@ func setupTestSQLite(t *testing.T, lists []model.List) Provider {
 				item.Status = model.StatusNotStarted
 			}
 
-			if err := store.CreateItem(context.Background(), item, ""); err != nil {
+			itemModified := item.Modified
+
+			if err := store.CreateItem(t.Context(), item, ""); err != nil {
 				t.Fatalf("failed to create item: %v", err)
 			}
 
@@ -717,20 +709,30 @@ func setupTestSQLite(t *testing.T, lists []model.List) Provider {
 				}
 			}
 
-			if item.Modified.IsZero() {
+			if itemModified.IsZero() {
 				continue
 			}
 
-			_, err := db.ExecContext(
-				context.Background(),
-				"UPDATE items SET modified = ? WHERE id = ?",
-				item.Modified,
-				item.ID,
-			)
+			query := `UPDATE items SET modified = ? WHERE id = ?`
+			_, err := db.ExecContext(t.Context(), query, itemModified, item.ID)
 			if err != nil {
 				t.Fatalf("failed to override item modified time: %v", err)
 			}
+
+			item.Modified = itemModified
 		}
+
+		if listModified.IsZero() {
+			continue
+		}
+
+		query := `UPDATE lists SET modified = ? WHERE id = ?`
+		_, err := db.ExecContext(t.Context(), query, listModified, list.ID)
+		if err != nil {
+			t.Fatalf("failed to override list modified time: %v", err)
+		}
+
+		list.Modified = listModified
 	}
 
 	return store

@@ -18,7 +18,7 @@ type Item struct {
 	Title          string     `json:"title"`
 	Description    string     `json:"description"`
 	ProjectID      *string    `json:"projectId"`
-	WaitingOn      *string    `json:"waitingOn"`
+	WaitingOn      string     `json:"waitingOn"`
 	Snoozed        *time.Time `json:"snoozed"`
 	Due            *time.Time `json:"due"`
 	Tags           []string   `json:"tags"`
@@ -47,7 +47,8 @@ func (i *Item) Clean() {
 	}
 
 	if i.Created.IsZero() {
-		i.Created = i.Modified
+		created := i.Modified.In(time.Local)
+		i.Created = time.Date(created.Year(), created.Month(), created.Day(), 0, 0, 0, 0, time.UTC)
 	}
 }
 
@@ -106,7 +107,7 @@ func (i *Item) Equivalent(other *Item) bool {
 		return false
 	}
 
-	if !equalStringPtr(i.WaitingOn, other.WaitingOn) {
+	if i.WaitingOn != other.WaitingOn {
 		return false
 	}
 
@@ -122,7 +123,7 @@ func (i *Item) Equivalent(other *Item) bool {
 		return false
 	}
 
-	if i.WaitingOn != nil && i.Created.Format("Jan _2") != other.Created.Format("Jan _2") {
+	if i.WaitingOn != "" && i.Created.Format("2006-01-02") != other.Created.Format("2006-01-02") {
 		return false
 	}
 

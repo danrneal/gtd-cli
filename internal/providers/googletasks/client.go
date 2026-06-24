@@ -410,9 +410,9 @@ func renderTitle(item *model.Item) string {
 
 	title := strings.Join(titleParts, " ")
 
-	if item.WaitingOn != nil {
-		createdStr := item.Created.Format("Jan 2")
-		title = fmt.Sprintf("%s - %s - %s", *item.WaitingOn, title, createdStr)
+	if item.WaitingOn != "" {
+		created := item.Created.Format("2006-01-02")
+		title = fmt.Sprintf("%s - %s - %s", item.WaitingOn, title, created)
 	}
 
 	return title
@@ -430,12 +430,12 @@ func parseWaitingForTitle(title string) *model.Item {
 
 	item := parseTitle(title)
 	if waitingOn != "" {
-		item.WaitingOn = &waitingOn
+		item.WaitingOn = waitingOn
 	}
 
 	if parts[len(parts)-1] != title {
-		createdStr := strings.TrimSpace(parts[len(parts)-1])
-		if created, err := time.Parse("Jan 2", createdStr); err == nil {
+		created := strings.TrimSpace(parts[len(parts)-1])
+		if created, err := time.Parse("2006-01-02", created); err == nil {
 			item.Created = created
 		}
 	}

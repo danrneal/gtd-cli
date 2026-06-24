@@ -238,6 +238,7 @@ func TestClient_ListLists(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	created := time.Date(modified.Year(), modified.Month(), modified.Day(), 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
 		name    string
@@ -274,7 +275,7 @@ func TestClient_ListLists(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 					},
 				},
@@ -321,6 +322,7 @@ func TestClient_UpdateList(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	created := time.Date(modified.Year(), modified.Month(), modified.Day(), 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
 		name          string
@@ -483,7 +485,7 @@ func TestClient_UpdateList(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 					},
 				},
@@ -541,7 +543,7 @@ func TestClient_UpdateList(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 					},
 				},
@@ -636,7 +638,7 @@ func TestClient_UpdateList(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 						{
 							ID:       "item-3",
@@ -645,7 +647,7 @@ func TestClient_UpdateList(t *testing.T) {
 							Position: 1,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 						{
 							ID:       "item-2",
@@ -654,7 +656,7 @@ func TestClient_UpdateList(t *testing.T) {
 							Position: 2,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 					},
 				},
@@ -739,7 +741,7 @@ func TestClient_UpdateList(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 						{
 							ID:       "item-3",
@@ -748,7 +750,7 @@ func TestClient_UpdateList(t *testing.T) {
 							Position: 1,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 						{
 							ID:       "item-1",
@@ -757,7 +759,7 @@ func TestClient_UpdateList(t *testing.T) {
 							Position: 2,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 					},
 				},
@@ -1003,6 +1005,7 @@ func TestClient_DeleteList(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	created := time.Date(modified.Year(), modified.Month(), modified.Day(), 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
 		name          string
@@ -1047,7 +1050,7 @@ func TestClient_DeleteList(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 					},
 				},
@@ -1165,6 +1168,7 @@ func TestClient_CreateItem(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	created := time.Date(modified.Year(), modified.Month(), modified.Day(), 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
 		name           string
@@ -1212,7 +1216,7 @@ func TestClient_CreateItem(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 						{
 							ID:       "item-2",
@@ -1221,7 +1225,7 @@ func TestClient_CreateItem(t *testing.T) {
 							Position: 1,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 					},
 				},
@@ -1267,7 +1271,7 @@ func TestClient_CreateItem(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 						{
 							ID:       "item-1",
@@ -1276,7 +1280,7 @@ func TestClient_CreateItem(t *testing.T) {
 							Position: 1,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 						{
 							Title:    "Task 2",
@@ -1284,7 +1288,7 @@ func TestClient_CreateItem(t *testing.T) {
 							Position: 2,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 					},
 				},
@@ -1468,6 +1472,7 @@ func TestClient_UpdateItem(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	created := time.Date(modified.Year(), modified.Month(), modified.Day(), 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
 		name          string
@@ -1515,7 +1520,7 @@ func TestClient_UpdateItem(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 					},
 				},
@@ -1560,7 +1565,7 @@ func TestClient_UpdateItem(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusDone,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 					},
 				},
@@ -1744,6 +1749,7 @@ func TestClient_DeleteItem(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	created := time.Date(modified.Year(), modified.Month(), modified.Day(), 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
 		name          string
@@ -1789,7 +1795,7 @@ func TestClient_DeleteItem(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 					},
 				},
@@ -1948,6 +1954,7 @@ func TestClient_readFile(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	created := time.Date(modified.Year(), modified.Month(), modified.Day(), 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
 		name        string
@@ -1985,7 +1992,7 @@ func TestClient_readFile(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 					},
 				},
@@ -2022,7 +2029,7 @@ func TestClient_readFile(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 					},
 				},
@@ -2106,6 +2113,7 @@ func TestClient_writeFile(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	created := time.Date(modified.Year(), modified.Month(), modified.Day(), 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
 		name          string
@@ -2134,7 +2142,7 @@ func TestClient_writeFile(t *testing.T) {
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							Modified: modified,
-							Created:  modified,
+							Created:  created,
 						},
 					},
 				},

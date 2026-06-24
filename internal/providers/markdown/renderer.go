@@ -92,30 +92,30 @@ func renderTitle(item *model.Item) string {
 	titleParts := []string{item.Title}
 
 	if item.ProjectID != nil {
-		projectIDStr := fmt.Sprintf("+%s", *item.ProjectID)
-		titleParts = append(titleParts, projectIDStr)
+		projectID := fmt.Sprintf("+%s", *item.ProjectID)
+		titleParts = append(titleParts, projectID)
 	}
 
 	if item.Due != nil {
-		dueStr := fmt.Sprintf("due:%s", item.Due.Format("2006-01-02"))
-		titleParts = append(titleParts, dueStr)
+		due := fmt.Sprintf("due:%s", item.Due.Format("2006-01-02"))
+		titleParts = append(titleParts, due)
 	}
 
 	if item.Snoozed != nil {
-		snoozedStr := fmt.Sprintf("snoozed:%s", item.Snoozed.Format("2006-01-02"))
-		titleParts = append(titleParts, snoozedStr)
+		snoozed := fmt.Sprintf("snoozed:%s", item.Snoozed.Format("2006-01-02"))
+		titleParts = append(titleParts, snoozed)
 	}
 
 	for _, tag := range item.Tags {
-		tagStr := fmt.Sprintf("#%s", tag)
-		titleParts = append(titleParts, tagStr)
+		tag = fmt.Sprintf("#%s", tag)
+		titleParts = append(titleParts, tag)
 	}
 
 	title := strings.Join(titleParts, " ")
 
-	if item.WaitingOn != nil {
-		createdStr := item.Created.Format("Jan 2")
-		title = fmt.Sprintf("%s - %s - %s", *item.WaitingOn, title, createdStr)
+	if item.WaitingOn != "" {
+		created := item.Created.Format("2006-01-02")
+		title = fmt.Sprintf("%s - %s - %s", item.WaitingOn, title, created)
 	}
 
 	return title

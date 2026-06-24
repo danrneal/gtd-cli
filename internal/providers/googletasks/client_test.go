@@ -1134,7 +1134,7 @@ func TestListItems(t *testing.T) {
 				{
 					ListID:         "1",
 					Title:          "Send Mail",
-					WaitingOn:      new("Alice"),
+					WaitingOn:      "Alice",
 					Status:         model.StatusOpen,
 					ExternalID:     new("t1"),
 					ExternalListID: new("L1"),
@@ -1161,7 +1161,7 @@ func TestListItems(t *testing.T) {
 				{
 					ListID:         "1",
 					Title:          "Send Mail",
-					WaitingOn:      nil,
+					WaitingOn:      "",
 					Status:         model.StatusOpen,
 					ExternalID:     new("t1"),
 					ExternalListID: new("L1"),
@@ -1179,7 +1179,7 @@ func TestListItems(t *testing.T) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{
 						Id:       "t1",
-						Title:    "Alice - Send Mail - Jan 23",
+						Title:    "Alice - Send Mail - 2026-01-23",
 						Position: "0001",
 					},
 				}
@@ -1188,13 +1188,11 @@ func TestListItems(t *testing.T) {
 				{
 					ListID:         "1",
 					Title:          "Send Mail",
-					WaitingOn:      new("Alice"),
+					WaitingOn:      "Alice",
 					Status:         model.StatusOpen,
 					ExternalID:     new("t1"),
 					ExternalListID: new("L1"),
-					Created: rfc3339ToDate(
-						"0000-01-23T00:00:00Z",
-					),
+					Created:        rfc3339ToDate("2026-01-23T00:00:00Z"),
 				},
 			},
 		},
@@ -1209,7 +1207,7 @@ func TestListItems(t *testing.T) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{
 						Id:       "t1",
-						Title:    "Alice - Send Mail - Jan 42",
+						Title:    "Alice - Send Mail - 2026-01-42",
 						Position: "0001",
 					},
 				}
@@ -1218,7 +1216,7 @@ func TestListItems(t *testing.T) {
 				{
 					ListID:         "1",
 					Title:          "Send Mail",
-					WaitingOn:      new("Alice"),
+					WaitingOn:      "Alice",
 					Status:         model.StatusOpen,
 					ExternalID:     new("t1"),
 					ExternalListID: new("L1"),
@@ -1874,10 +1872,10 @@ func TestRenderTitle(t *testing.T) {
 			name: "title with waiting on",
 			item: &model.Item{
 				Title:     "Task",
-				WaitingOn: new("Alice"),
+				WaitingOn: "Alice",
 				Created:   rfc3339ToDate("2024-01-02T10:00:00Z"),
 			},
-			wantTitle: "Alice - Task - Jan 2",
+			wantTitle: "Alice - Task - 2024-01-02",
 		},
 	}
 
