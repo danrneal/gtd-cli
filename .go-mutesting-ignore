@@ -1,4 +1,4 @@
-# Last-Synced-Commit: 1c23c01d7603e6bdb21e7fc3d3cdf1fb024675c3
+# Last-Synced-Commit: ff02a7c623e6c9825b90fba4cf4346920ac337a7
 # format: filepath:line:mutatorName
 
 internal/app/runner.go:122:branch/if
@@ -12,16 +12,13 @@ internal/app/syncer.go:114:branch/if
 internal/app/syncer.go:122:branch/if
 internal/app/syncer.go:280:branch/if
 internal/app/syncer.go:356:statement/remove
-internal/model/list.go:126:numbers/incrementer
-internal/model/list.go:127:numbers/incrementer
-internal/model/list.go:140:numbers/incrementer
-internal/model/list.go:144:numbers/incrementer
-internal/model/list.go:148:numbers/decrementer
-internal/model/list.go:148:numbers/incrementer
-internal/model/list.go:152:numbers/decrementer
-internal/model/list.go:152:numbers/incrementer
-internal/model/list.go:166:numbers/incrementer
-internal/model/list.go:168:numbers/incrementer
+internal/model/list.go:141:numbers/incrementer
+internal/model/list.go:151:numbers/incrementer
+internal/model/list.go:153:numbers/incrementer
+internal/model/list.go:156:numbers/incrementer
+internal/model/list.go:162:numbers/decrementer
+internal/model/list.go:162:numbers/incrementer
+internal/model/list.go:171:numbers/incrementer
 internal/providers/googletasks/client.go:66:statement/remove
 internal/providers/googletasks/client.go:127:statement/remove
 internal/providers/markdown/client.go:72:statement/remove
