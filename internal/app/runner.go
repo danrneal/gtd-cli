@@ -74,7 +74,7 @@ func (r *Runner) Run(ctx context.Context) error {
 		}
 	}
 
-	r.syncTargets(ctx, syncEvent{})
+	r.processEvent(ctx, syncEvent{})
 	r.onReady()
 
 	for {
@@ -86,7 +86,7 @@ func (r *Runner) Run(ctx context.Context) error {
 				return fmt.Errorf("fatal error in %s watcher: %w", event.target.Name, event.err)
 			}
 
-			r.syncTargets(ctx, event)
+			r.processEvent(ctx, event)
 		}
 	}
 }
@@ -129,9 +129,9 @@ func (r *Runner) startWatcher(ctx context.Context, target *SyncTarget) error {
 	return nil
 }
 
-// syncTargets orchestrates the pulling and pushing of state across all targets
+// processEvent orchestrates the pulling and pushing of state across all targets
 // in response to an event. It cross-pollinates changes while respecting retry states.
-func (r *Runner) syncTargets(ctx context.Context, event syncEvent) {
+func (r *Runner) processEvent(ctx context.Context, event syncEvent) {
 	syncStart := time.Now()
 
 	changed := false

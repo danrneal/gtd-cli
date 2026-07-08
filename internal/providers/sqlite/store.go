@@ -151,7 +151,24 @@ func (s *Store) CreateList(ctx context.Context, list *model.List) error {
 		list.ID = s.generateListID()
 	}
 
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	defer tx.Rollback()
+
 	query := `
+		UPDATE lists
+		SET position = position + 1
+		WHERE position >= ?
+	`
+
+	if _, err = tx.ExecContext(ctx, query, list.Position); err != nil {
+		return fmt.Errorf("failed to shift list positions: %w", err)
+	}
+
+	query = `
 		INSERT INTO lists (
 			id,
 			name,
@@ -163,16 +180,20 @@ func (s *Store) CreateList(ctx context.Context, list *model.List) error {
 	`
 
 	s.logger.InfoContext(ctx, "SQLite: Inserting list", "id", list.ID, "name", list.Name)
-	_, err := s.db.ExecContext(ctx, query,
+	list.Modified = time.Now()
+	if _, err = tx.ExecContext(ctx, query,
 		list.ID,
 		list.Name,
 		list.Position,
 		list.Status,
-		time.Now(),
+		list.Modified,
 		list.ExternalID,
-	)
-	if err != nil {
+	); err != nil {
 		return fmt.Errorf("failed to insert list %q: %w", list.Name, err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -314,11 +335,12 @@ func (s *Store) UpdateList(ctx context.Context, list, currentList *model.List) e
     `
 
 	s.logger.InfoContext(ctx, "SQLite: Updating list", "id", list.ID, "name", list.Name)
+	list.Modified = time.Now()
 	res, err := tx.ExecContext(ctx, query,
 		list.Name,
 		list.Position,
 		list.Status,
-		time.Now(),
+		list.Modified,
 		list.ExternalID,
 		list.ID,
 	)
@@ -422,6 +444,7 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
     `
 
 	s.logger.InfoContext(ctx, "SQLite: Inserting item", "id", item.ID, "title", item.Title, "listId", item.ListID)
+	item.Modified = time.Now()
 	_, err = tx.ExecContext(ctx, query,
 		item.ID,
 		item.ListID,
@@ -434,7 +457,7 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 		item.Snoozed,
 		item.Due,
 		string(tagsJSON),
-		time.Now(),
+		item.Modified,
 		item.Created,
 		item.ExternalID,
 	)
@@ -586,11 +609,13 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
             due = ?,
             tags = ?,
             modified = ?,
+            created = ?,
             external_id = COALESCE(?, external_id)
         WHERE id = ?;
     `
 
 	s.logger.InfoContext(ctx, "SQLite: Updating item", "id", item.ID, "title", item.Title, "status", item.Status)
+	item.Modified = time.Now()
 	res, err := tx.ExecContext(ctx, query,
 		item.Status,
 		item.Title,
@@ -600,7 +625,8 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 		item.Snoozed,
 		item.Due,
 		string(tagsJSON),
-		time.Now(),
+		item.Modified,
+		item.Created,
 		item.ExternalID,
 		item.ID,
 	)

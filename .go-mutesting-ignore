@@ -1,4 +1,4 @@
-# Last-Synced-Commit: ff02a7c623e6c9825b90fba4cf4346920ac337a7
+# Last-Synced-Commit: 0b470effa5c578f73c370d91837d79d1e3bf90e5
 # format: filepath:line:mutatorName
 
 internal/app/runner.go:122:branch/if
@@ -12,12 +12,14 @@ internal/app/syncer.go:114:branch/if
 internal/app/syncer.go:122:branch/if
 internal/app/syncer.go:280:branch/if
 internal/app/syncer.go:356:statement/remove
+internal/model/list.go:140:numbers/incrementer
 internal/model/list.go:141:numbers/incrementer
-internal/model/list.go:151:numbers/incrementer
-internal/model/list.go:153:numbers/incrementer
+internal/model/list.go:152:numbers/decrementer
+internal/model/list.go:152:numbers/incrementer
 internal/model/list.go:156:numbers/incrementer
 internal/model/list.go:162:numbers/decrementer
 internal/model/list.go:162:numbers/incrementer
+internal/model/list.go:166:numbers/incrementer
 internal/model/list.go:171:numbers/incrementer
 internal/providers/googletasks/client.go:66:statement/remove
 internal/providers/googletasks/client.go:127:statement/remove
