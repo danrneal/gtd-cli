@@ -261,7 +261,7 @@ func TestPushGoogleTasks(t *testing.T) {
 				tasks := setupTestGoogleTasks(t, []model.List{
 					{
 						Name:     "L1",
-						Modified: baseTime.Add(1),
+						Modified: baseTime,
 						Items: []*model.Item{
 							{
 								Title:    "I1",
@@ -270,6 +270,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						},
 					},
 				})
+				tasks.errUpdateList = errors.New("redundant update list called")
 
 				return tasks
 			},

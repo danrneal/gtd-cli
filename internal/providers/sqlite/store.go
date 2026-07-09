@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -272,6 +273,54 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 	return lists, nil
 }
 
+// getList retrieves a list and its associated items from the database by its internal ID.
+func (s *Store) getList(ctx context.Context, listID string) (*model.List, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	defer tx.Rollback()
+
+	var list model.List
+	query := `
+		SELECT
+    		id,
+            name,
+            position,
+            status,
+            modified,
+            external_id
+        FROM lists
+        WHERE id = ?
+	`
+
+	row := tx.QueryRowContext(ctx, query, listID)
+	if err = row.Scan(
+		&list.ID,
+		&list.Name,
+		&list.Position,
+		&list.Status,
+		&list.Modified,
+		&list.ExternalID,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("list with ID %q: %w", listID, ErrNotFound)
+		}
+
+		return nil, fmt.Errorf("failed to scan list: %w", err)
+	}
+
+	items, err := s.listItems(ctx, tx, listID)
+	if err != nil {
+		return nil, err
+	}
+
+	list.Items = items
+
+	return &list, nil
+}
+
 // getListID resolves the internal list ID using the provided external ID.
 func (s *Store) getListID(ctx context.Context, tx *sql.Tx, externalID *string) (string, error) {
 	if externalID == nil {
@@ -425,6 +474,16 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 	}
 
 	query := `
+		UPDATE items
+		SET position = position + 1
+		WHERE list_id = ? AND position >= ?
+	`
+
+	if _, err = tx.ExecContext(ctx, query, item.ListID, item.Position); err != nil {
+		return fmt.Errorf("failed to shift item positions: %w", err)
+	}
+
+	query = `
         INSERT INTO items (
             id,
             list_id,
@@ -469,7 +528,16 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	return nil
+	list, err := s.getList(ctx, item.ListID)
+	if err != nil {
+		return err
+	}
+
+	currentList := *list
+	currentList.Items = slices.Clone(list.Items)
+	err = s.UpdateList(ctx, list, &currentList)
+
+	return err
 }
 
 // listAllItems returns all items from the database using the provided transaction.
@@ -500,6 +568,79 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, er
 	rows, err := tx.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query items: %w", err)
+	}
+
+	defer rows.Close()
+
+	var items []*model.Item
+	for rows.Next() {
+		var tagsJSON string
+		item := &model.Item{}
+		if err := rows.Scan(
+			&item.ID,
+			&item.ListID,
+			&item.Position,
+			&item.Status,
+			&item.Title,
+			&item.Description,
+			&item.ProjectID,
+			&item.WaitingOn,
+			&item.Snoozed,
+			&item.Due,
+			&tagsJSON,
+			&item.Modified,
+			&item.Created,
+			&item.ExternalID,
+			&item.ExternalListID,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan item: %w", err)
+		}
+
+		if tagsJSON != "" {
+			if err := json.Unmarshal([]byte(tagsJSON), &item.Tags); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal tags for item %s: %w", item.ID, err)
+			}
+		}
+
+		items = append(items, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration failed: %w", err)
+	}
+
+	return items, nil
+}
+
+// listItems retrieves all items belonging to a specific list ID, ordered by position.
+func (s *Store) listItems(ctx context.Context, tx *sql.Tx, listID string) ([]*model.Item, error) {
+	query := `
+		SELECT
+			i.id,
+			i.list_id,
+			i.position,
+			i.status,
+			i.title,
+			i.description,
+			i.project_id,
+			i.waiting_on,
+			i.snoozed,
+			i.due,
+			i.tags,
+			i.modified,
+			i.created,
+			i.external_id,
+			l.external_id AS external_list_id
+		FROM items i
+		INNER JOIN lists l
+		ON i.list_id = l.id
+		WHERE i.list_id = ?
+		ORDER BY i.position
+	`
+
+	rows, err := tx.QueryContext(ctx, query, listID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query items for list: %w", err)
 	}
 
 	defer rows.Close()
@@ -598,6 +739,16 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 		item.ID = itemID
 	}
 
+	if item.ListID == "" {
+		var listID string
+		listID, err = s.getListID(ctx, tx, item.ExternalListID)
+		if err != nil {
+			return err
+		}
+
+		item.ListID = listID
+	}
+
 	query := `
         UPDATE items SET
             status = ?,
@@ -647,7 +798,16 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	return nil
+	list, err := s.getList(ctx, item.ListID)
+	if err != nil {
+		return err
+	}
+
+	currentList := *list
+	currentList.Items = slices.Clone(list.Items)
+	err = s.UpdateList(ctx, list, &currentList)
+
+	return err
 }
 
 // batchMoveItems updates the list_id and position for a batch of items.

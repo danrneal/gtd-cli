@@ -1499,6 +1499,8 @@ func TestDeleteList(t *testing.T) {
 func TestCreateItem(t *testing.T) {
 	t.Parallel()
 
+	listModified := time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
+
 	tests := []struct {
 		name          string
 		setupDB       func(t *testing.T, db *sql.DB)
@@ -1515,7 +1517,7 @@ func TestCreateItem(t *testing.T) {
 					`
 						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", time.Now(),
+					`, "list-1", "Inbox", listModified,
 				)
 			},
 			item: &model.Item{
@@ -1540,7 +1542,7 @@ func TestCreateItem(t *testing.T) {
 					`
 						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", time.Now(),
+					`, "list-1", "Inbox", listModified,
 				)
 			},
 			item: &model.Item{
@@ -1571,7 +1573,7 @@ func TestCreateItem(t *testing.T) {
 					`
 						INSERT INTO lists (id, name, modified, external_id)
 						VALUES (?, ?, ?, ?)
-					`, "list-1", "External List", time.Now(), "ext-L1",
+					`, "list-1", "External List", listModified, "ext-L1",
 				)
 			},
 			item: &model.Item{
@@ -1606,7 +1608,7 @@ func TestCreateItem(t *testing.T) {
 					`
 						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", time.Now(),
+					`, "list-1", "Inbox", listModified,
 				)
 			},
 			item: &model.Item{
@@ -1622,7 +1624,7 @@ func TestCreateItem(t *testing.T) {
 					`
 						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", time.Now(),
+					`, "list-1", "Inbox", listModified,
 				)
 			},
 			item: &model.Item{
@@ -1646,6 +1648,37 @@ func TestCreateItem(t *testing.T) {
 				cancel()
 
 				return ctx, cancel
+			},
+			wantErr: true,
+		},
+		{
+			name: "list iteration fails due to corrupted sibling item tags",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", listModified,
+				)
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							waiting_on,
+							tags,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "poisoned-item", "Poisoned Item", "", "list-1", "", "{bad-json", time.Now(), time.Now(),
+				)
+			},
+			item: &model.Item{
+				ListID:   "list-1",
+				Title:    "Valid New Item",
+				Modified: time.Now(),
 			},
 			wantErr: true,
 		},
@@ -1701,6 +1734,15 @@ func TestCreateItem(t *testing.T) {
 			if err != nil {
 				t.Errorf("CreateItem() unexpected error: %v", err)
 				return
+			}
+
+			gotList, err := store.getList(ctx, tt.item.ListID)
+			if err != nil {
+				t.Fatalf("failed to get list after create: %v", err)
+			}
+
+			if !gotList.Modified.After(listModified) {
+				t.Errorf("expected parent list timestamp to bump, got old: %v, new: %v", listModified, gotList.Modified)
 			}
 
 			var count int
@@ -1784,6 +1826,8 @@ func TestCreateItem(t *testing.T) {
 func TestUpdateItem(t *testing.T) {
 	t.Parallel()
 
+	listModified := time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
+
 	tests := []struct {
 		name          string
 		setupDB       func(t *testing.T, db *sql.DB) string
@@ -1800,7 +1844,7 @@ func TestUpdateItem(t *testing.T) {
 					`
 						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", time.Now(),
+					`, "list-1", "Inbox", listModified,
 				)
 
 				mustExec(t, db,
@@ -1851,7 +1895,7 @@ func TestUpdateItem(t *testing.T) {
 					`
 						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", time.Now(),
+					`, "list-1", "Inbox", listModified,
 				)
 
 				mustExec(t, db,
@@ -1892,13 +1936,58 @@ func TestUpdateItem(t *testing.T) {
 			},
 		},
 		{
+			name: "update item resolving list id by external id",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified, external_id)
+						VALUES (?, ?, ?, ?)
+					`, "list-1", "Inbox", listModified, "external-list-1",
+				)
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							waiting_on,
+							tags,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Original Title", "", "list-1", "", time.Now(), time.Now(),
+				)
+
+				return "item-1"
+			},
+			setupItem: func(id string) model.Item {
+				item := model.Item{
+					ID:             id,
+					ListID:         "",
+					ExternalListID: new("external-list-1"),
+					Title:          "Updated Title",
+					Modified:       time.Now(),
+				}
+
+				return item
+			},
+			wantItem: &model.Item{
+				ID:     "item-1",
+				ListID: "list-1",
+				Title:  "Updated Title",
+				Status: model.StatusNotStarted,
+				Tags:   []string{},
+			},
+		},
+		{
 			name: "preserve item external id when nil",
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", time.Now(),
+					`, "list-1", "Inbox", listModified,
 				)
 
 				mustExec(t, db,
@@ -1980,7 +2069,7 @@ func TestUpdateItem(t *testing.T) {
 					`
 						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", time.Now(),
+					`, "list-1", "Inbox", listModified,
 				)
 
 				mustExec(t, db,
@@ -2014,7 +2103,14 @@ func TestUpdateItem(t *testing.T) {
 		},
 		{
 			name: "nonexistent id",
-			setupDB: func(_ *testing.T, _ *sql.DB) string {
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", listModified,
+				)
+
 				return "non-existent"
 			},
 			setupItem: func(id string) model.Item {
@@ -2030,13 +2126,54 @@ func TestUpdateItem(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "update item fails when resolving non-existent external list id",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", listModified,
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							waiting_on,
+							tags,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Original Title", "", "list-1", "", time.Now(), time.Now(),
+				)
+
+				return "item-1"
+			},
+			setupItem: func(id string) model.Item {
+				item := model.Item{
+					ID:             id,
+					ListID:         "",
+					ExternalListID: new("fake-external-list"),
+					Title:          "Updated Title",
+					Modified:       time.Now(),
+				}
+
+				return item
+			},
+			wantErr:       true,
+			wantErrTarget: ErrNotFound,
+		},
+		{
 			name: "context cancellation",
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified)
 						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", time.Now(),
+					`, "list-1", "Inbox", listModified,
 				)
 
 				mustExec(t, db,
@@ -2071,6 +2208,58 @@ func TestUpdateItem(t *testing.T) {
 				cancel()
 
 				return ctx, cancel
+			},
+			wantErr: true,
+		},
+		{
+			name: "list iteration fails due to corrupted sibling item tags",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", listModified,
+				)
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							waiting_on,
+							tags,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-to-update", "Valid Item", "", "list-1", "", "[]", time.Now(), time.Now(),
+				)
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							waiting_on,
+							tags,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "poisoned-item", "Poisoned Item", "", "list-1", "", "{bad-json", time.Now(), time.Now(),
+				)
+
+				return "item-to-update"
+			},
+			setupItem: func(id string) model.Item {
+				item := model.Item{
+					ID:       id,
+					ListID:   "list-1",
+					Title:    "Updated Valid Item",
+					Modified: time.Now(),
+				}
+
+				return item
 			},
 			wantErr: true,
 		},
@@ -2124,6 +2313,15 @@ func TestUpdateItem(t *testing.T) {
 			if err != nil {
 				t.Errorf("UpdateItem() unexpected error: %v", err)
 				return
+			}
+
+			gotList, err := store.getList(ctx, item.ListID)
+			if err != nil {
+				t.Fatalf("failed to get list after update: %v", err)
+			}
+
+			if !gotList.Modified.After(listModified) {
+				t.Errorf("expected parent list timestamp to bump, got old: %v, new: %v", listModified, gotList.Modified)
 			}
 
 			var (

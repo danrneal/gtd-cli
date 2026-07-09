@@ -1,4 +1,4 @@
-# Last-Synced-Commit: 0b470effa5c578f73c370d91837d79d1e3bf90e5
+# Last-Synced-Commit: 8ba5842d02b6a563d935144ec3b4d7daa17de959
 # format: filepath:line:mutatorName
 
 internal/app/runner.go:122:branch/if
@@ -10,8 +10,8 @@ internal/app/runner.go:185:statement/remove
 internal/app/runner.go:191:statement/remove
 internal/app/syncer.go:114:branch/if
 internal/app/syncer.go:122:branch/if
-internal/app/syncer.go:280:branch/if
-internal/app/syncer.go:356:statement/remove
+internal/app/syncer.go:279:branch/if
+internal/app/syncer.go:355:statement/remove
 internal/model/list.go:140:numbers/incrementer
 internal/model/list.go:141:numbers/incrementer
 internal/model/list.go:152:numbers/decrementer
@@ -41,18 +41,19 @@ internal/providers/sqlite/store.go:62:branch/if
 internal/providers/sqlite/store.go:62:statement/remove
 internal/providers/sqlite/store.go:69:numbers/decrementer
 internal/providers/sqlite/store.go:69:numbers/incrementer
-internal/providers/sqlite/store.go:164:statement/remove
-internal/providers/sqlite/store.go:286:branch/if
-internal/providers/sqlite/store.go:315:statement/remove
-internal/providers/sqlite/store.go:358:statement/remove
-internal/providers/sqlite/store.go:423:statement/remove
-internal/providers/sqlite/store.go:553:branch/if
-internal/providers/sqlite/store.go:592:statement/remove
-internal/providers/sqlite/store.go:630:numbers/decrementer
-internal/providers/sqlite/store.go:631:branch/if
-internal/providers/sqlite/store.go:650:branch/if
-internal/providers/sqlite/store.go:686:statement/remove
-internal/providers/sqlite/store.go:708:branch/if
+internal/providers/sqlite/store.go:181:statement/remove
+internal/providers/sqlite/store.go:307:branch/if
+internal/providers/sqlite/store.go:336:statement/remove
+internal/providers/sqlite/store.go:380:statement/remove
+internal/providers/sqlite/store.go:445:statement/remove
+internal/providers/sqlite/store.go:576:branch/if
+internal/providers/sqlite/store.go:616:statement/remove
+internal/providers/sqlite/store.go:656:numbers/decrementer
+internal/providers/sqlite/store.go:657:branch/if
+internal/providers/sqlite/store.go:676:branch/if
+internal/providers/sqlite/store.go:712:statement/remove
+internal/providers/sqlite/store.go:734:branch/if
+internal/providers/sqlite/store.go:746:branch/if
 internal/providers/util/reorder/move.go:78:numbers/decrementer
 internal/providers/util/reorder/move.go:78:numbers/incrementer
 internal/providers/util/reorder/move.go:86:numbers/incrementer

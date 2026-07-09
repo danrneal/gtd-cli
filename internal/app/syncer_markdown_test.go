@@ -278,7 +278,7 @@ func TestPushMarkdown(t *testing.T) {
 					{
 						ID:       "store-list-1",
 						Name:     "L1",
-						Modified: baseTime.Add(1),
+						Modified: baseTime,
 						Items: []*model.Item{
 							{
 								ID:       "store-item-1",
@@ -288,6 +288,7 @@ func TestPushMarkdown(t *testing.T) {
 						},
 					},
 				})
+				md.errUpdateList = errors.New("redundant update list called")
 
 				return md
 			},
@@ -1805,16 +1806,18 @@ func TestPullMarkdown(t *testing.T) {
 					Status: model.StatusOpen,
 					Items: []*model.Item{
 						{
-							ID:     "store-item-2",
-							Title:  "I2 (Synced)",
-							Status: model.StatusNotStarted,
-							ListID: "store-list-1",
+							ID:       "store-item-1",
+							Title:    "I1 (Unsynced)",
+							Position: 0,
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-1",
 						},
 						{
-							ID:     "store-item-1",
-							Title:  "I1 (Unsynced)",
-							Status: model.StatusNotStarted,
-							ListID: "store-list-1",
+							ID:       "store-item-2",
+							Title:    "I2 (Synced)",
+							Position: 1,
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-1",
 						},
 					},
 				},
