@@ -90,16 +90,6 @@ func run(cfg *Config, logger *slog.Logger) error {
 
 	var syncTargets []*app.SyncTarget
 
-	mdClient := markdown.NewClient(cfg.mdFile, logger)
-	mdSyncer := app.NewSyncer(sqliteStore, mdClient)
-	mdSyncTarget := &app.SyncTarget{
-		Name:    "markdown",
-		Syncer:  mdSyncer,
-		Watcher: mdClient,
-	}
-
-	syncTargets = append(syncTargets, mdSyncTarget)
-
 	for providerName := range strings.SplitSeq(cfg.providers, ",") {
 		if providerName == "" {
 			continue
@@ -127,6 +117,16 @@ func run(cfg *Config, logger *slog.Logger) error {
 			return fmt.Errorf("unsupported providers: %q. Supported providers are: google_tasks", providerName)
 		}
 	}
+
+	mdClient := markdown.NewClient(cfg.mdFile, logger)
+	mdSyncer := app.NewSyncer(sqliteStore, mdClient)
+	mdSyncTarget := &app.SyncTarget{
+		Name:    "markdown",
+		Syncer:  mdSyncer,
+		Watcher: mdClient,
+	}
+
+	syncTargets = append(syncTargets, mdSyncTarget)
 
 	runner := app.NewRunner(syncTargets, logger)
 	if err = runner.Run(ctx); err != nil {

@@ -1,60 +1,50 @@
 # gtd-cli
 
-A robust "Getting Things Done" (GTD) plugin for Neovim, built with a Lua frontend and a high-performance Go backend using SQLite for persistence.
+The `gtd-cli` is a command-line interface that synchronizes external task providers (such as Google Tasks) with local Markdown files. This synchronization enables a terminal-based task workflow, allowing you to view and manipulate tasks directly in your terminal (or via an LLM) while staying synced with external graphical interfaces.
+
+## Key features
+
+The `gtd-cli` tool provides the following features:
+
+*   **Markdown-driven workflow:** Parses local Markdown files into structured tasks, enabling seamless terminal and LLM integrations.
+*   **External synchronization:** Synchronizes local tasks automatically with external UI platforms (currently supporting Google Tasks).
+*   **Offline persistence:** Maintains a local SQLite database for offline access, fast retrieval, and data integrity.
 
 ## Architecture
 
-This project consists of three main components:
+The `gtd-cli` application acts as a central synchronization engine. It orchestrates state changes between various task management systems, which we call **providers**. 
 
-1.  **Neovim Plugin (Lua):** Handles the user interface, commands, and communication with the backend.
-2.  **Sidecar/Daemon (Go):** A standalone Go application that manages the business logic and database interactions. It can run as a sidecar process spawned by Neovim or as a system-wide daemon.
-3.  **Storage (SQLite):** A lightweight, file-based database ensures data integrity and portability.
+The system currently supports the following providers:
 
-## Goals
-
--   **Reliability:** High test coverage (aiming for 100%) for both Lua and Go components.
--   **Performance:** leveraging Go for heavy lifting and SQLite for efficient data retrieval.
--   **Usability:** Seamless integration with the Neovim ecosystem.
+*   **SQLite:** A local database that ensures data integrity.
+*   **Markdown:** A local file parser that lets you manage tasks as plain text.
+*   **Google Tasks:** A remote provider that links your local tasks to your Google account.
 
 ## Installation
 
-*(Coming soon)*
+Take the following steps to install `gtd-cli` on your system:
+
+1.  Verify that your system runs Go version 1.21 or higher.
+2.  Clone this repository to your local machine.
+3.  Build the executable binary:
+
+    ```bash
+    go build -o gtd ./cmd/gtd
+    ```
 
 ## Usage
 
-The `gtd` binary is the core backend. It can be configured via flags:
+To synchronize your tasks, invoke the `gtd` binary and provide the necessary flags to configure your providers. For example:
 
 ```bash
-./gtd --db path/to/gtd.db --adapters google_tasks --credentials creds.json
+./gtd --db path/to/gtd.db --provider google_tasks --credentials creds.json
 ```
 
-### Flags
+The `gtd` command supports the following flags:
 
-| Flag | Default | Description |
-| :--- | :--- | :--- |
-| `--db` | `gtd.db` | Path to the SQLite database file. |
-| `--adapters` | *empty* | Comma-separated list of sync adapters to enable. Supported: `google_tasks`. |
-| `--credentials` | `credentials.json` | Path to Google Cloud credentials JSON file (required for `google_tasks`). |
-| `--token` | `token.json` | Path to Google OAuth token file (generated after first login). |
+*   `--db`: Path to the SQLite database. (Default: `gtd.db`)
+*   `--provider`: The name of the remote provider to sync with (e.g., `google_tasks`).
+*   `--credentials`: Path to the provider credentials file. (Default: `credentials.json`)
+*   `--token`: Path to the OAuth token file. (Default: `token.json`)
 
-## Development
 
-We follow strict development practices:
-
--   **Testing:** All features and refactors must be accompanied by comprehensive unit tests.
--   **Documentation:** Documentation is updated alongside code changes.
--   **Git Hygiene:** Regular commits with clear messages, ensuring a stable main branch.
-
-### Prerequisites
-
--   Neovim (>= 0.9.0)
--   Go (>= 1.21)
--   SQLite3
-
-### Running Tests
-
-Run all backend unit tests with strict coverage checks:
-
-```bash
-go test -v ./...
-```
