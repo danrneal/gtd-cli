@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/danrneal/gtd-cli/internal/model"
+	"github.com/danrneal/gtd-cli/model"
 )
 
 func TestParse(t *testing.T) {

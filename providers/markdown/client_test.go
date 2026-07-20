@@ -14,7 +14,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
-	"github.com/danrneal/gtd-cli/internal/model"
+	"github.com/danrneal/gtd-cli/model"
 )
 
 func TestClient_GetKey(t *testing.T) {

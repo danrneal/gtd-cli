@@ -18,8 +18,8 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/goleak"
 
-	"github.com/danrneal/gtd-cli/internal/model"
-	"github.com/danrneal/gtd-cli/internal/providers/sqlite"
+	"github.com/danrneal/gtd-cli/model"
+	"github.com/danrneal/gtd-cli/providers/sqlite"
 )
 
 // FakeWatcher is a mock implementation of the Watcher interface for testing purposes.

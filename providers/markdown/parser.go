@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/danrneal/gtd-cli/internal/model"
+	"github.com/danrneal/gtd-cli/model"
 )
 
 var (

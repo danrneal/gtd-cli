@@ -13,9 +13,9 @@ import (
 	"google.golang.org/api/option"
 	"google.golang.org/api/tasks/v1"
 
-	"github.com/danrneal/gtd-cli/internal/model"
-	"github.com/danrneal/gtd-cli/internal/providers/googletasks"
-	"github.com/danrneal/gtd-cli/internal/providers/googletasks/googletaskstest"
+	"github.com/danrneal/gtd-cli/model"
+	"github.com/danrneal/gtd-cli/providers/googletasks"
+	"github.com/danrneal/gtd-cli/providers/googletasks/googletaskstest"
 )
 
 func TestPushGoogleTasks(t *testing.T) {

@@ -4,7 +4,7 @@ package app
 import (
 	"context"
 
-	"github.com/danrneal/gtd-cli/internal/model"
+	"github.com/danrneal/gtd-cli/model"
 )
 
 // Provider defines the interface for task management systems (e.g. SQLite, Google Tasks, Neovim)

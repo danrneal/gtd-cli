@@ -12,8 +12,8 @@ import (
 
 	"google.golang.org/api/tasks/v1"
 
-	"github.com/danrneal/gtd-cli/internal/model"
-	"github.com/danrneal/gtd-cli/internal/providers/util/reorder"
+	"github.com/danrneal/gtd-cli/model"
+	"github.com/danrneal/gtd-cli/providers/util/reorder"
 )
 
 // Client is a wrapper around the Google Tasks service.

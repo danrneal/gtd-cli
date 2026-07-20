@@ -1,7 +1,7 @@
 // Package reorder provides utilities to calculate moves.
 package reorder
 
-import "github.com/danrneal/gtd-cli/internal/model"
+import "github.com/danrneal/gtd-cli/model"
 
 // Move represents an operation to relocate or reorder an item.
 // It supports linked-list positioning via PreviousItemID.
