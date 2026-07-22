@@ -1058,7 +1058,7 @@ func TestListItems(t *testing.T) {
 		wantErr   bool
 	}{
 		{
-			name: "basic properties (unsorted, position sort)",
+			name: "basic properties",
 			list: &model.List{
 				ID:         "1",
 				Name:       "Inbox",
@@ -1068,21 +1068,21 @@ func TestListItems(t *testing.T) {
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{
-						Id:       "t2",
-						Title:    "Task 2",
-						Position: "0002",
-						Status:   "needsAction",
-					},
-					{
 						Id:       "t1",
 						Title:    "Task 1",
 						Position: "0001",
 						Status:   "needsAction",
 					},
 					{
+						Id:       "t2",
+						Title:    "Task 2",
+						Position: "0002",
+						Status:   "needsAction",
+					},
+					{
 						Id:       "t3",
 						Title:    "Task 3",
-						Position: "0001",
+						Position: "0003",
 						Status:   "needsAction",
 					},
 				}
@@ -1098,18 +1098,18 @@ func TestListItems(t *testing.T) {
 				},
 				{
 					ListID:         "1",
-					Title:          "Task 3",
+					Title:          "Task 2",
 					Position:       1,
 					Status:         model.StatusOpen,
-					ExternalID:     new("t3"),
+					ExternalID:     new("t2"),
 					ExternalListID: new("L1"),
 				},
 				{
 					ListID:         "1",
-					Title:          "Task 2",
+					Title:          "Task 3",
 					Position:       2,
 					Status:         model.StatusOpen,
-					ExternalID:     new("t2"),
+					ExternalID:     new("t3"),
 					ExternalListID: new("L1"),
 				},
 			},

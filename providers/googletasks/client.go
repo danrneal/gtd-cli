@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"sort"
 	"strings"
 	"time"
 
@@ -240,10 +239,6 @@ func (c *Client) listItems(ctx context.Context, list *model.List) ([]*model.Item
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve tasks for list %q: %w", list.Name, err)
 	}
-
-	sort.Slice(resp.Items, func(i, j int) bool {
-		return resp.Items[i].Position < resp.Items[j].Position
-	})
 
 	var items []*model.Item
 	for i, task := range resp.Items {
