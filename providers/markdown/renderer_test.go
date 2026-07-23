@@ -300,8 +300,8 @@ func TestRender(t *testing.T) {
 			},
 			want: `# Notes (1)
 * [ ] Task with description
-First line of description.
-Second line.
+    First line of description.
+    Second line.
 
 `,
 			wantErr: false,

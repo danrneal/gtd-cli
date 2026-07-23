@@ -84,7 +84,10 @@ func renderItem(buf *strings.Builder, item *model.Item) error {
 	buf.WriteString("\n")
 
 	if item.Description != "" {
-		buf.WriteString(item.Description)
+		description := strings.ReplaceAll(item.Description, "\n", "\n    ")
+
+		buf.WriteString("    ")
+		buf.WriteString(description)
 		buf.WriteString("\n")
 	}
 

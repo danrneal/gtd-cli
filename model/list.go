@@ -146,8 +146,8 @@ func (l *List) sortItems() {
 			return diff
 		}
 
-		switch l.Name {
-		case ListWaitingFor:
+		switch {
+		case strings.HasPrefix(l.Name, ListWaitingFor):
 			if a.WaitingOn == "" {
 				return 1
 			}
@@ -157,7 +157,7 @@ func (l *List) sortItems() {
 			}
 
 			return b.Created.Compare(a.Created)
-		case ListSnoozed:
+		case strings.HasPrefix(l.Name, ListSnoozed):
 			if a.Snoozed == nil {
 				return 1
 			}
