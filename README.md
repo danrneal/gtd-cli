@@ -42,9 +42,9 @@ To synchronize your tasks, invoke the `gtd` binary and provide the necessary fla
 
 The `gtd` command supports the following flags:
 
-*   `--db`: Path to the SQLite database. (Default: `gtd.db`)
+*   `--db`: Path to the SQLite database. (Default: `~/.local/share/gtd/gtd.db`)
 *   `--provider`: The name of the remote provider to sync with (e.g., `google_tasks`).
-*   `--credentials`: Path to the provider credentials file. (Default: `credentials.json`)
-*   `--token`: Path to the OAuth token file. (Default: `token.json`)
+*   `--credentials`: Path to the provider credentials file. (Default: `~/.config/gtd/gtd_credentials.json`)
+*   `--token`: Path to the OAuth token file. (Default: `~/.config/gtd/gtd_token.json`)
 
 
