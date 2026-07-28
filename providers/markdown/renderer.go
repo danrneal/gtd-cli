@@ -30,8 +30,15 @@ func renderList(buf *strings.Builder, list *model.List) error {
 
 	listParts := []string{"#", list.Name}
 
-	count := fmt.Sprintf("(%d)", len(list.Items))
-	listParts = append(listParts, count)
+	count := 0
+	for _, item := range list.Items {
+		if item.Status != model.StatusDone {
+			count++
+		}
+	}
+
+	itemCount := fmt.Sprintf("(%d)", count)
+	listParts = append(listParts, itemCount)
 
 	if list.ID != "" {
 		listID := fmt.Sprintf("{{%s}}", list.ID)
