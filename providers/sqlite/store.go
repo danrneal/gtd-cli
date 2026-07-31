@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -115,11 +116,12 @@ func (s *Store) createTables(ctx context.Context) error {
 		CREATE TABLE IF NOT EXISTS items (
 			id TEXT PRIMARY KEY,
 			list_id TEXT NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
+			project_id TEXT REFERENCES items(id) ON DELETE SET NULL,
 			position INTEGER NOT NULL DEFAULT 0,
 			status TEXT NOT NULL DEFAULT 'not_started',
 			title TEXT NOT NULL,
 			description TEXT,
-			project_id TEXT,
+			project_tag TEXT,
 			waiting_on TEXT,
 			snoozed DATETIME,
 			due DATETIME,
@@ -159,13 +161,27 @@ func (s *Store) CreateList(ctx context.Context, list *model.List) error {
 
 	defer tx.Rollback()
 
+	if err = s.execInsertList(ctx, tx, list); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// execInsertList executes the SQL query to insert a new list record into the database.
+// It handles formatting the timestamps and mapping the List struct fields to the query parameters.
+func (s *Store) execInsertList(ctx context.Context, tx *sql.Tx, list *model.List) error {
 	query := `
 		UPDATE lists
 		SET position = position + 1
 		WHERE position >= ?
 	`
 
-	if _, err = tx.ExecContext(ctx, query, list.Position); err != nil {
+	if _, err := tx.ExecContext(ctx, query, list.Position); err != nil {
 		return fmt.Errorf("failed to shift list positions: %w", err)
 	}
 
@@ -182,7 +198,7 @@ func (s *Store) CreateList(ctx context.Context, list *model.List) error {
 
 	s.logger.InfoContext(ctx, "SQLite: Inserting list", "id", list.ID, "name", list.Name)
 	list.Modified = time.Now()
-	if _, err = tx.ExecContext(ctx, query,
+	if _, err := tx.ExecContext(ctx, query,
 		list.ID,
 		list.Name,
 		list.Position,
@@ -191,10 +207,6 @@ func (s *Store) CreateList(ctx context.Context, list *model.List) error {
 		list.ExternalID,
 	); err != nil {
 		return fmt.Errorf("failed to insert list %q: %w", list.Name, err)
-	}
-
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -274,14 +286,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 }
 
 // getList retrieves a list and its associated items from the database by its internal ID.
-func (s *Store) getList(ctx context.Context, listID string) (*model.List, error) {
-	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-
-	defer tx.Rollback()
-
+func (s *Store) getList(ctx context.Context, tx *sql.Tx, listID string) (*model.List, error) {
 	var list model.List
 	query := `
 		SELECT
@@ -296,7 +301,7 @@ func (s *Store) getList(ctx context.Context, listID string) (*model.List, error)
 	`
 
 	row := tx.QueryRowContext(ctx, query, listID)
-	if err = row.Scan(
+	if err := row.Scan(
 		&list.ID,
 		&list.Name,
 		&list.Position,
@@ -332,7 +337,7 @@ func (s *Store) getListID(ctx context.Context, tx *sql.Tx, externalID *string) (
 	row := tx.QueryRowContext(ctx, query, externalID)
 	if err := row.Scan(&id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", fmt.Errorf("list with external ID %v: %w", externalID, ErrNotFound)
+			return "", fmt.Errorf("list with external ID %q: %w", *externalID, ErrNotFound)
 		}
 
 		return "", fmt.Errorf("failed to scan list ID: %w", err)
@@ -373,6 +378,31 @@ func (s *Store) UpdateList(ctx context.Context, list, currentList *model.List) e
 		list.ID = listID
 	}
 
+	if err = s.execUpdateList(ctx, tx, list); err != nil {
+		return err
+	}
+
+	if list.Status == model.StatusDeleted {
+		if err := s.deleteListItems(ctx, tx, list); err != nil {
+			return err
+		}
+	}
+
+	itemsToMove := calculateItemsToMove(list, currentList.Items)
+	if err := s.batchMoveItems(ctx, tx, itemsToMove); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// execUpdateList executes the SQL query to update an existing list record in the database.
+// It maps the updated List struct fields to the query parameters and handles 'RowsAffected' to detect missing records.
+func (s *Store) execUpdateList(ctx context.Context, tx *sql.Tx, list *model.List) error {
 	query := `
     	UPDATE lists SET
         	name = ?,
@@ -406,21 +436,6 @@ func (s *Store) UpdateList(ctx context.Context, list, currentList *model.List) e
 		return fmt.Errorf("list with ID %q not found", list.ID)
 	}
 
-	if list.Status == model.StatusDeleted {
-		if err := s.deleteListItems(ctx, tx, list); err != nil {
-			return err
-		}
-	}
-
-	itemsToMove := calculateItemsToMove(list, currentList.Items)
-	if err := s.batchMoveItems(ctx, tx, itemsToMove); err != nil {
-		return err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
 	return nil
 }
 
@@ -447,9 +462,8 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 		return errors.New("cannot create an item with status 'deleted'")
 	}
 
-	tagsJSON, err := json.Marshal(item.Tags)
-	if err != nil {
-		return fmt.Errorf("failed to marshal tags: %w", err)
+	if item.ID == "" {
+		item.ID = s.generateItemID()
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -469,8 +483,48 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 		item.ListID = listID
 	}
 
-	if item.ID == "" {
-		item.ID = s.generateItemID()
+	list, err := s.getList(ctx, tx, item.ListID)
+	if err != nil {
+		return err
+	}
+
+	if err = s.execInsertItem(ctx, tx, list, item); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	currentList := *list
+	currentList.Items = slices.Clone(list.Items)
+	err = s.UpdateList(ctx, list, &currentList)
+
+	return err
+}
+
+// execInsertItem manages the database-level preparation and execution required to insert a new Item.
+// It resolves the internal project ID if necessary, sanitizes the item's relationships based on the target list,
+// and maps the fields to the SQL parameters.
+func (s *Store) execInsertItem(ctx context.Context, tx *sql.Tx, list *model.List, item *model.Item) error {
+	tagsJSON, err := json.Marshal(item.Tags)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tags: %w", err)
+	}
+
+	var projectTag *string
+	if strings.HasPrefix(list.Name, model.ListProjects) {
+		projectTag = item.ProjectTag
+	} else if item.ProjectID == nil && (item.ExternalProjectID != nil || item.ProjectTag != nil) {
+		var projectID *string
+		if projectID, err = s.getProjectID(ctx, tx, item); err == nil {
+			item.ProjectID = projectID
+		} else if errors.Is(err, ErrNotFound) {
+			item.ExternalProjectID = nil
+			item.ProjectTag = nil
+		} else {
+			return err
+		}
 	}
 
 	query := `
@@ -487,11 +541,12 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
         INSERT INTO items (
             id,
             list_id,
+			project_id,
             position,
             status,
             title,
             description,
-            project_id,
+            project_tag,
             waiting_on,
             snoozed,
             due,
@@ -499,7 +554,7 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
             modified,
             created,
             external_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `
 
 	s.logger.InfoContext(ctx, "SQLite: Inserting item", "id", item.ID, "title", item.Title, "listId", item.ListID)
@@ -507,11 +562,12 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 	_, err = tx.ExecContext(ctx, query,
 		item.ID,
 		item.ListID,
+		item.ProjectID,
 		item.Position,
 		item.Status,
 		item.Title,
 		item.Description,
-		item.ProjectID,
+		projectTag,
 		item.WaitingOn,
 		item.Snoozed,
 		item.Due,
@@ -524,20 +580,7 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 		return fmt.Errorf("failed to insert item %q: %w", item.Title, err)
 	}
 
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	list, err := s.getList(ctx, item.ListID)
-	if err != nil {
-		return err
-	}
-
-	currentList := *list
-	currentList.Items = slices.Clone(list.Items)
-	err = s.UpdateList(ctx, list, &currentList)
-
-	return err
+	return nil
 }
 
 // listAllItems returns all items from the database using the provided transaction.
@@ -546,11 +589,12 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, er
 		SELECT
 			i.id,
 			i.list_id,
+			i.project_id,
 			i.position,
 			i.status,
 			i.title,
 			i.description,
-			i.project_id,
+			COALESCE(project.project_tag, i.project_tag) AS project_tag,
 			i.waiting_on,
 			i.snoozed,
 			i.due,
@@ -558,10 +602,13 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, er
 			i.modified,
 			i.created,
 			i.external_id,
-			l.external_id AS external_list_id
+			l.external_id AS external_list_id,
+			project.external_id AS external_project_id
 		FROM items i
 		INNER JOIN lists l
 		ON i.list_id = l.id
+		LEFT JOIN items project
+		ON i.project_id = project.id
 		ORDER BY i.position
 	`
 
@@ -579,11 +626,12 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, er
 		if err := rows.Scan(
 			&item.ID,
 			&item.ListID,
+			&item.ProjectID,
 			&item.Position,
 			&item.Status,
 			&item.Title,
 			&item.Description,
-			&item.ProjectID,
+			&item.ProjectTag,
 			&item.WaitingOn,
 			&item.Snoozed,
 			&item.Due,
@@ -592,6 +640,7 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, er
 			&item.Created,
 			&item.ExternalID,
 			&item.ExternalListID,
+			&item.ExternalProjectID,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan item: %w", err)
 		}
@@ -618,11 +667,12 @@ func (s *Store) listItems(ctx context.Context, tx *sql.Tx, listID string) ([]*mo
 		SELECT
 			i.id,
 			i.list_id,
+			i.project_id,
 			i.position,
 			i.status,
 			i.title,
 			i.description,
-			i.project_id,
+			COALESCE(project.project_tag, i.project_tag) AS project_tag,
 			i.waiting_on,
 			i.snoozed,
 			i.due,
@@ -630,10 +680,13 @@ func (s *Store) listItems(ctx context.Context, tx *sql.Tx, listID string) ([]*mo
 			i.modified,
 			i.created,
 			i.external_id,
-			l.external_id AS external_list_id
+			l.external_id AS external_list_id,
+			project.external_id AS external_project_id
 		FROM items i
 		INNER JOIN lists l
 		ON i.list_id = l.id
+		LEFT JOIN items project
+		ON i.project_id = project.id
 		WHERE i.list_id = ?
 		ORDER BY i.position
 	`
@@ -652,11 +705,12 @@ func (s *Store) listItems(ctx context.Context, tx *sql.Tx, listID string) ([]*mo
 		if err := rows.Scan(
 			&item.ID,
 			&item.ListID,
+			&item.ProjectID,
 			&item.Position,
 			&item.Status,
 			&item.Title,
 			&item.Description,
-			&item.ProjectID,
+			&item.ProjectTag,
 			&item.WaitingOn,
 			&item.Snoozed,
 			&item.Due,
@@ -665,6 +719,7 @@ func (s *Store) listItems(ctx context.Context, tx *sql.Tx, listID string) ([]*mo
 			&item.Created,
 			&item.ExternalID,
 			&item.ExternalListID,
+			&item.ExternalProjectID,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan item: %w", err)
 		}
@@ -696,13 +751,51 @@ func (s *Store) getItemID(ctx context.Context, tx *sql.Tx, externalID *string) (
 	row := tx.QueryRowContext(ctx, query, externalID)
 	if err := row.Scan(&id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", fmt.Errorf("item with external ID %v: %w", externalID, ErrNotFound)
+			return "", fmt.Errorf("item with external ID %q: %w", *externalID, ErrNotFound)
 		}
 
 		return "", fmt.Errorf("failed to scan item ID: %w", err)
 	}
 
 	return id, nil
+}
+
+// getProjectID attempts to resolve the internal database ID for a project.
+// It searches first by the item's ExternalProjectID, and falls back to looking up the item's ProjectTag
+// among items in the "Projects" list. It returns ErrNotFound if the project cannot be located.
+func (s *Store) getProjectID(ctx context.Context, tx *sql.Tx, item *model.Item) (*string, error) {
+	if item.ExternalProjectID != nil {
+		projectID, err := s.getItemID(ctx, tx, item.ExternalProjectID)
+		if err != nil {
+			return nil, err
+		}
+
+		return &projectID, nil
+	}
+
+	if item.ProjectTag != nil {
+		var projectID string
+		query := `
+			SELECT i.id
+			FROM items i
+			INNER JOIN lists l ON i.list_id = l.id
+			WHERE l.name = ?
+			AND i.project_tag = ?
+		`
+
+		row := tx.QueryRowContext(ctx, query, model.ListProjects, item.ProjectTag)
+		if err := row.Scan(&projectID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, fmt.Errorf("item with project tag %q: %w", *item.ProjectTag, ErrNotFound)
+			}
+
+			return nil, fmt.Errorf("failed to scan project ID: %w", err)
+		}
+
+		return &projectID, nil
+	}
+
+	return nil, errors.New("externalProjectID and projectTag are both nil")
 }
 
 // UpdateItem updates an existing item in the database.
@@ -715,11 +808,6 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 
 	if item.ID == "" && item.ExternalID == nil {
 		return errors.New("failed to update item: no internal or external ID provided")
-	}
-
-	tagsJSON, err := json.Marshal(item.Tags)
-	if err != nil {
-		return fmt.Errorf("failed to marshal tags: %w", err)
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -749,12 +837,57 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 		item.ListID = listID
 	}
 
+	list, err := s.getList(ctx, tx, item.ListID)
+	if err != nil {
+		return err
+	}
+
+	if err = s.execUpdateItem(ctx, tx, list, item); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	currentList := *list
+	currentList.Items = slices.Clone(list.Items)
+	err = s.UpdateList(ctx, list, &currentList)
+
+	return err
+}
+
+// execUpdateItem manages the database-level execution required to update an existing Item.
+// It resolves the internal project ID if necessary, enforces relationship constraints based on the target list,
+// and maps the fields to the SQL parameters for the UPDATE statement.
+func (s *Store) execUpdateItem(ctx context.Context, tx *sql.Tx, list *model.List, item *model.Item) error {
+	tagsJSON, err := json.Marshal(item.Tags)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tags: %w", err)
+	}
+
+	var projectTag *string
+	if strings.HasPrefix(list.Name, model.ListProjects) {
+		projectTag = item.ProjectTag
+	} else if item.ProjectID == nil && (item.ExternalProjectID != nil || item.ProjectTag != nil) {
+		var projectID *string
+		if projectID, err = s.getProjectID(ctx, tx, item); err == nil {
+			item.ProjectID = projectID
+		} else if errors.Is(err, ErrNotFound) {
+			item.ExternalProjectID = nil
+			item.ProjectTag = nil
+		} else {
+			return err
+		}
+	}
+
 	query := `
         UPDATE items SET
+			project_id = ?,
             status = ?,
             title = ?,
             description = ?,
-            project_id = ?,
+            project_tag = ?,
             waiting_on = ?,
             snoozed = ?,
             due = ?,
@@ -768,10 +901,11 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 	s.logger.InfoContext(ctx, "SQLite: Updating item", "id", item.ID, "title", item.Title, "status", item.Status)
 	item.Modified = time.Now()
 	res, err := tx.ExecContext(ctx, query,
+		item.ProjectID,
 		item.Status,
 		item.Title,
 		item.Description,
-		item.ProjectID,
+		projectTag,
 		item.WaitingOn,
 		item.Snoozed,
 		item.Due,
@@ -794,20 +928,7 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 		return fmt.Errorf("item with ID %q not found", item.ID)
 	}
 
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	list, err := s.getList(ctx, item.ListID)
-	if err != nil {
-		return err
-	}
-
-	currentList := *list
-	currentList.Items = slices.Clone(list.Items)
-	err = s.UpdateList(ctx, list, &currentList)
-
-	return err
+	return nil
 }
 
 // batchMoveItems updates the list_id and position for a batch of items.

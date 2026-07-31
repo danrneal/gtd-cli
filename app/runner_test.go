@@ -873,7 +873,7 @@ func TestProcessEvent(t *testing.T) {
 
 			opts := []cmp.Option{
 				cmp.AllowUnexported(SyncTarget{}),
-				cmpopts.IgnoreFields(SyncTarget{}, "Syncer", "Watcher"),
+				cmpopts.IgnoreFields(SyncTarget{}, "Syncer"),
 			}
 
 			if diff := cmp.Diff(tt.wantSyncTargets, targets, opts...); diff != "" {

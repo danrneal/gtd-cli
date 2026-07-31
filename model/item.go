@@ -11,21 +11,23 @@ import (
 
 // Item represents a single task or action item within a List.
 type Item struct {
-	ID             string     `json:"id"`
-	ListID         string     `json:"listId"`
-	Position       int        `json:"position"`
-	Status         Status     `json:"status"`
-	Title          string     `json:"title"`
-	Description    string     `json:"description"`
-	ProjectID      *string    `json:"projectId"`
-	WaitingOn      string     `json:"waitingOn"`
-	Snoozed        *time.Time `json:"snoozed"`
-	Due            *time.Time `json:"due"`
-	Tags           []string   `json:"tags"`
-	Modified       time.Time  `json:"modified"`
-	Created        time.Time  `json:"created"`
-	ExternalID     *string    `json:"externalId"`
-	ExternalListID *string    `json:"externalListId"`
+	ID                string     `json:"id"`
+	ListID            string     `json:"listId"`
+	ProjectID         *string    `json:"projectId"`
+	Position          int        `json:"position"`
+	Status            Status     `json:"status"`
+	Title             string     `json:"title"`
+	Description       string     `json:"description"`
+	ProjectTag        *string    `json:"projectTag"`
+	WaitingOn         string     `json:"waitingOn"`
+	Snoozed           *time.Time `json:"snoozed"`
+	Due               *time.Time `json:"due"`
+	Tags              []string   `json:"tags"`
+	Modified          time.Time  `json:"modified"`
+	Created           time.Time  `json:"created"`
+	ExternalID        *string    `json:"externalId"`
+	ExternalListID    *string    `json:"externalListId"`
+	ExternalProjectID *string    `json:"externalProjectID"`
 }
 
 // GetID returns the internal ID of the item.
@@ -91,6 +93,15 @@ func (i *Item) Equivalent(other *Item) bool {
 		return false
 	}
 
+	if i.ProjectID != nil && other.ProjectID != nil && *i.ProjectID != *other.ProjectID {
+		return false
+	}
+
+	if i.ExternalProjectID != nil && other.ExternalProjectID != nil &&
+		*i.ExternalProjectID != *other.ExternalProjectID {
+		return false
+	}
+
 	if i.Title != other.Title {
 		return false
 	}
@@ -103,7 +114,7 @@ func (i *Item) Equivalent(other *Item) bool {
 		return false
 	}
 
-	if !equalStringPtr(i.ProjectID, other.ProjectID) {
+	if !equalStringPtr(i.ProjectTag, other.ProjectTag) {
 		return false
 	}
 

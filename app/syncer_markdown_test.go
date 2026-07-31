@@ -1162,6 +1162,135 @@ func TestPushMarkdown(t *testing.T) {
 			},
 		},
 		{
+			name: "prioritizes Projects list when preceded by normal list",
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1 Normal",
+						Modified: baseTime,
+						Position: 0,
+					},
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Position: 1,
+					},
+					{
+						Name:     "Projects Archive",
+						Modified: baseTime,
+						Position: 2,
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) *errorProvider {
+				md := setupTestMarkdown(t, []model.List{})
+				return md
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1 Normal",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     model.ListProjects,
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-3",
+					Name:     "Projects Archive",
+					Status:   model.StatusOpen,
+					Position: 2,
+					Items:    []*model.Item{},
+				},
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1 Normal",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     model.ListProjects,
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-3",
+					Name:     "Projects Archive",
+					Status:   model.StatusOpen,
+					Position: 2,
+					Items:    []*model.Item{},
+				},
+			},
+		},
+		{
+			name: "maintains Projects list priority when followed by normal list",
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Position: 0,
+					},
+					{
+						Name:     "L1 Normal",
+						Modified: baseTime,
+						Position: 1,
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) *errorProvider {
+				md := setupTestMarkdown(t, []model.List{})
+				return md
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     model.ListProjects,
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L1 Normal",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
+				},
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     model.ListProjects,
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L1 Normal",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
+				},
+			},
+		},
+		{
 			name: "fails to build source state",
 			setupSqlite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{})
@@ -2427,6 +2556,137 @@ func TestPullMarkdown(t *testing.T) {
 							ListID: "store-list-1",
 						},
 					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "prioritizes Projects list when preceded by normal list",
+			setupMarkdown: func(t *testing.T) *errorProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						Name:     "L1 Normal",
+						Modified: baseTime,
+						Position: 0,
+					},
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Position: 1,
+					},
+					{
+						Name:     "Projects Archive",
+						Modified: baseTime,
+						Position: 2,
+					},
+				})
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{})
+				return sqlite
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:       "store-list-3",
+					Name:     "L1 Normal",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-1",
+					Name:     model.ListProjects,
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "Projects Archive",
+					Status:   model.StatusOpen,
+					Position: 2,
+					Items:    []*model.Item{},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:       "store-list-3",
+					Name:     "L1 Normal",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-1",
+					Name:     model.ListProjects,
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "Projects Archive",
+					Status:   model.StatusOpen,
+					Position: 2,
+					Items:    []*model.Item{},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "maintains Projects list priority when followed by normal list",
+			setupMarkdown: func(t *testing.T) *errorProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Position: 0,
+					},
+					{
+						Name:     "L1 Normal",
+						Modified: baseTime,
+						Position: 1,
+					},
+				})
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{})
+				return sqlite
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     model.ListProjects,
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L1 Normal",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     model.ListProjects,
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L1 Normal",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items:    []*model.Item{},
 				},
 			},
 			wantUpdated: true,

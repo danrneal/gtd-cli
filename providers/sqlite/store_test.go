@@ -257,7 +257,7 @@ func TestCreateList(t *testing.T) {
 			}
 
 			opts := []cmp.Option{
-				cmpopts.IgnoreFields(model.List{}, "ID", "Modified", "Items"),
+				cmpopts.IgnoreFields(model.List{}, "ID"),
 			}
 
 			if tt.list.ID != "" && gotList.ID != tt.list.ID {
@@ -503,8 +503,8 @@ func TestListLists(t *testing.T) {
 			}
 
 			opts := []cmp.Option{
-				cmpopts.IgnoreFields(model.List{}, "Modified", "ID"),
-				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created", "Snoozed", "Due", "ID", "ListID"),
+				cmpopts.IgnoreFields(model.List{}, "Modified"),
+				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}
 
 			if diff := cmp.Diff(tt.wantLists, lists, opts...); diff != "" {
@@ -770,6 +770,7 @@ func TestUpdateList(t *testing.T) {
 				return list
 			},
 			wantList: &model.List{
+				ID:         "list-1",
 				Name:       "Updated",
 				Status:     model.StatusOpen,
 				ExternalID: new("ext-1"),
@@ -859,8 +860,10 @@ func TestUpdateList(t *testing.T) {
 				return list
 			},
 			wantList: &model.List{
-				Name:   "List 1",
-				Status: model.StatusOpen,
+				ID:         "list-1",
+				Name:       "List 1",
+				Status:     model.StatusOpen,
+				ExternalID: new("ext-L1"),
 			},
 			wantItems: []*model.Item{
 				{
@@ -913,6 +916,7 @@ func TestUpdateList(t *testing.T) {
 				return list
 			},
 			wantList: &model.List{
+				ID:     "list-delete",
 				Name:   "Tombstoned List",
 				Status: model.StatusDeleted,
 			},
@@ -1256,7 +1260,7 @@ func TestUpdateList(t *testing.T) {
 			}
 
 			query := `
-					SELECT name, position, status
+					SELECT name, position, status, external_id
 					FROM lists
 					WHERE id = ?
 			`
@@ -1266,6 +1270,7 @@ func TestUpdateList(t *testing.T) {
 				&gotList.Name,
 				&gotList.Position,
 				&gotList.Status,
+				&gotList.ExternalID,
 			)
 			if err != nil {
 				t.Fatalf("failed to query list: %v", err)
@@ -1273,11 +1278,7 @@ func TestUpdateList(t *testing.T) {
 
 			gotList.ID = id
 
-			listOpts := []cmp.Option{
-				cmpopts.IgnoreFields(model.List{}, "Modified", "ID", "ExternalID", "Items"),
-			}
-
-			if diff := cmp.Diff(*tt.wantList, gotList, listOpts...); diff != "" {
+			if diff := cmp.Diff(*tt.wantList, gotList); diff != "" {
 				t.Errorf("UpdateList() mismatch (-want +got):\n%s", diff)
 			}
 
@@ -1289,7 +1290,7 @@ func TestUpdateList(t *testing.T) {
 			}
 
 			itemOpts := []cmp.Option{
-				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created", "Snoozed", "Due"),
+				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}
 
 			if diff := cmp.Diff(tt.wantItems, items, itemOpts...); diff != "" {
@@ -1550,7 +1551,6 @@ func TestCreateItem(t *testing.T) {
 				Title:       "  Complex Task  ",
 				Description: "  Line 1   \n  Line 2   \n    Line 3",
 				Status:      model.StatusDone,
-				ProjectID:   new("proj-1"),
 				WaitingOn:   "Alice",
 				Tags:        []string{"work", "urgent"},
 				Modified:    time.Now(),
@@ -1561,9 +1561,171 @@ func TestCreateItem(t *testing.T) {
 				Title:       "Complex Task",
 				Description: "Line 1\nLine 2\n  Line 3",
 				Status:      model.StatusDone,
-				ProjectID:   new("proj-1"),
 				WaitingOn:   "Alice",
 				Tags:        []string{"work", "urgent"},
+			},
+		},
+		{
+			name: "valid project",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", model.ListProjects, listModified,
+				)
+			},
+			item: &model.Item{
+				ListID:      "list-1",
+				Title:       "  Complex Task  ",
+				Description: "  Line 1   \n  Line 2   \n    Line 3",
+				Status:      model.StatusDone,
+				ProjectTag:  new("proj-1"),
+				WaitingOn:   "Alice",
+				Tags:        []string{"work", "urgent"},
+				Modified:    time.Now(),
+				Created:     time.Now(),
+			},
+			wantItem: &model.Item{
+				ListID:      "list-1",
+				Title:       "Complex Task",
+				Description: "Line 1\nLine 2\n  Line 3",
+				Status:      model.StatusDone,
+				ProjectTag:  new("proj-1"),
+				WaitingOn:   "Alice",
+				Tags:        []string{"work", "urgent"},
+			},
+		},
+		{
+			name: "resolve project id by external project id",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", listModified,
+				)
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							list_id,
+							title,
+							description,
+							waiting_on,
+							modified,
+							created,
+							external_id
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "existing-project-id", "list-1", "My Project", "", "", time.Now(), time.Now(), "ext-proj-1",
+				)
+			},
+			item: &model.Item{
+				ListID:            "list-1",
+				Title:             "Task for Project",
+				ExternalProjectID: new("ext-proj-1"),
+				Modified:          time.Now(),
+				Created:           time.Now(),
+			},
+			wantItem: &model.Item{
+				ListID:    "list-1",
+				Title:     "Task for Project",
+				Status:    model.StatusNotStarted,
+				ProjectID: new("existing-project-id"),
+				Tags:      []string{},
+			},
+		},
+		{
+			name: "resolve project id by project tag",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", listModified,
+				)
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-projects", model.ListProjects, listModified,
+				)
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							list_id,
+							title,
+							description,
+							waiting_on,
+							project_tag,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "existing-project-id", "list-projects", "My Project", "", "", "proj-1", time.Now(), time.Now(),
+				)
+			},
+			item: &model.Item{
+				ListID:     "list-1",
+				Title:      "Task for Project",
+				ProjectTag: new("proj-1"),
+				Modified:   time.Now(),
+				Created:    time.Now(),
+			},
+			wantItem: &model.Item{
+				ListID:    "list-1",
+				Title:     "Task for Project",
+				Status:    model.StatusNotStarted,
+				ProjectID: new("existing-project-id"),
+				Tags:      []string{},
+			},
+		},
+		{
+			name: "error resolving project id by missing external project id",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", listModified,
+				)
+			},
+			item: &model.Item{
+				ListID:            "list-1",
+				Title:             "Task for Missing Project",
+				ExternalProjectID: new("does-not-exist"),
+				Modified:          time.Now(),
+				Created:           time.Now(),
+			},
+			wantItem: &model.Item{
+				ListID: "list-1",
+				Title:  "Task for Missing Project",
+				Status: model.StatusNotStarted,
+				Tags:   []string{},
+			},
+		},
+		{
+			name: "ignore missing project tag on non-project list",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", listModified,
+				)
+			},
+			item: &model.Item{
+				ListID:     "list-1",
+				Title:      "Task with Missing Tag",
+				ProjectTag: new("missing-tag"),
+				Modified:   time.Now(),
+				Created:    time.Now(),
+			},
+			wantItem: &model.Item{
+				ListID: "list-1",
+				Title:  "Task with Missing Tag",
+				Status: model.StatusNotStarted,
+				Tags:   []string{},
 			},
 		},
 		{
@@ -1736,7 +1898,14 @@ func TestCreateItem(t *testing.T) {
 				return
 			}
 
-			gotList, err := store.getList(ctx, tt.item.ListID)
+			tx, err := store.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+			if err != nil {
+				t.Fatalf("failed to begin transaction: %v", err)
+			}
+
+			defer tx.Rollback()
+
+			gotList, err := store.getList(ctx, tx, tt.item.ListID)
 			if err != nil {
 				t.Fatalf("failed to get list after create: %v", err)
 			}
@@ -1766,11 +1935,12 @@ func TestCreateItem(t *testing.T) {
 				SELECT
 					id,
 					list_id,
+					project_id,
 					title,
 					COALESCE(description, ''),
 					status,
 					tags,
-					project_id,
+					project_tag,
 					waiting_on
 				FROM items
 				WHERE title = ?
@@ -1779,11 +1949,12 @@ func TestCreateItem(t *testing.T) {
 			err = db.QueryRow(itemQuery, wantTitle).Scan(
 				&gotItem.ID,
 				&gotItem.ListID,
+				&gotItem.ProjectID,
 				&gotItem.Title,
 				&gotItem.Description,
 				&gotItem.Status,
 				&tagsJSON,
-				&gotItem.ProjectID,
+				&gotItem.ProjectTag,
 				&gotItem.WaitingOn,
 			)
 			if err != nil {
@@ -1799,15 +1970,7 @@ func TestCreateItem(t *testing.T) {
 			}
 
 			opts := []cmp.Option{
-				cmpopts.IgnoreFields(
-					model.Item{},
-					"ID",
-					"Modified",
-					"Created",
-					"Snoozed",
-					"Due",
-					"ExternalID",
-				),
+				cmpopts.IgnoreFields(model.Item{}, "ID"),
 			}
 
 			if tt.item.ID != "" && gotItem.ID != tt.item.ID {
@@ -1818,6 +1981,18 @@ func TestCreateItem(t *testing.T) {
 
 			if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {
 				t.Errorf("CreateItem() mismatch (-want +got):\n%s", diff)
+			}
+
+			if tt.wantItem.ProjectID == nil && tt.wantItem.ExternalProjectID == nil &&
+				tt.item.ExternalProjectID != nil {
+				t.Errorf(
+					"expected original item ExternalProjectID to be cleared, but got %v",
+					*tt.item.ExternalProjectID,
+				)
+			}
+
+			if tt.wantItem.ProjectID == nil && tt.wantItem.ProjectTag == nil && tt.item.ProjectTag != nil {
+				t.Errorf("expected original item ProjectTag to be cleared, but got %v", *tt.item.ProjectTag)
 			}
 		})
 	}
@@ -1886,6 +2061,275 @@ func TestUpdateItem(t *testing.T) {
 				Description: "Line 1\n  Line 2",
 				Status:      model.StatusDone,
 				Tags:        []string{"updated", "tag"},
+			},
+		},
+		{
+			name: "valid project update (complex fields)",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", model.ListProjects, listModified,
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							waiting_on,
+							tags,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Original", "", "list-1", "", time.Now(), time.Now(),
+				)
+
+				return "item-1"
+			},
+			setupItem: func(id string) model.Item {
+				item := model.Item{
+					ID:          id,
+					ListID:      "list-1",
+					Position:    99,
+					Title:       "  Updated Title  ",
+					Description: "  Line 1  \n    Line 2",
+					ProjectTag:  new("proj-1"),
+					Status:      model.StatusDone,
+					Tags:        []string{"updated", "tag"},
+					Modified:    time.Now(),
+					Created:     time.Now(),
+				}
+
+				return item
+			},
+			wantItem: &model.Item{
+				ListID:      "list-1",
+				Position:    0,
+				Title:       "Updated Title",
+				Description: "Line 1\n  Line 2",
+				Status:      model.StatusDone,
+				ProjectTag:  new("proj-1"),
+				Tags:        []string{"updated", "tag"},
+			},
+		},
+		{
+			name: "resolve project id by external project id",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", listModified,
+				)
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							list_id,
+							title,
+							description,
+							waiting_on,
+							modified,
+							created,
+							external_id
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "existing-project-id", "list-1", "My Project", "", "", time.Now(), time.Now(), "ext-proj-1",
+				)
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							list_id,
+							position,
+							title,
+							description,
+							waiting_on,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-1", "list-1", 1, "Original", "", "", time.Now(), time.Now(),
+				)
+
+				return "item-1"
+			},
+			setupItem: func(id string) model.Item {
+				return model.Item{
+					ID:                id,
+					ListID:            "list-1",
+					Position:          1,
+					Title:             "Task for Project",
+					ExternalProjectID: new("ext-proj-1"),
+					Status:            model.StatusNotStarted,
+					Tags:              []string{},
+					Modified:          time.Now(),
+					Created:           time.Now(),
+				}
+			},
+			wantItem: &model.Item{
+				ListID:    "list-1",
+				Position:  1,
+				Title:     "Task for Project",
+				Status:    model.StatusNotStarted,
+				ProjectID: new("existing-project-id"),
+				Tags:      []string{},
+			},
+		},
+		{
+			name: "resolve project id by project tag",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", listModified,
+				)
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-projects", model.ListProjects, listModified,
+				)
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							list_id,
+							title,
+							description,
+							waiting_on,
+							project_tag,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "existing-project-id", "list-projects", "My Project", "", "", "proj-1", time.Now(), time.Now(),
+				)
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							list_id,
+							position,
+							title,
+							description,
+							waiting_on,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-1", "list-1", 1, "Original", "", "", time.Now(), time.Now(),
+				)
+
+				return "item-1"
+			},
+			setupItem: func(id string) model.Item {
+				return model.Item{
+					ID:         id,
+					ListID:     "list-1",
+					Position:   1,
+					Title:      "Task for Project",
+					ProjectTag: new("proj-1"),
+					Status:     model.StatusNotStarted,
+					Tags:       []string{},
+					Modified:   time.Now(),
+					Created:    time.Now(),
+				}
+			},
+			wantItem: &model.Item{
+				ListID:    "list-1",
+				Position:  1,
+				Title:     "Task for Project",
+				Status:    model.StatusNotStarted,
+				ProjectID: new("existing-project-id"),
+				Tags:      []string{},
+			},
+		},
+		{
+			name: "error resolving project id by missing external project id",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", listModified,
+				)
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							list_id,
+							position,
+							title,
+							description,
+							waiting_on,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-1", "list-1", 1, "Original", "", "", time.Now(), time.Now(),
+				)
+
+				return "item-1"
+			},
+			setupItem: func(id string) model.Item {
+				return model.Item{
+					ID:                id,
+					ListID:            "list-1",
+					Title:             "Task for Missing Project",
+					ExternalProjectID: new("does-not-exist"),
+					Modified:          time.Now(),
+				}
+			},
+			wantItem: &model.Item{
+				ListID:   "list-1",
+				Position: 1,
+				Title:    "Task for Missing Project",
+				Status:   model.StatusNotStarted,
+				Tags:     []string{},
+			},
+		},
+		{
+			name: "ignore missing project tag on non-project list",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", listModified,
+				)
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							list_id,
+							position,
+							title,
+							description,
+							waiting_on,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-1", "list-1", 1, "Original", "", "", time.Now(), time.Now(),
+				)
+
+				return "item-1"
+			},
+			setupItem: func(id string) model.Item {
+				return model.Item{
+					ID:         id,
+					ListID:     "list-1",
+					Title:      "Task with Missing Tag",
+					ProjectTag: new("missing-tag"),
+					Modified:   time.Now(),
+				}
+			},
+			wantItem: &model.Item{
+				ListID:   "list-1",
+				Position: 1,
+				Title:    "Task with Missing Tag",
+				Status:   model.StatusNotStarted,
+				Tags:     []string{},
 			},
 		},
 		{
@@ -2315,7 +2759,14 @@ func TestUpdateItem(t *testing.T) {
 				return
 			}
 
-			gotList, err := store.getList(ctx, item.ListID)
+			tx, err := store.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+			if err != nil {
+				t.Fatalf("failed to begin transaction: %v", err)
+			}
+
+			defer tx.Rollback()
+
+			gotList, err := store.getList(ctx, tx, item.ListID)
 			if err != nil {
 				t.Fatalf("failed to get list after update: %v", err)
 			}
@@ -2333,11 +2784,14 @@ func TestUpdateItem(t *testing.T) {
 				SELECT
 					id,
 					list_id,
+					project_id,
 					title,
 					COALESCE(description, ''),
 					status,
 					tags,
-					position
+					position,
+					external_id,
+					project_tag
 				FROM items
 				WHERE id = ?
 			`
@@ -2345,11 +2799,14 @@ func TestUpdateItem(t *testing.T) {
 			err = db.QueryRow(query, id).Scan(
 				&gotItem.ID,
 				&gotItem.ListID,
+				&gotItem.ProjectID,
 				&gotItem.Title,
 				&gotItem.Description,
 				&gotItem.Status,
 				&tagsJSON,
 				&gotItem.Position,
+				&gotItem.ExternalID,
+				&gotItem.ProjectTag,
 			)
 			if err != nil {
 				t.Fatalf("failed to query item: %v", err)
@@ -2365,21 +2822,16 @@ func TestUpdateItem(t *testing.T) {
 
 			tt.wantItem.ID = id
 
-			opts := []cmp.Option{
-				cmpopts.IgnoreFields(
-					model.Item{},
-					"Modified",
-					"Created",
-					"Snoozed",
-					"Due",
-					"ProjectID",
-					"WaitingOn",
-					"ExternalID",
-				),
+			if diff := cmp.Diff(tt.wantItem, &gotItem); diff != "" {
+				t.Errorf("UpdateItem() mismatch (-want +got):\n%s", diff)
 			}
 
-			if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {
-				t.Errorf("UpdateItem() mismatch (-want +got):\n%s", diff)
+			if tt.wantItem.ProjectID == nil && tt.wantItem.ExternalProjectID == nil && item.ExternalProjectID != nil {
+				t.Errorf("expected original item ExternalProjectID to be cleared, but got %v", *item.ExternalProjectID)
+			}
+
+			if tt.wantItem.ProjectID == nil && tt.wantItem.ProjectTag == nil && item.ProjectTag != nil {
+				t.Errorf("expected original item ProjectTag to be cleared, but got %v", *item.ProjectTag)
 			}
 		})
 	}

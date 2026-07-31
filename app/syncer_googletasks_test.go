@@ -1087,6 +1087,140 @@ func TestPushGoogleTasks(t *testing.T) {
 			},
 		},
 		{
+			name: "prioritizes Projects list when preceded by normal list",
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1 Normal",
+						Modified: baseTime,
+						Position: 0,
+					},
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Position: 1,
+					},
+					{
+						Name:     "Projects Archive",
+						Modified: baseTime,
+						Position: 2,
+					},
+				})
+
+				return sqlite
+			},
+			setupGoogleTasks: func(t *testing.T) *errorProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{})
+				return tasks
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "L1 Normal",
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: new("external-list-3"),
+					Items:      []*model.Item{},
+				},
+				{
+					ID:         "store-list-2",
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
+					ID:         "store-list-3",
+					Name:       "Projects Archive",
+					Status:     model.StatusOpen,
+					Position:   2,
+					ExternalID: new("external-list-2"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantGoogleTasksLists: []model.List{
+				{
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: new("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
+					Name:       "Projects Archive",
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items:      []*model.Item{},
+				},
+				{
+					Name:       "L1 Normal",
+					Status:     model.StatusOpen,
+					Position:   2,
+					ExternalID: new("external-list-3"),
+					Items:      []*model.Item{},
+				},
+			},
+		},
+		{
+			name: "maintains Projects list priority when followed by normal list",
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Position: 0,
+					},
+					{
+						Name:     "L1 Normal",
+						Modified: baseTime,
+						Position: 1,
+					},
+				})
+
+				return sqlite
+			},
+			setupGoogleTasks: func(t *testing.T) *errorProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{})
+				return tasks
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: new("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
+					ID:         "store-list-2",
+					Name:       "L1 Normal",
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantGoogleTasksLists: []model.List{
+				{
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: new("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
+					Name:       "L1 Normal",
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items:      []*model.Item{},
+				},
+			},
+		},
+		{
 			name: "fails to build source state",
 			setupSqlite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{})
@@ -2589,6 +2723,137 @@ func TestPullGoogleTasks(t *testing.T) {
 							ExternalListID: new("external-list-1"),
 						},
 					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "prioritizes Projects list when preceded by normal list",
+			setupGoogleTasks: func(t *testing.T) *errorProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1 Normal",
+						Modified: baseTime,
+					},
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+					},
+					{
+						Name:     "Projects Archive",
+						Modified: baseTime,
+					},
+				})
+
+				return tasks
+			},
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{})
+				return sqlite
+			},
+			wantGoogleTasksLists: []model.List{
+				{
+					Name:       "L1 Normal",
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: new("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items:      []*model.Item{},
+				},
+				{
+					Name:       "Projects Archive",
+					Status:     model.StatusOpen,
+					Position:   2,
+					ExternalID: new("external-list-3"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:         "store-list-3",
+					Name:       "L1 Normal",
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: new("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
+					ID:         "store-list-1",
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items:      []*model.Item{},
+				},
+				{
+					ID:         "store-list-2",
+					Name:       "Projects Archive",
+					Status:     model.StatusOpen,
+					Position:   2,
+					ExternalID: new("external-list-3"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "maintains Projects list priority when followed by normal list",
+			setupGoogleTasks: func(t *testing.T) *errorProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+					},
+					{
+						Name:     "L1 Normal",
+						Modified: baseTime,
+					},
+				})
+
+				return tasks
+			},
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{})
+				return sqlite
+			},
+			wantGoogleTasksLists: []model.List{
+				{
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: new("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
+					Name:       "L1 Normal",
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: new("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
+					ID:         "store-list-2",
+					Name:       "L1 Normal",
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items:      []*model.Item{},
 				},
 			},
 			wantUpdated: true,

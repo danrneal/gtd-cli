@@ -1244,7 +1244,7 @@ func TestListItems(t *testing.T) {
 				{
 					ListID:         "1",
 					Title:          "Task",
-					ProjectID:      new("P"),
+					ProjectTag:     new("P"),
 					Status:         model.StatusOpen,
 					ExternalID:     new("t1"),
 					ExternalListID: new("L1"),
@@ -1272,7 +1272,7 @@ func TestListItems(t *testing.T) {
 				{
 					ListID:         "1",
 					Title:          "Task",
-					ProjectID:      nil,
+					ProjectTag:     nil,
 					Status:         model.StatusOpen,
 					ExternalID:     new("t1"),
 					ExternalListID: new("L1"),
@@ -1845,10 +1845,10 @@ func TestRenderTitle(t *testing.T) {
 			wantTitle: "Simple",
 		},
 		{
-			name: "title with projectid",
+			name: "title with project tag",
 			item: &model.Item{
-				Title:     "Task",
-				ProjectID: new("P1"),
+				Title:      "Task",
+				ProjectTag: new("P1"),
 			},
 			wantTitle: "Task +P1",
 		},

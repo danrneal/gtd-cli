@@ -1,4 +1,4 @@
-# Last-Synced-Commit: 5b6eca69c9cc78adfb382bdce9872d6c1685b54b
+# Last-Synced-Commit: 9ddcaf5d6a7d73656e41f22d6c9ea61adf1452e1
 # format: filepath:line:mutatorName
 
 app/runner.go:122:branch/if
@@ -8,7 +8,9 @@ app/runner.go:159:statement/remove
 app/runner.go:163:statement/remove
 app/runner.go:185:statement/remove
 app/runner.go:191:statement/remove
+app/syncer.go:111:numbers/incrementer
 app/syncer.go:114:branch/if
+app/syncer.go:114:numbers/incrementer
 app/syncer.go:122:branch/if
 app/syncer.go:279:branch/if
 app/syncer.go:355:statement/remove
@@ -19,8 +21,19 @@ model/list.go:152:numbers/incrementer
 model/list.go:156:numbers/incrementer
 model/list.go:162:numbers/decrementer
 model/list.go:162:numbers/incrementer
+model/list.go:164:numbers/incrementer
 model/list.go:166:numbers/incrementer
+model/list.go:167:numbers/incrementer
+model/list.go:169:numbers/incrementer
 model/list.go:171:numbers/incrementer
+model/list.go:178:numbers/incrementer
+model/list.go:182:numbers/incrementer
+model/list.go:184:numbers/incrementer
+model/list.go:188:numbers/incrementer
+model/list.go:194:numbers/incrementer
+model/list.go:198:numbers/incrementer
+model/list.go:203:numbers/incrementer
+model/list.go:207:numbers/incrementer
 providers/googletasks/client.go:66:statement/remove
 providers/googletasks/client.go:127:statement/remove
 providers/markdown/client.go:72:statement/remove
@@ -45,12 +58,14 @@ providers/sqlite/store.go:182:statement/remove
 providers/sqlite/store.go:356:branch/if
 providers/sqlite/store.go:385:statement/remove
 providers/sqlite/store.go:429:statement/remove
+providers/sqlite/store.go:480:branch/if
 providers/sqlite/store.go:504:statement/remove
 providers/sqlite/store.go:717:branch/if
 providers/sqlite/store.go:746:branch/if
 providers/sqlite/store.go:767:statement/remove
 providers/sqlite/store.go:816:numbers/decrementer
 providers/sqlite/store.go:817:branch/if
+providers/sqlite/store.go:824:branch/if
 providers/sqlite/store.go:836:branch/if
 providers/sqlite/store.go:872:statement/remove
 providers/sqlite/store.go:894:branch/if

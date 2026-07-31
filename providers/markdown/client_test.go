@@ -224,7 +224,6 @@ func TestClient_CreateList(t *testing.T) {
 
 			opts := []cmp.Option{
 				cmpopts.IgnoreFields(model.List{}, "Modified"),
-				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
 			}
 
 			if diff := cmp.Diff(tt.want, got, opts...); diff != "" {

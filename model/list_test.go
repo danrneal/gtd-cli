@@ -192,6 +192,69 @@ func TestList_Clean(t *testing.T) {
 			},
 		},
 		{
+			name: "Waiting For list prioritizes status over Created date",
+			list: &List{
+				Name:   ListWaitingFor,
+				Status: StatusOpen,
+				Items: []*Item{
+					{
+						ID:        "done",
+						Title:     "Done task",
+						Status:    StatusDone,
+						WaitingOn: "Alice",
+						Created:   time.Date(2024, 1, 10, 0, 0, 0, 0, time.UTC),
+						Position:  0,
+					},
+					{
+						ID:        "in_progress",
+						Title:     "In Progress task",
+						Status:    StatusInProgress,
+						WaitingOn: "Bob",
+						Created:   time.Date(2024, 1, 20, 0, 0, 0, 0, time.UTC),
+						Position:  1,
+					},
+					{
+						ID:        "not_started",
+						Title:     "Not Started task",
+						Status:    StatusNotStarted,
+						WaitingOn: "Charlie",
+						Created:   time.Date(2024, 1, 5, 0, 0, 0, 0, time.UTC),
+						Position:  2,
+					},
+				},
+			},
+			want: &List{
+				Name:   ListWaitingFor,
+				Status: StatusOpen,
+				Items: []*Item{
+					{
+						ID:        "in_progress",
+						Title:     "In Progress task",
+						Status:    StatusInProgress,
+						WaitingOn: "Bob",
+						Created:   time.Date(2024, 1, 20, 0, 0, 0, 0, time.UTC),
+						Position:  0,
+					},
+					{
+						ID:        "not_started",
+						Title:     "Not Started task",
+						Status:    StatusNotStarted,
+						WaitingOn: "Charlie",
+						Created:   time.Date(2024, 1, 5, 0, 0, 0, 0, time.UTC),
+						Position:  1,
+					},
+					{
+						ID:        "done",
+						Title:     "Done task",
+						Status:    StatusDone,
+						WaitingOn: "Alice",
+						Created:   time.Date(2024, 1, 10, 0, 0, 0, 0, time.UTC),
+						Position:  2,
+					},
+				},
+			},
+		},
+		{
 			name: "Snoozed list sorts by Snoozed date with nil handling",
 			list: &List{
 				Name:   ListSnoozed,
@@ -258,6 +321,63 @@ func TestList_Clean(t *testing.T) {
 						Status:   StatusNotStarted,
 						Snoozed:  nil,
 						Position: 3,
+					},
+				},
+			},
+		},
+		{
+			name: "Snoozed list prioritizes status over Snoozed date",
+			list: &List{
+				Name:   ListSnoozed,
+				Status: StatusOpen,
+				Items: []*Item{
+					{
+						ID:       "done",
+						Title:    "Done task",
+						Status:   StatusDone,
+						Snoozed:  iso8601ToDate("2024-01-10"),
+						Position: 0,
+					},
+					{
+						ID:       "in_progress",
+						Title:    "In Progress task",
+						Status:   StatusInProgress,
+						Snoozed:  iso8601ToDate("2024-01-20"),
+						Position: 1,
+					},
+					{
+						ID:       "not_started",
+						Title:    "Not Started task",
+						Status:   StatusNotStarted,
+						Snoozed:  iso8601ToDate("2024-01-05"),
+						Position: 2,
+					},
+				},
+			},
+			want: &List{
+				Name:   ListSnoozed,
+				Status: StatusOpen,
+				Items: []*Item{
+					{
+						ID:       "in_progress",
+						Title:    "In Progress task",
+						Status:   StatusInProgress,
+						Snoozed:  iso8601ToDate("2024-01-20"),
+						Position: 0,
+					},
+					{
+						ID:       "not_started",
+						Title:    "Not Started task",
+						Status:   StatusNotStarted,
+						Snoozed:  iso8601ToDate("2024-01-05"),
+						Position: 1,
+					},
+					{
+						ID:       "done",
+						Title:    "Done task",
+						Status:   StatusDone,
+						Snoozed:  iso8601ToDate("2024-01-10"),
+						Position: 2,
 					},
 				},
 			},

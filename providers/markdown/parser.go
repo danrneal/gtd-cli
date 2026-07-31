@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/danrneal/gtd-cli/model"
 )
@@ -25,7 +26,7 @@ func parse(reader io.Reader, modified time.Time) ([]model.List, error) {
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		line := scanner.Text()
-		trimmedLine := strings.TrimSpace(line)
+		trimmedLine := strings.TrimRightFunc(line, unicode.IsSpace)
 		if matches := listRegex.FindStringSubmatch(trimmedLine); matches != nil {
 			p.flushList(modified)
 
@@ -148,8 +149,8 @@ func parseItemContent(content string) *model.Item {
 	for field := range strings.FieldsSeq(content) {
 		switch {
 		case strings.HasPrefix(field, "+") && len(field) > 1:
-			projectID := field[1:]
-			item.ProjectID = &projectID
+			projectTag := field[1:]
+			item.ProjectTag = &projectTag
 		case strings.HasPrefix(field, "snoozed:"):
 			snoozed := strings.TrimPrefix(field, "snoozed:")
 			if snoozed, err := time.Parse("2006-01-02", snoozed); err == nil {

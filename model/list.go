@@ -11,6 +11,8 @@ import (
 const (
 	// ListWaitingFor is the reserved name for the "Waiting For" list.
 	ListWaitingFor = "Waiting For"
+	// ListProjects is the reserved name for the "Projects" list.
+	ListProjects = "Projects"
 	// ListSnoozed is the reserved name for the "Snoozed" list.
 	ListSnoozed = "Snoozed"
 )
@@ -136,43 +138,74 @@ func (l *List) Contains(item *Item) bool {
 // Default lists sort by Status (InProgress -> NotStarted -> Done).
 // "Waiting For" lists sort by Created date, and "Snoozed" lists sort by Snoozed date.
 func (l *List) sortItems() {
-	statusRank := map[Status]int{
-		StatusInProgress: -1,
-		StatusDone:       1,
+	sortFunc := compareItems
+	if strings.HasPrefix(l.Name, ListWaitingFor) {
+		sortFunc = compareWaitingForItems
+	} else if strings.HasPrefix(l.Name, ListSnoozed) {
+		sortFunc = compareSnoozedItems
 	}
 
 	slices.SortStableFunc(l.Items, func(a, b *Item) int {
-		if diff := statusRank[a.Status] - statusRank[b.Status]; diff != 0 {
-			return diff
-		}
-
-		switch {
-		case strings.HasPrefix(l.Name, ListWaitingFor):
-			if a.WaitingOn == "" {
-				return 1
-			}
-
-			if b.WaitingOn == "" {
-				return -1
-			}
-
-			return b.Created.Compare(a.Created)
-		case strings.HasPrefix(l.Name, ListSnoozed):
-			if a.Snoozed == nil {
-				return 1
-			}
-
-			if b.Snoozed == nil {
-				return -1
-			}
-
-			return a.Snoozed.Compare(*b.Snoozed)
-		default:
-			return 0
-		}
+		return sortFunc(a, b)
 	})
 
 	for i, item := range l.Items {
 		item.Position = i
 	}
+}
+
+// compareItems determines the sorting order of items based primarily on their Status.
+// InProgress items appear first, followed by NotStarted items, and finally Done items.
+func compareItems(a, b *Item) int {
+	return statusRank(a.Status) - statusRank(b.Status)
+}
+
+// statusRank returns a numeric ranking for sorting by Status, prioritizing active work.
+func statusRank(s Status) int {
+	switch s {
+	case StatusInProgress:
+		return -1
+	case StatusDone:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// compareWaitingForItems determines the sorting order for items in a "Waiting For" list.
+// It primarily groups items by their status, and secondarily sorts them by Creation date (newest first)
+// so that the most recent waiting items are shown at the top.
+func compareWaitingForItems(a, b *Item) int {
+	if c := compareItems(a, b); c != 0 {
+		return c
+	}
+
+	if a.WaitingOn == "" {
+		return 0
+	}
+
+	if b.WaitingOn == "" {
+		return -1
+	}
+
+	return b.Created.Compare(a.Created)
+}
+
+// compareSnoozedItems determines the sorting order for items in a "Snoozed" list.
+// It primarily groups items by their status, and secondarily sorts them by Snoozed date
+// so that items waking up soonest are shown at the top.
+func compareSnoozedItems(a, b *Item) int {
+	if c := compareItems(a, b); c != 0 {
+		return c
+	}
+
+	if a.Snoozed == nil {
+		return 0
+	}
+
+	if b.Snoozed == nil {
+		return -1
+	}
+
+	return a.Snoozed.Compare(*b.Snoozed)
 }
