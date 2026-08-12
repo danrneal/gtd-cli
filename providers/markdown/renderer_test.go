@@ -43,9 +43,10 @@ func TestRender(t *testing.T) {
 					Items:    []*model.Item{},
 				},
 			},
-			want: `# Inbox (0)
+			want: trimIndent(`
+				# Inbox (0)
 
-`,
+			`),
 			wantErr: false,
 		},
 		{
@@ -68,11 +69,12 @@ func TestRender(t *testing.T) {
 					Items:    []*model.Item{},
 				},
 			},
-			want: `# List One (0)
+			want: trimIndent(`
+				# List One (0)
+				
+				# List Two (0) {{list-123}}
 
-# List Two (0) {{list-123}}
-
-`,
+			`),
 			wantErr: false,
 		},
 		{
@@ -112,13 +114,47 @@ func TestRender(t *testing.T) {
 					},
 				},
 			},
-			want: `# Statuses (4)
-* [-] In progress
-* [ ] Not started
-* [ ] Empty status
-* [x] ~~Done~~
+			want: trimIndent(`
+				# Statuses (3)
+				* [-] In progress
+				* [ ] Not started
+				* [ ] Empty status
+				* [x] ~~Done~~
 
-`,
+			`),
+			wantErr: false,
+		},
+		{
+			name:   "active item count excludes done items",
+			writer: &bytes.Buffer{},
+			lists: []model.List{
+				{
+					Name:     "Completed",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items: []*model.Item{
+						{
+							Title:    "Done 1",
+							Position: 0,
+							Status:   model.StatusDone,
+							Modified: modified,
+						},
+						{
+							Title:    "Done 2",
+							Position: 1,
+							Status:   model.StatusDone,
+							Modified: modified,
+						},
+					},
+				},
+			},
+			want: trimIndent(`
+				# Completed (0)
+				* [x] ~~Done 1~~
+				* [x] ~~Done 2~~
+
+			`),
 			wantErr: false,
 		},
 		{
@@ -141,10 +177,11 @@ func TestRender(t *testing.T) {
 					},
 				},
 			},
-			want: `# Action (1)
-* [ ] Task +proj-123
+			want: trimIndent(`
+				# Action (1)
+				* [ ] Task +proj-123
 
-`,
+			`),
 			wantErr: false,
 		},
 		{
@@ -167,10 +204,11 @@ func TestRender(t *testing.T) {
 					},
 				},
 			},
-			want: `# Action (1)
-* [ ] Task due:2024-01-02
+			want: trimIndent(`
+				# Action (1)
+				* [ ] Task due:2024-01-02
 
-`,
+			`),
 			wantErr: false,
 		},
 		{
@@ -193,10 +231,11 @@ func TestRender(t *testing.T) {
 					},
 				},
 			},
-			want: `# Action (1)
-* [ ] Task snoozed:2024-01-01
+			want: trimIndent(`
+				# Action (1)
+				* [ ] Task snoozed:2024-01-01
 
-`,
+			`),
 			wantErr: false,
 		},
 		{
@@ -219,10 +258,11 @@ func TestRender(t *testing.T) {
 					},
 				},
 			},
-			want: `# Action (1)
-* [ ] Task #tag1 #tag2
+			want: trimIndent(`
+				# Action (1)
+				* [ ] Task #tag1 #tag2
 
-`,
+			`),
 			wantErr: false,
 		},
 		{
@@ -246,10 +286,11 @@ func TestRender(t *testing.T) {
 					},
 				},
 			},
-			want: `# Waiting For (1)
-* [ ] Alice - Send report - 2024-01-02
+			want: trimIndent(`
+				# Waiting For (1)
+				* [ ] Alice - Send report - 2024-01-02
 
-`,
+			`),
 			wantErr: false,
 		},
 		{
@@ -272,10 +313,11 @@ func TestRender(t *testing.T) {
 					},
 				},
 			},
-			want: `# Action (1)
-* [ ] Task {{item-456}}
+			want: trimIndent(`
+				# Action (1)
+				* [ ] Task {{item-456}}
 
-`,
+			`),
 			wantErr: false,
 		},
 		{
@@ -298,12 +340,13 @@ func TestRender(t *testing.T) {
 					},
 				},
 			},
-			want: `# Notes (1)
-* [ ] Task with description
-    First line of description.
-    Second line.
+			want: trimIndent(`
+				# Notes (1)
+				* [ ] Task with description
+				    First line of description.
+				    Second line.
 
-`,
+			`),
 			wantErr: false,
 		},
 		{

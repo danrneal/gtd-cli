@@ -1,13 +1,12 @@
-# Last-Synced-Commit: aef8aa4f6f96b84ed467f84229e7d96af0e6ac25
 # format: filepath:line:mutatorName
 
-app/runner.go:122:branch/if
-app/runner.go:140:branch/if
-app/runner.go:149:branch/if
-app/runner.go:159:statement/remove
-app/runner.go:163:statement/remove
-app/runner.go:185:statement/remove
-app/runner.go:191:statement/remove
+app/runner.go:103:branch/if
+app/runner.go:121:branch/if
+app/runner.go:130:branch/if
+app/runner.go:140:statement/remove
+app/runner.go:144:statement/remove
+app/runner.go:166:statement/remove
+app/runner.go:172:statement/remove
 app/syncer.go:114:branch/if
 app/syncer.go:122:branch/if
 app/syncer.go:279:branch/if
@@ -33,11 +32,11 @@ providers/markdown/client.go:204:statement/remove
 providers/markdown/client.go:246:statement/remove
 providers/markdown/client.go:314:statement/remove
 providers/markdown/client.go:326:branch/if
-providers/markdown/client.go:395:branch/if
+providers/markdown/client.go:399:branch/if
 providers/markdown/parser.go:61:branch/case
-providers/markdown/watcher.go:79:branch/if
-providers/markdown/watcher.go:83:branch/if
 providers/markdown/watcher.go:99:branch/if
+providers/markdown/watcher.go:118:branch/if
+providers/markdown/watcher.go:122:branch/if
 providers/sqlite/store.go:63:branch/if
 providers/sqlite/store.go:63:statement/remove
 providers/sqlite/store.go:70:numbers/decrementer

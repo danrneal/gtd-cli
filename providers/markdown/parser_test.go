@@ -31,17 +31,17 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "file with no lists",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				This is just a file with some random text.
 				But no headers at all.
-			`),
+			`)),
 			want: nil,
 		},
 		{
 			name: "basic list with no items",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				# Inbox
-			`),
+			`)),
 			want: []model.List{
 				{
 					Name:     "Inbox",
@@ -54,11 +54,11 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "multiple lists",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				# List One
 
 				# List Two
-			`),
+			`)),
 			want: []model.List{
 				{
 					Name:     "List One",
@@ -78,10 +78,10 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "basic list with item",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				# Inbox
 				* [ ] A simple task
-			`),
+			`)),
 			want: []model.List{
 				{
 					Name:     "Inbox",
@@ -103,12 +103,12 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "multiline descriptions",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				# Notes
 				* [ ] Task with description
 				First line of description.
 				Second line.
-			`),
+			`)),
 			want: []model.List{
 				{
 					Name:     "Notes",
@@ -130,13 +130,13 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "multiple lists with items",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				# List One
 				* [ ] Item One A
 
 				# List Two
 				* [ ] Item Two A
-			`),
+			`)),
 			want: []model.List{
 				{
 					Name:     "List One",
@@ -174,11 +174,11 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "items ignored if no preceding list",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				* [ ] Stray item
 				# Inbox
 				* [ ] Valid item
-			`),
+			`)),
 			want: []model.List{
 				{
 					Name:     "Inbox",
@@ -200,12 +200,12 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "list with external ID, count suffix, and multiple items",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				## Inbox (3) {{list-123}}
 				* [ ] First task
 				* [ ] Second task
 				* [ ] Third task
-			`),
+			`)),
 			want: []model.List{
 				{
 					ID:       "list-123",
@@ -244,14 +244,14 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "item statuses and strikethrough",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				# Statuses
 				* [ ] Not started
 				- [-] In progress
 				- [~] In progress custom
 				* [x] ~Done lowercase~
 				* [X] ~~Done uppercase~~
-			`),
+			`)),
 			want: []model.List{
 				{
 					Name:     "Statuses",
@@ -300,10 +300,10 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "item metadata parsing",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				# Action {{list-1}}
 				* [ ] Complex task +P due:2024-01-02 snoozed:2024-01-01 #t #tag2 {{item-456}}
-			`),
+			`)),
 			want: []model.List{
 				{
 					ID:       "list-1",
@@ -331,10 +331,10 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "metadata syntax ignoring standalone plus symbol",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				# Normal
 				* [ ] A + B
-			`),
+			`)),
 			want: []model.List{
 				{
 					Name:     "Normal",
@@ -356,10 +356,10 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "metadata syntax ignoring standalone hash symbol",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				# Normal
 				* [ ] C # D
-			`),
+			`)),
 			want: []model.List{
 				{
 					Name:     "Normal",
@@ -381,10 +381,10 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "invalid snoozed date ignores prefix and appends to title",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				# Errors
 				* [ ] Bad snoozed snoozed:tomorrow
-			`),
+			`)),
 			want: []model.List{
 				{
 					Name:     "Errors",
@@ -406,10 +406,10 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "invalid due date ignores prefix and appends to title",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				# Errors
 				* [ ] Bad due due:ASAP
-			`),
+			`)),
 			want: []model.List{
 				{
 					Name:     "Errors",
@@ -431,11 +431,11 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "waiting for list special behavior",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				# Waiting For
 				* [ ] Alice - Send report
 				* [ ] Bob - Review PR
-			`),
+			`)),
 			want: []model.List{
 				{
 					Name:     "Waiting For",
@@ -465,10 +465,10 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "waiting for list ignores item without hyphen separator",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				# Waiting For
 				* [ ] Just a task
-			`),
+			`)),
 			want: []model.List{
 				{
 					Name:     "Waiting For",
@@ -490,10 +490,10 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "waiting for item with incorrectly formatted date",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				# Waiting For
 				* [ ] Bob - Review PR - Urgent
-			`),
+			`)),
 			want: []model.List{
 				{
 					Name:     "Waiting For",
@@ -515,10 +515,10 @@ func TestParse(t *testing.T) {
 		},
 		{
 			name: "waiting for item with creation date",
-			reader: strings.NewReader(`
+			reader: strings.NewReader(trimIndent(`
 				# Waiting For
 				* [ ] Alice - Send budget report - 2024-05-15
-			`),
+			`)),
 			want: []model.List{
 				{
 					Name:     "Waiting For",
@@ -573,4 +573,32 @@ func (errReader) Read(p []byte) (n int, err error) {
 func iso8601ToDate(s string) *time.Time {
 	t, _ := time.Parse("2006-01-02", s)
 	return &t
+}
+
+func trimIndent(s string) string {
+	s = strings.TrimPrefix(s, "\n")
+
+	lines := strings.Split(s, "\n")
+	baseIndent := ""
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+
+		content := strings.TrimLeft(line, " \t")
+		baseIndent = line[:len(line)-len(content)]
+		break
+	}
+
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			lines[i] = ""
+			continue
+		}
+
+		line = strings.TrimPrefix(line, baseIndent)
+		lines[i] = line
+	}
+
+	return strings.Join(lines, "\n")
 }
