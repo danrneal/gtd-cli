@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -52,8 +53,35 @@ func main() {
 	flag.StringVar(&cfg.tokenFile, "token", "", "Path to Google token file (overrides -system)")
 	flag.Parse()
 
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		logger.Error("Failed to get user home directory", "err", err)
+		os.Exit(1)
+	}
+
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		logger.Error("Failed to get user config directory", "err", err)
+		os.Exit(1)
+	}
+
+	gtdDataDir := filepath.Join(homeDir, ".local", "share", "gtd")
+	gtdConfigDir := filepath.Join(configDir, "gtd")
+
+	if err := os.MkdirAll(gtdDataDir, 0o700); err != nil {
+		logger.Error("Failed to create data directory", "err", err)
+		os.Exit(1)
+	}
+
+	if err := os.MkdirAll(gtdConfigDir, 0o700); err != nil {
+		logger.Error("Failed to create config directory", "err", err)
+		os.Exit(1)
+	}
+
 	if cfg.db == "" {
-		cfg.db = cfg.system + ".db"
+		cfg.db = filepath.Join(gtdDataDir, cfg.system+".db")
 	}
 
 	if cfg.mdFile == "" {
@@ -61,14 +89,13 @@ func main() {
 	}
 
 	if cfg.credsFile == "" {
-		cfg.credsFile = cfg.system + "_credentials.json"
+		cfg.credsFile = filepath.Join(gtdConfigDir, cfg.system+"_credentials.json")
 	}
 
 	if cfg.tokenFile == "" {
-		cfg.tokenFile = cfg.system + "_token.json"
+		cfg.tokenFile = filepath.Join(gtdConfigDir, cfg.system+"_token.json")
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	if err := run(&cfg, logger); err != nil {
 		logger.Error("Application terminated unexpectedly", "err", err)
 		os.Exit(1)
