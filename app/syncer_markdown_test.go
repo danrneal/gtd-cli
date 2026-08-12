@@ -105,23 +105,53 @@ func TestPushMarkdown(t *testing.T) {
 						Status:   model.StatusDeleted,
 						Modified: baseTime.Add(1),
 					},
+					{
+						ID:       "custom-list-1",
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: baseTime,
+					},
 				})
 
 				return sqlite
 			},
 			setupMarkdown: func(t *testing.T) *errorProvider {
-				md := setupTestMarkdown(t, []model.List{})
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "custom-list-1",
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: baseTime,
+					},
+				})
+
 				return md
 			},
 			wantSqliteLists: []model.List{
 				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusDeleted,
-					Items:  []*model.Item{},
+					ID:       "custom-list-1",
+					Name:     "Inbox",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Position: 1,
+					Status:   model.StatusDeleted,
+					Items:    []*model.Item{},
 				},
 			},
-			wantMarkdownLists: []model.List{},
+			wantMarkdownLists: []model.List{
+				{
+					ID:       "custom-list-1",
+					Name:     "Inbox",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Items:    []*model.Item{},
+				},
+			},
 		},
 		{
 			name: "creates new list in destination",
@@ -2254,11 +2284,23 @@ func TestPullMarkdown(t *testing.T) {
 		{
 			name: "skips already deleted list during deletion phase",
 			setupMarkdown: func(t *testing.T) *errorProvider {
-				md := setupTestMarkdown(t, []model.List{})
+				md := setupTestMarkdown(t, []model.List{
+					{
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: baseTime,
+					},
+				})
+
 				return md
 			},
 			setupSqlite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: baseTime,
+					},
 					{
 						Name:     "L1",
 						Status:   model.StatusDeleted,
@@ -2268,25 +2310,58 @@ func TestPullMarkdown(t *testing.T) {
 
 				return sqlite
 			},
-			wantMarkdownLists: []model.List{},
-			wantSqliteLists: []model.List{
+			wantMarkdownLists: []model.List{
 				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusDeleted,
+					ID:     "store-list-3",
+					Name:   "Inbox",
+					Status: model.StatusOpen,
 					Items:  []*model.Item{},
 				},
 			},
-			wantUpdated: false,
+			wantSqliteLists: []model.List{
+				{
+					ID:     "store-list-3",
+					Name:   "Inbox",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+				{
+					ID:       "store-list-1",
+					Name:     "Inbox",
+					Position: 1,
+					Status:   model.StatusDeleted,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L1",
+					Position: 2,
+					Status:   model.StatusDeleted,
+					Items:    []*model.Item{},
+				},
+			},
+			wantUpdated: true,
 		},
 		{
 			name: "deletes list in destination",
 			setupMarkdown: func(t *testing.T) *errorProvider {
-				md := setupTestMarkdown(t, []model.List{})
+				md := setupTestMarkdown(t, []model.List{
+					{
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: baseTime,
+					},
+				})
+
 				return md
 			},
 			setupSqlite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: baseTime,
+					},
 					{
 						Name:     "L1",
 						Status:   model.StatusOpen,
@@ -2296,13 +2371,35 @@ func TestPullMarkdown(t *testing.T) {
 
 				return sqlite
 			},
-			wantMarkdownLists: []model.List{},
+			wantMarkdownLists: []model.List{
+				{
+					ID:     "store-list-3",
+					Name:   "Inbox",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
 			wantSqliteLists: []model.List{
 				{
-					ID:     "store-list-1",
-					Name:   "L1",
-					Status: model.StatusDeleted,
-					Items:  []*model.Item{},
+					ID:       "store-list-2",
+					Name:     "L1",
+					Position: 0,
+					Status:   model.StatusDeleted,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-3",
+					Name:     "Inbox",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-1",
+					Name:     "Inbox",
+					Position: 2,
+					Status:   model.StatusDeleted,
+					Items:    []*model.Item{},
 				},
 			},
 			wantUpdated: true,
@@ -2737,10 +2834,6 @@ func setupTestMarkdown(t *testing.T, lists []model.List) *errorProvider {
 	path := filepath.Join(dir, "gtd.md")
 	logger := slog.New(slog.DiscardHandler)
 	client := markdown.NewClient(path, logger)
-
-	if len(lists) == 0 {
-		_ = os.WriteFile(path, []byte(""), 0o600)
-	}
 
 	var lastModTime time.Time
 	for _, list := range lists {

@@ -14,32 +14,14 @@ type Runner struct {
 	targets []*SyncTarget
 	events  chan syncEvent
 	logger  *slog.Logger
-	onReady func()
-}
-
-// RunnerOption configures a Runner.
-type RunnerOption func(*Runner)
-
-// WithOnReady allows injecting a callback that fires when the runner is ready to accept events.
-func WithOnReady(fn func()) RunnerOption {
-	onReady := func(r *Runner) {
-		r.onReady = fn
-	}
-
-	return onReady
 }
 
 // NewRunner creates a new Runner instance with the provided logger and configuration targets.
-func NewRunner(targets []*SyncTarget, logger *slog.Logger, opts ...RunnerOption) *Runner {
+func NewRunner(targets []*SyncTarget, logger *slog.Logger) *Runner {
 	runner := &Runner{
 		targets: targets,
 		events:  make(chan syncEvent, len(targets)),
 		logger:  logger,
-		onReady: func() {},
-	}
-
-	for _, opt := range opts {
-		opt(runner)
 	}
 
 	return runner
@@ -75,7 +57,6 @@ func (r *Runner) Run(ctx context.Context) error {
 	}
 
 	r.processEvent(ctx, syncEvent{})
-	r.onReady()
 
 	for {
 		select {

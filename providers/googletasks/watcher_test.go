@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"go.uber.org/goleak"
@@ -13,56 +14,55 @@ func TestClient_Watch(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		interval time.Duration
-		verify   func(t *testing.T, events <-chan error, cancel context.CancelFunc)
+		name   string
+		verify func(t *testing.T, events <-chan error, cancel context.CancelFunc)
 	}{
 		{
-			name:     "success",
-			interval: 5 * time.Millisecond,
+			name: "success",
 			verify: func(t *testing.T, events <-chan error, cancel context.CancelFunc) {
-				select {
-				case err := <-events:
-					if err != nil {
-						t.Errorf("expected nil error ping, got: %v", err)
-					}
-				case <-time.After(1 * time.Second):
-					t.Fatal("Watch() failed to send an event within 1 second")
+				err := <-events
+				if err != nil {
+					t.Errorf("expected nil error ping, got: %v", err)
 				}
 			},
 		},
 		{
-			name:     "graceful shutdown",
-			interval: 5 * time.Millisecond,
+			name: "graceful shutdown",
 			verify: func(t *testing.T, events <-chan error, cancel context.CancelFunc) {
 				cancel()
 
-				done := make(chan struct{})
-				go func() {
-					for range events {
-						// Drain any events that snuck in before cancel
-					}
-
-					close(done)
-				}()
+				synctest.Wait()
 
 				select {
-				case <-done:
-					// Success! The channel was closed.
-				case <-time.After(1 * time.Second):
-					t.Fatal("Watch() goroutine failed to shut down on context cancel")
+				case _, ok := <-events:
+					if ok {
+						t.Fatal("expected events channel to be closed")
+					}
+				default:
+					t.Fatal("expected events channel to be closed, but it was open and empty")
 				}
 			},
 		},
 		{
-			name:     "backpressure",
-			interval: 5 * time.Millisecond,
+			name: "backpressure",
 			verify: func(t *testing.T, events <-chan error, cancel context.CancelFunc) {
+				time.Sleep(30 * time.Second)
+				synctest.Wait()
+				time.Sleep(30 * time.Second)
+				synctest.Wait()
+
 				select {
 				case <-events:
-					// Success! It read one event
-				case <-time.After(1 * time.Second):
-					t.Fatal("Watch() deadlocked on full channel")
+					// Success! It read the first event
+				default:
+					t.Fatal("expected 1 event in the channel")
+				}
+
+				select {
+				case <-events:
+					t.Fatal("expected second event to be dropped, but channel had 2")
+				default:
+					// Success! The channel is empty.
 				}
 			},
 		},
@@ -72,22 +72,25 @@ func TestClient_Watch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			logger := slog.New(slog.DiscardHandler)
-			client := NewClient(nil, tt.interval, logger)
+			synctest.Test(t, func(t *testing.T) {
+				pollInterval := 30 * time.Second
+				logger := slog.New(slog.DiscardHandler)
+				client := NewClient(nil, pollInterval, logger)
 
-			ctx, cancel := context.WithCancel(t.Context())
-			defer cancel()
+				ctx, cancel := context.WithCancel(t.Context())
+				defer cancel()
 
-			events, err := client.Watch(ctx)
-			if err != nil {
-				t.Fatalf("Watch() returned an unexpected error: %v", err)
-			}
+				events, err := client.Watch(ctx)
+				if err != nil {
+					t.Fatalf("Watch() returned an unexpected error: %v", err)
+				}
 
-			if cap(events) != 1 {
-				t.Errorf("Watch() channel capacity = %d, want 1", cap(events))
-			}
+				if cap(events) != 1 {
+					t.Errorf("Watch() channel capacity = %d, want 1", cap(events))
+				}
 
-			tt.verify(t, events, cancel)
+				tt.verify(t, events, cancel)
+			})
 		})
 	}
 }

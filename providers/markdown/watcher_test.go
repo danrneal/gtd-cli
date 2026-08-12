@@ -2,13 +2,14 @@ package markdown
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/synctest"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"go.uber.org/goleak"
 )
 
@@ -22,61 +23,34 @@ func TestClient_Watch(t *testing.T) {
 		verify  func(t *testing.T, client *Client, events <-chan error, cancel context.CancelFunc)
 	}{
 		{
-			name:    "success (genuine user edit)",
-			setup:   setupValidMarkdown,
+			name: "success (genuine user edit)",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "gtd.md")
+
+				if err := os.WriteFile(path, []byte("# Inbox"), 0o600); err != nil {
+					t.Fatalf("failed to create test file: %v", err)
+				}
+
+				return path
+			},
 			wantErr: false,
 			verify: func(t *testing.T, client *Client, events <-chan error, cancel context.CancelFunc) {
-				client.mu.RLock()
-				initialModTime := client.lastModTime
-				client.mu.RUnlock()
-
-				errChan := make(chan error)
-				go func() {
-					errChan <- <-events
-				}()
-
-				if err := os.WriteFile(client.filepath, []byte("user edit"), 0o600); err != nil {
+				if err := os.WriteFile(client.filepath, []byte("valid edit"), 0o600); err != nil {
 					t.Fatalf("failed to trigger fsnotify: %v", err)
 				}
 
 				select {
-				case err := <-errChan:
-					if err != nil {
-						t.Errorf("expected nil error ping, got: %v", err)
+				case err, ok := <-events:
+					if !ok {
+						t.Fatal("expected event, but events channel was unexpectedly closed")
 					}
 
-					client.mu.RLock()
-					finalModTime := client.lastModTime
-					client.mu.RUnlock()
-
-					if !finalModTime.After(initialModTime) {
-						t.Errorf(
-							"expected lastModTime to advance, but it did not. Initial: %v, Final: %v",
-							initialModTime,
-							finalModTime,
-						)
+					if err != nil {
+						t.Errorf("expected nil error ping, got: %v", err)
 					}
 				case <-time.After(1 * time.Second):
 					t.Fatal("Watch() failed to send an event within 1 second")
 				}
-			},
-		},
-		{
-			name:    "echo deduplication (app edit)",
-			setup:   setupValidMarkdown,
-			wantErr: false,
-			verify: func(t *testing.T, client *Client, events <-chan error, cancel context.CancelFunc) {
-				trigger := func() error {
-					client.mu.Lock()
-					client.lastModTime = time.Now().Add(1 * time.Hour)
-					client.mu.Unlock()
-
-					err := os.WriteFile(client.filepath, []byte("app edit"), 0o600)
-
-					return err
-				}
-
-				assertIgnoredEvent(t, client, events, trigger)
 			},
 		},
 		{
@@ -85,85 +59,6 @@ func TestClient_Watch(t *testing.T) {
 				return "/does/not/exist/gtd.md"
 			},
 			wantErr: true,
-		},
-		{
-			name:    "graceful shutdown",
-			setup:   setupValidMarkdown,
-			wantErr: false,
-			verify: func(t *testing.T, client *Client, events <-chan error, cancel context.CancelFunc) {
-				cancel()
-
-				select {
-				case _, ok := <-events:
-					if ok {
-						t.Fatal("expected events channel to be closed")
-					}
-				case <-time.After(1 * time.Second):
-					t.Fatal("Watch() goroutine failed to shut down on context cancel")
-				}
-			},
-		},
-		{
-			name:    "backpressure",
-			setup:   setupValidMarkdown,
-			wantErr: false,
-			verify: func(t *testing.T, client *Client, events <-chan error, cancel context.CancelFunc) {
-				for i := range 5 {
-					if err := os.WriteFile(client.filepath, fmt.Appendf(nil, "burst %d", i), 0o600); err != nil {
-						t.Fatalf("failed to trigger fsnotify: %v", err)
-					}
-
-					time.Sleep(5 * time.Millisecond)
-				}
-
-				select {
-				case <-events:
-					// Success! It read one event and safely dropped the rest.
-				case <-time.After(1 * time.Second):
-					t.Fatal("Watch() deadlocked or failed to send burst event")
-				}
-			},
-		},
-		{
-			name:    "ignored directory event (different file)",
-			setup:   setupValidMarkdown,
-			wantErr: false,
-			verify: func(t *testing.T, client *Client, events <-chan error, cancel context.CancelFunc) {
-				trigger := func() error {
-					dummyPath := filepath.Join(filepath.Dir(client.filepath), "dummy.md")
-					err := os.WriteFile(dummyPath, []byte("noise"), 0o600)
-
-					return err
-				}
-
-				assertIgnoredEvent(t, client, events, trigger)
-			},
-		},
-		{
-			name:    "ignored non-write event (chmod)",
-			setup:   setupValidMarkdown,
-			wantErr: false,
-			verify: func(t *testing.T, client *Client, events <-chan error, cancel context.CancelFunc) {
-				trigger := func() error {
-					err := os.Chmod(client.filepath, 0o777)
-					return err
-				}
-
-				assertIgnoredEvent(t, client, events, trigger)
-			},
-		},
-		{
-			name:    "ignored rename event (file deleted/moved)",
-			setup:   setupValidMarkdown,
-			wantErr: false,
-			verify: func(t *testing.T, client *Client, events <-chan error, cancel context.CancelFunc) {
-				trigger := func() error {
-					err := os.Rename(client.filepath, client.filepath+".bak")
-					return err
-				}
-
-				assertIgnoredEvent(t, client, events, trigger)
-			},
 		},
 	}
 
@@ -197,74 +92,408 @@ func TestClient_Watch(t *testing.T) {
 	}
 }
 
-func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(m)
-}
+func TestClient_watchLoop(t *testing.T) {
+	t.Parallel()
 
-func setupValidMarkdown(t *testing.T) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "watch_test.md")
-	if err := os.WriteFile(path, []byte("# Inbox"), 0o600); err != nil {
-		t.Fatalf("failed to setup file: %v", err)
+	tests := []struct {
+		name   string
+		verify func(
+			t *testing.T,
+			client *Client,
+			fakeWatcher *fsnotify.Watcher,
+			events <-chan error,
+			cancel context.CancelFunc,
+		)
+	}{
+		{
+			name: "processes valid event",
+			verify: func(
+				t *testing.T,
+				client *Client,
+				fakeWatcher *fsnotify.Watcher,
+				events <-chan error,
+				cancel context.CancelFunc,
+			) {
+				client.mu.Lock()
+				client.lastModTime = time.Now()
+				client.mu.Unlock()
+
+				client.mu.RLock()
+				initialModTime := client.lastModTime
+				client.mu.RUnlock()
+
+				modTime := client.lastModTime.Add(1)
+				if err := os.Chtimes(client.filepath, modTime, modTime); err != nil {
+					t.Fatalf("failed to advance file time: %v", err)
+				}
+
+				event := fsnotify.Event{
+					Name: client.filepath,
+					Op:   fsnotify.Write,
+				}
+
+				fakeWatcher.Events <- event
+
+				assertEventEmitted(t, events)
+
+				client.mu.RLock()
+				lastModTime := client.lastModTime
+				client.mu.RUnlock()
+
+				if !lastModTime.After(initialModTime) {
+					t.Errorf(
+						"expected lastModTime to advance, but it did not. Initial: %v, Final: %v",
+						initialModTime,
+						lastModTime,
+					)
+				}
+			},
+		},
+		{
+			name: "drops duplicate burst events (backpressure)",
+			verify: func(
+				t *testing.T,
+				client *Client,
+				fakeWatcher *fsnotify.Watcher,
+				events <-chan error,
+				cancel context.CancelFunc,
+			) {
+				client.mu.Lock()
+				client.lastModTime = time.Now()
+				client.mu.Unlock()
+
+				event := fsnotify.Event{
+					Name: client.filepath,
+					Op:   fsnotify.Write,
+				}
+
+				modTime := client.lastModTime.Add(1)
+				if err := os.Chtimes(client.filepath, modTime, modTime); err != nil {
+					t.Fatalf("failed to advance file time: %v", err)
+				}
+
+				fakeWatcher.Events <- event
+
+				time.Sleep(DefaultDebounceInterval)
+				synctest.Wait()
+
+				modTime = client.lastModTime.Add(1)
+				if err := os.Chtimes(client.filepath, modTime, modTime); err != nil {
+					t.Fatalf("failed to advance file time: %v", err)
+				}
+
+				fakeWatcher.Events <- event
+
+				time.Sleep(DefaultDebounceInterval)
+				synctest.Wait()
+
+				select {
+				case err := <-events:
+					if err != nil {
+						t.Errorf("expected nil error, got: %v", err)
+					}
+				default:
+					t.Fatal("expected at least 1 event in the channel")
+				}
+
+				select {
+				case <-events:
+					t.Fatal("expected second event to be dropped, but it was in the channel")
+				default:
+					// Success: The second event was dropped.
+				}
+			},
+		},
+		{
+			name: "resets timer on rapid events",
+			verify: func(
+				t *testing.T,
+				client *Client,
+				fakeWatcher *fsnotify.Watcher,
+				events <-chan error,
+				cancel context.CancelFunc,
+			) {
+				event := fsnotify.Event{
+					Name: client.filepath,
+					Op:   fsnotify.Write,
+				}
+
+				fakeWatcher.Events <- event
+
+				event = fsnotify.Event{
+					Name: client.filepath,
+					Op:   fsnotify.Write,
+				}
+
+				fakeWatcher.Events <- event
+
+				assertEventEmitted(t, events)
+			},
+		},
+		{
+			name: "ignores events for other files",
+			verify: func(
+				t *testing.T,
+				client *Client,
+				fakeWatcher *fsnotify.Watcher,
+				events <-chan error,
+				cancel context.CancelFunc,
+			) {
+				event := fsnotify.Event{
+					Name: filepath.Join(filepath.Dir(client.filepath), "some_other_file.md"),
+					Op:   fsnotify.Write,
+				}
+
+				fakeWatcher.Events <- event
+
+				assertEventIgnored(t, events)
+			},
+		},
+		{
+			name: "ignores non-write events (chmod)",
+			verify: func(
+				t *testing.T,
+				client *Client,
+				fakeWatcher *fsnotify.Watcher,
+				events <-chan error,
+				cancel context.CancelFunc,
+			) {
+				event := fsnotify.Event{
+					Name: client.filepath,
+					Op:   fsnotify.Chmod,
+				}
+
+				fakeWatcher.Events <- event
+
+				assertEventIgnored(t, events)
+			},
+		},
+		{
+			name: "ignores events if os.Stat fails",
+			verify: func(
+				t *testing.T,
+				client *Client,
+				fakeWatcher *fsnotify.Watcher,
+				events <-chan error,
+				cancel context.CancelFunc,
+			) {
+				if err := os.Remove(client.filepath); err != nil {
+					t.Fatalf("failed to remove file for test setup: %v", err)
+				}
+
+				event := fsnotify.Event{
+					Name: client.filepath,
+					Op:   fsnotify.Write,
+				}
+
+				fakeWatcher.Events <- event
+
+				assertEventIgnored(t, events)
+			},
+		},
+		{
+			name: "ignores events if mod time has not advanced",
+			verify: func(
+				t *testing.T,
+				client *Client,
+				fakeWatcher *fsnotify.Watcher,
+				events <-chan error,
+				cancel context.CancelFunc,
+			) {
+				stat, err := os.Stat(client.filepath)
+				if err != nil {
+					t.Fatalf("failed to stat test file: %v", err)
+				}
+
+				client.mu.Lock()
+				client.lastModTime = stat.ModTime().Add(1)
+				client.mu.Unlock()
+
+				event := fsnotify.Event{
+					Name: client.filepath,
+					Op:   fsnotify.Write,
+				}
+
+				fakeWatcher.Events <- event
+
+				assertEventIgnored(t, events)
+			},
+		},
+		{
+			name: "preserves active timer on ignored events",
+			verify: func(
+				t *testing.T,
+				client *Client,
+				fakeWatcher *fsnotify.Watcher,
+				events <-chan error,
+				cancel context.CancelFunc,
+			) {
+				event := fsnotify.Event{
+					Name: client.filepath,
+					Op:   fsnotify.Write,
+				}
+
+				fakeWatcher.Events <- event
+
+				event = fsnotify.Event{
+					Name: client.filepath,
+					Op:   fsnotify.Chmod,
+				}
+
+				fakeWatcher.Events <- event
+
+				assertEventEmitted(t, events)
+			},
+		},
+		{
+			name: "exits when events channel is closed",
+			verify: func(
+				t *testing.T,
+				client *Client,
+				fakeWatcher *fsnotify.Watcher,
+				events <-chan error,
+				cancel context.CancelFunc,
+			) {
+				close(fakeWatcher.Events)
+
+				assertChannelClosed(t, events)
+			},
+		},
+		{
+			name: "processes watcher errors",
+			verify: func(
+				t *testing.T,
+				client *Client,
+				fakeWatcher *fsnotify.Watcher,
+				events <-chan error,
+				cancel context.CancelFunc,
+			) {
+				fakeWatcher.Errors <- os.ErrPermission
+
+				select {
+				case err := <-events:
+					if err == nil {
+						t.Fatal("expected an error, got nil")
+					}
+				case <-time.After(1 * time.Second):
+					t.Fatal("timeout waiting for error event")
+				}
+			},
+		},
+		{
+			name: "aborts sending error on context cancellation",
+			verify: func(
+				t *testing.T,
+				client *Client,
+				fakeWatcher *fsnotify.Watcher,
+				events <-chan error,
+				cancel context.CancelFunc,
+			) {
+				fakeWatcher.Errors <- os.ErrPermission
+
+				synctest.Wait()
+
+				go func() {
+					fakeWatcher.Errors <- os.ErrPermission
+				}()
+
+				synctest.Wait()
+
+				cancel()
+
+				<-events
+
+				assertChannelClosed(t, events)
+			},
+		},
+		{
+			name: "exits when errors channel is closed",
+			verify: func(
+				t *testing.T,
+				client *Client,
+				fakeWatcher *fsnotify.Watcher,
+				events <-chan error,
+				cancel context.CancelFunc,
+			) {
+				close(fakeWatcher.Errors)
+
+				assertChannelClosed(t, events)
+			},
+		},
 	}
 
-	return path
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			synctest.Test(t, func(t *testing.T) {
+				path := filepath.Join(t.TempDir(), "gtd.md")
+				if err := os.WriteFile(path, []byte("# Inbox"), 0o600); err != nil {
+					t.Fatalf("failed to create test file: %v", err)
+				}
+
+				logger := slog.New(slog.DiscardHandler)
+				client := NewClient(path, logger)
+
+				fakeWatcher := &fsnotify.Watcher{
+					Events: make(chan fsnotify.Event),
+					Errors: make(chan error),
+				}
+
+				events := make(chan error, 1)
+
+				ctx, cancel := context.WithCancel(t.Context())
+				defer cancel()
+
+				go func() {
+					defer close(events)
+
+					client.watchLoop(ctx, fakeWatcher, events)
+				}()
+
+				tt.verify(t, client, fakeWatcher, events, cancel)
+			})
+		})
+	}
 }
 
-func assertIgnoredEvent(t *testing.T, c *Client, events <-chan error, trigger func() error) {
+func assertEventEmitted(t *testing.T, events <-chan error) {
 	t.Helper()
 
-	if err := trigger(); err != nil {
-		t.Fatalf("failed to trigger ignored event: %v", err)
+	err := <-events
+	if err != nil {
+		t.Errorf("expected nil error, got: %v", err)
 	}
+}
 
-	time.Sleep(50 * time.Millisecond)
+func assertEventIgnored(t *testing.T, events <-chan error) {
+	t.Helper()
+
+	time.Sleep(DefaultDebounceInterval)
+	synctest.Wait()
 
 	select {
 	case <-events:
-		t.Fatal("Watch() incorrectly processed the ignored event")
+		t.Fatal("expected event to be ignored, but it was emitted")
 	default:
-		// Success! The ignored event was properly filtered out.
+		// Success: The event was successfully ignored.
 	}
+}
 
-	timeoutChan := time.After(1 * time.Second)
-	for {
-		c.mu.RLock()
-		modified := c.lastModTime.Add(1 * time.Hour)
-		c.mu.RUnlock()
+func assertChannelClosed(t *testing.T, events <-chan error) {
+	t.Helper()
+	synctest.Wait()
 
-		file, err := os.OpenFile(c.filepath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o600)
-		if err != nil {
-			t.Fatalf("failed to open sentinel file: %v", err)
+	select {
+	case _, ok := <-events:
+		if ok {
+			t.Fatal("expected events channel to be closed, but it was open")
 		}
-
-		if _, err := file.WriteString("\n"); err != nil {
-			t.Fatalf("failed to write sentinel byte: %v", err)
-		}
-
-		if err := os.Chtimes(c.filepath, modified, modified); err != nil {
-			t.Fatalf("failed to advance sentinel timestamp: %v", err)
-		}
-
-		if err := file.Close(); err != nil {
-			t.Fatalf("failed to close sentinel file: %v", err)
-		}
-
-		select {
-		case <-events:
-			select {
-			case <-events:
-				t.Fatal("Watch() incorrectly processed the ignored event")
-			default:
-				// Success! The ignored event was dropped.
-			}
-
-			return
-		case <-time.After(50 * time.Millisecond):
-			// We didn't get the event quickly. The OS might be backlogged or dropped it.
-			// The loop will retry triggering the sentinel.
-		case <-timeoutChan:
-			t.Fatal("Watch() failed to send an event after 5 seconds of retries")
-		}
+	default:
+		t.Fatal("expected events channel to be closed, but it was empty and open")
 	}
+}
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
 }

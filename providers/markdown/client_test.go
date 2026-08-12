@@ -1957,11 +1957,12 @@ func TestClient_readFile(t *testing.T) {
 	created := time.Date(modified.Year(), modified.Month(), modified.Day(), 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name        string
-		setup       func(t *testing.T) string
-		wantLists   []model.List
-		wantContent string
-		wantErr     bool
+		name          string
+		setup         func(t *testing.T) string
+		wantLists     []model.List
+		wantContent   string
+		wantErr       bool
+		wantErrTarget error
 	}{
 		{
 			name: "valid file",
@@ -2073,6 +2074,19 @@ func TestClient_readFile(t *testing.T) {
 			wantLists: nil,
 			wantErr:   true,
 		},
+		{
+			name: "returns ErrNotExist for 0-byte file",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "empty.md")
+				if err := os.WriteFile(path, []byte(""), 0o600); err != nil {
+					t.Fatalf("failed to create empty file: %v", err)
+				}
+
+				return path
+			},
+			wantErr:       true,
+			wantErrTarget: fs.ErrNotExist,
+		},
 	}
 
 	for _, tt := range tests {
@@ -2083,13 +2097,14 @@ func TestClient_readFile(t *testing.T) {
 			logger := slog.New(slog.DiscardHandler)
 			client := NewClient(testPath, logger)
 
-			got, err := client.readFile()
-
+			gotLists, err := client.readFile()
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("readFile() error = %v, wantErr %v", err, tt.wantErr)
+			} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+				t.Fatalf("readFile() error = %v, wantErrTarget %v", err, tt.wantErrTarget)
 			}
 
-			if diff := cmp.Diff(tt.wantLists, got); diff != "" {
+			if diff := cmp.Diff(tt.wantLists, gotLists); diff != "" {
 				t.Errorf("readFile() mismatch (-want +got):\n%s", diff)
 			}
 

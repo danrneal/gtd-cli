@@ -19,9 +19,9 @@ import (
 // Client is a markdown file provider client.
 type Client struct {
 	filepath    string
-	logger      *slog.Logger
-	mu          sync.RWMutex
 	lastModTime time.Time
+	mu          sync.RWMutex
+	logger      *slog.Logger
 }
 
 // NewClient creates a new markdown client with the given file path.
@@ -329,6 +329,10 @@ func (c *Client) readFile() ([]model.List, error) {
 	fileBytes, err := os.ReadFile(c.filepath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read markdown file: %w", err)
+	}
+
+	if len(fileBytes) == 0 {
+		return nil, fs.ErrNotExist
 	}
 
 	reader := bytes.NewReader(fileBytes)

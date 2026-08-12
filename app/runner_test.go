@@ -7,30 +7,28 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
-	"os"
 	"path/filepath"
 	"testing"
+	"testing/synctest"
 	"time"
-
-	_ "github.com/mattn/go-sqlite3"
-
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"go.uber.org/goleak"
 
 	"github.com/danrneal/gtd-cli/model"
 	"github.com/danrneal/gtd-cli/providers/sqlite"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	_ "github.com/mattn/go-sqlite3"
+	"go.uber.org/goleak"
 )
 
 // FakeWatcher is a mock implementation of the Watcher interface for testing purposes.
 type FakeWatcher struct {
-	events   chan error
+	Events   chan error
 	watchErr error
 }
 
 func NewFakeWatcher() *FakeWatcher {
 	watcher := &FakeWatcher{
-		events: make(chan error, 1),
+		Events: make(chan error, 1),
 	}
 
 	return watcher
@@ -41,18 +39,7 @@ func (f *FakeWatcher) Watch(_ context.Context) (<-chan error, error) {
 		return nil, f.watchErr
 	}
 
-	return f.events, nil
-}
-
-func (f *FakeWatcher) Trigger(err error) {
-	go func() {
-		select {
-		case f.events <- err:
-			// Successfully sent the event
-		default:
-			// Non-blocking send: drop duplicate burst events if the channel is unread
-		}
-	}()
+	return f.Events, nil
 }
 
 func TestRun(t *testing.T) {
@@ -61,18 +48,20 @@ func TestRun(t *testing.T) {
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name         string
-		setup        func(t *testing.T) (*errorProvider, []*SyncTarget)
-		triggerEvent func(t *testing.T, targets []*SyncTarget)
-		wantStore    []model.List
-		wantRemotes  map[string][]model.List
-		wantErr      bool
+		name       string
+		setup      func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (store, md, tasks *errorProvider)
+		sendEvents func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher, store, md, tasks *errorProvider)
+		wantStore  []model.List
+		wantMd     []model.List
+		wantTasks  []model.List
+		wantErr    bool
 	}{
 		{
 			name: "bootstrap sync processes initial state without events",
-			setup: func(t *testing.T) (*errorProvider, []*SyncTarget) {
-				store := setupTestSQLite(t, []model.List{})
-				md := setupTestMarkdown(t, []model.List{
+			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (store, md, tasks *errorProvider) {
+				store = setupTestSQLite(t, []model.List{})
+
+				md = setupTestMarkdown(t, []model.List{
 					{
 						Name:     "New Offline List",
 						Modified: modified,
@@ -80,26 +69,9 @@ func TestRun(t *testing.T) {
 					},
 				})
 
-				mdSyncer := NewSyncer(store, md)
-				mdWatcher := NewFakeWatcher()
-				mdTarget := &SyncTarget{
-					Name:    "markdown",
-					Syncer:  mdSyncer,
-					Watcher: mdWatcher,
-				}
+				tasks = setupTestGoogleTasks(t, []model.List{})
 
-				tasks := setupTestGoogleTasks(t, []model.List{})
-				tasksSyncer := NewSyncer(store, tasks)
-				tasksWatcher := NewFakeWatcher()
-				tasksTarget := &SyncTarget{
-					Name:    "google_tasks",
-					Syncer:  tasksSyncer,
-					Watcher: tasksWatcher,
-				}
-
-				targets := []*SyncTarget{mdTarget, tasksTarget}
-
-				return store, targets
+				return store, md, tasks
 			},
 			wantStore: []model.List{
 				{
@@ -110,423 +82,179 @@ func TestRun(t *testing.T) {
 					Items:      []*model.Item{},
 				},
 			},
-			wantRemotes: map[string][]model.List{
-				"markdown": {
-					{
-						ID:     "store-list-1",
-						Name:   "New Offline List",
-						Status: model.StatusOpen,
-						Items:  []*model.Item{},
-					},
+			wantMd: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "New Offline List",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
-				"google_tasks": {
-					{
-						Name:       "New Offline List",
-						Status:     model.StatusOpen,
-						ExternalID: new("external-list-1"),
-						Items:      []*model.Item{},
-					},
+			},
+			wantTasks: []model.List{
+				{
+					Name:       "New Offline List",
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-1"),
+					Items:      []*model.Item{},
 				},
 			},
 		},
 		{
 			name: "single event triggers full reconciliation and ID backfill",
-			setup: func(t *testing.T) (*errorProvider, []*SyncTarget) {
-				store := setupTestSQLite(t, []model.List{})
+			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (store, md, tasks *errorProvider) {
+				store = setupTestSQLite(t, []model.List{})
+				md = setupTestMarkdown(t, []model.List{})
+				tasks = setupTestGoogleTasks(t, []model.List{})
 
-				md := setupTestMarkdown(t, []model.List{})
-				mdSyncer := NewSyncer(store, md)
-				mdWatcher := NewFakeWatcher()
-				mdTarget := &SyncTarget{
-					Name:    "markdown",
-					Syncer:  mdSyncer,
-					Watcher: mdWatcher,
-				}
-
-				tasks := setupTestGoogleTasks(t, []model.List{})
-				tasksSyncer := NewSyncer(store, tasks)
-				tasksWatcher := NewFakeWatcher()
-				tasksTarget := &SyncTarget{
-					Name:    "google_tasks",
-					Syncer:  tasksSyncer,
-					Watcher: tasksWatcher,
-				}
-
-				targets := []*SyncTarget{mdTarget, tasksTarget}
-
-				return store, targets
+				return store, md, tasks
 			},
-			triggerEvent: func(t *testing.T, targets []*SyncTarget) {
+			sendEvents: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher, store, md, tasks *errorProvider) {
 				list := &model.List{
 					Name:     "New List",
 					Modified: modified,
 					Items:    []*model.Item{},
 				}
 
-				mdTarget := targets[0]
-				err := mdTarget.Syncer.remote.CreateList(t.Context(), list)
+				err := tasks.CreateList(t.Context(), list)
 				if err != nil {
 					t.Fatalf("failed to insert data during event trigger: %v", err)
 				}
 
-				mdWatcher := mustFakeWatcher(t, mdTarget.Watcher)
-				mdWatcher.Trigger(nil)
+				tasksWatcher.Events <- nil
 			},
 			wantStore: []model.List{
 				{
 					ID:         "store-list-1",
+					Name:       "New List",
+					Position:   0,
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-1"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantMd: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "New List",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+			wantTasks: []model.List{
+				{
 					Name:       "New List",
 					Status:     model.StatusOpen,
 					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 			},
-			wantRemotes: map[string][]model.List{
-				"markdown": {
+		},
+		{
+			name: "pull failure sets retry flag and recovers on next event",
+			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (store, md, tasks *errorProvider) {
+				store = setupTestSQLite(t, []model.List{
 					{
-						ID:     "store-list-1",
-						Name:   "New List",
-						Status: model.StatusOpen,
-						Items:  []*model.Item{},
-					},
-				},
-				"google_tasks": {
-					{
-						Name:       "New List",
+						ID:         "custom-list-1",
+						Name:       "Inbox",
 						Status:     model.StatusOpen,
 						ExternalID: new("external-list-1"),
-						Items:      []*model.Item{},
-					},
-				},
-			},
-		},
-		{
-			name: "watcher startup failure",
-			setup: func(t *testing.T) (*errorProvider, []*SyncTarget) {
-				store := setupTestSQLite(t, nil)
-
-				md := setupTestMarkdown(t, nil)
-				mdSyncer := NewSyncer(store, md)
-				mdWatcher := NewFakeWatcher()
-				mdWatcher.watchErr = errors.New("simulated watcher error")
-				mdTarget := &SyncTarget{
-					Name:    "markdown",
-					Syncer:  mdSyncer,
-					Watcher: mdWatcher,
-				}
-
-				tasks := setupTestGoogleTasks(t, nil)
-				tasksSyncer := NewSyncer(store, tasks)
-				tasksWatcher := NewFakeWatcher()
-				tasksTarget := &SyncTarget{
-					Name:    "google_tasks",
-					Syncer:  tasksSyncer,
-					Watcher: tasksWatcher,
-				}
-
-				targets := []*SyncTarget{mdTarget, tasksTarget}
-
-				return store, targets
-			},
-			triggerEvent: func(t *testing.T, targets []*SyncTarget) {},
-			wantStore:    []model.List{},
-			wantRemotes: map[string][]model.List{
-				"markdown":     {},
-				"google_tasks": {},
-			},
-			wantErr: true,
-		},
-		{
-			name: "fatal watcher error aborts sync loop",
-			setup: func(t *testing.T) (*errorProvider, []*SyncTarget) {
-				store := setupTestSQLite(t, nil)
-
-				md := setupTestMarkdown(t, nil)
-				mdSyncer := NewSyncer(store, md)
-				mdWatcher := NewFakeWatcher()
-				mdTarget := &SyncTarget{
-					Name:    "markdown",
-					Syncer:  mdSyncer,
-					Watcher: mdWatcher,
-				}
-
-				tasks := setupTestGoogleTasks(t, nil)
-				tasksSyncer := NewSyncer(store, tasks)
-				tasksWatcher := NewFakeWatcher()
-				tasksTarget := &SyncTarget{
-					Name:    "google_tasks",
-					Syncer:  tasksSyncer,
-					Watcher: tasksWatcher,
-				}
-
-				targets := []*SyncTarget{mdTarget, tasksTarget}
-
-				return store, targets
-			},
-			triggerEvent: func(t *testing.T, targets []*SyncTarget) {
-				mdTarget := targets[0]
-				mdWatcher := mustFakeWatcher(t, mdTarget.Watcher)
-				close(mdWatcher.events)
-			},
-			wantStore: []model.List{},
-			wantRemotes: map[string][]model.List{
-				"markdown":     {},
-				"google_tasks": {},
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			store, targets := tt.setup(t)
-
-			ctx, cancel := context.WithCancel(t.Context())
-			defer cancel()
-
-			handlerOpts := &slog.HandlerOptions{
-				Level: slog.LevelError,
-			}
-
-			logger := slog.New(slog.NewTextHandler(os.Stderr, handlerOpts))
-			errChan, err := startRunner(t, ctx, targets, logger)
-			if err != nil && !errors.Is(err, context.Canceled) {
-				if tt.wantErr {
-					return
-				}
-
-				t.Fatalf("expected fatal watcher error, got %v", err)
-			}
-
-			if tt.triggerEvent != nil {
-				tt.triggerEvent(t, targets)
-			}
-
-			if tt.wantErr {
-				select {
-				case err := <-errChan:
-					if err == nil || errors.Is(err, context.Canceled) {
-						t.Fatalf("expected fatal watcher error, got %v", err)
-					}
-				case <-time.After(1 * time.Second):
-					t.Fatal("Run() failed to return expected error within 1 second")
-				}
-
-				return
-			}
-
-			opts := []cmp.Option{
-				cmpopts.EquateEmpty(),
-				cmpopts.IgnoreFields(model.List{}, "Modified"),
-			}
-
-			diff := ""
-			deadline := time.Now().Add(1 * time.Second)
-			for {
-				if time.Now().After(deadline) {
-					t.Fatal(diff)
-				}
-
-				gotStoreLists, err := store.ListLists(t.Context())
-				if err != nil {
-					t.Fatalf("failed to list store lists: %v", err)
-				}
-
-				if diff = cmp.Diff(tt.wantStore, gotStoreLists, opts...); diff != "" {
-					time.Sleep(5 * time.Millisecond)
-					diff = fmt.Sprintf("Store state mismatch (-want +got):\n%s", diff)
-					continue
-				}
-
-				for _, target := range targets {
-					gotLists, err := target.Syncer.remote.ListLists(t.Context())
-					if err != nil {
-						t.Fatalf("%v, %v", target.Name, err)
-					}
-
-					if diff = cmp.Diff(tt.wantRemotes[target.Name], gotLists, opts...); diff != "" {
-						diff = fmt.Sprintf("Target %q state mismatch (-want +got):\n%s", target.Name, diff)
-						break
-					}
-				}
-
-				if diff != "" {
-					time.Sleep(5 * time.Millisecond)
-					continue
-				}
-
-				break
-			}
-
-			cancel()
-
-			select {
-			case err := <-errChan:
-				if err != nil && !errors.Is(err, context.Canceled) {
-					t.Fatalf("Run() returned unexpected error: %v", err)
-				}
-			case <-time.After(1 * time.Second):
-				t.Fatal("Run() failed to shut down within 1 second of context cancellation")
-			}
-		})
-	}
-}
-
-func TestProcessEvent(t *testing.T) {
-	t.Parallel()
-
-	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
-	_ = modified
-
-	tests := []struct {
-		name            string
-		setup           func(t *testing.T) (*errorProvider, []*SyncTarget, syncEvent)
-		wantSyncTargets []*SyncTarget
-		wantStore       []model.List
-		wantRemotes     map[string][]model.List
-	}{
-		{
-			name: "no targets",
-			setup: func(t *testing.T) (*errorProvider, []*SyncTarget, syncEvent) {
-				store := setupTestSQLite(t, []model.List{})
-				return store, nil, syncEvent{}
-			},
-			wantSyncTargets: nil,
-			wantStore:       []model.List{},
-			wantRemotes:     map[string][]model.List{},
-		},
-		{
-			name: "event skips pull on unaffected target",
-			setup: func(t *testing.T) (*errorProvider, []*SyncTarget, syncEvent) {
-				store := setupTestSQLite(t, []model.List{})
-
-				md := setupTestMarkdown(t, []model.List{})
-				mdSyncer := NewSyncer(store, md)
-				mdTarget := &SyncTarget{
-					Name:   "markdown",
-					Syncer: mdSyncer,
-				}
-
-				tasks := setupTestGoogleTasks(t, []model.List{})
-				tasksSyncer := NewSyncer(store, tasks)
-				tasksTarget := &SyncTarget{
-					Name:   "google_tasks",
-					Syncer: tasksSyncer,
-				}
-
-				targets := []*SyncTarget{mdTarget, tasksTarget}
-
-				event := syncEvent{
-					target: mdTarget,
-				}
-
-				return store, targets, event
-			},
-			wantSyncTargets: []*SyncTarget{
-				{
-					Name:           "markdown",
-					needsPullRetry: false,
-					needsPushRetry: false,
-				},
-				{
-					Name:           "google_tasks",
-					needsPullRetry: false,
-					needsPushRetry: false,
-				},
-			},
-			wantStore: []model.List{},
-			wantRemotes: map[string][]model.List{
-				"markdown":     {},
-				"google_tasks": {},
-			},
-		},
-		{
-			name: "successful pull after prior failure triggers push of pending local changes",
-			setup: func(t *testing.T) (*errorProvider, []*SyncTarget, syncEvent) {
-				store := setupTestSQLite(t, []model.List{
-					{
-						ID:         "store-list-1",
-						Name:       "Updated Inbox",
-						Status:     model.StatusOpen,
-						ExternalID: new("external-list-1"),
-						Modified:   modified.Add(1),
+						Modified:   modified,
 						Items:      []*model.Item{},
 					},
 				})
-
-				md := setupTestMarkdown(t, []model.List{
+				md = setupTestMarkdown(t, []model.List{
 					{
-						ID:       "store-list-1",
+						ID:       "custom-list-1",
 						Name:     "Inbox",
 						Status:   model.StatusOpen,
 						Modified: modified,
 						Items:    []*model.Item{},
 					},
 				})
+				tasks = setupTestGoogleTasks(t, []model.List{
+					{
+						Name:       "Inbox",
+						Status:     model.StatusOpen,
+						ExternalID: new("external-list-1"),
+						Modified:   modified,
+						Items:      []*model.Item{},
+					},
+					{
+						Name:     "New List",
+						Modified: modified,
+						Items:    []*model.Item{},
+					},
+				})
 
-				mdSyncer := NewSyncer(store, md)
-				mdTarget := &SyncTarget{
-					Name:           "markdown",
-					Syncer:         mdSyncer,
-					needsPullRetry: true,
-				}
+				md.errListLists = errors.New("transient i/o error")
 
-				tasks := setupTestGoogleTasks(t, []model.List{})
-				tasksSyncer := NewSyncer(store, tasks)
-				tasksTarget := &SyncTarget{
-					Name:   "google_tasks",
-					Syncer: tasksSyncer,
-				}
-
-				targets := []*SyncTarget{mdTarget, tasksTarget}
-
-				event := syncEvent{
-					target: mdTarget,
-				}
-
-				return store, targets, event
+				return store, md, tasks
 			},
-			wantSyncTargets: []*SyncTarget{
-				{
-					Name:           "markdown",
-					needsPullRetry: false,
-					needsPushRetry: false,
-				},
-				{
-					Name:           "google_tasks",
-					needsPullRetry: false,
-					needsPushRetry: false,
-				},
+			sendEvents: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher, store, md, tasks *errorProvider) {
+				tasksWatcher.Events <- nil
+
+				synctest.Wait()
 			},
 			wantStore: []model.List{
 				{
-					ID:         "store-list-1",
-					Name:       "Updated Inbox",
+					ID:         "custom-list-1",
+					Name:       "Inbox",
 					Status:     model.StatusOpen,
 					ExternalID: new("external-list-1"),
+					Modified:   modified,
+					Items:      []*model.Item{},
+				},
+				{
+					ID:         "store-list-1",
+					Name:       "New List",
+					Position:   1,
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-2"),
+					Modified:   modified,
 					Items:      []*model.Item{},
 				},
 			},
-			wantRemotes: map[string][]model.List{
-				"markdown": {
-					{
-						ID:     "store-list-1",
-						Name:   "Updated Inbox",
-						Status: model.StatusOpen,
-						Items:  []*model.Item{},
-					},
+			wantMd: []model.List{
+				{
+					ID:       "custom-list-1",
+					Name:     "Inbox",
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
 				},
-				"google_tasks": {},
+				{
+					ID:       "store-list-1",
+					Name:     "New List",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
+				},
+			},
+			wantTasks: []model.List{
+				{
+					Name:       "Inbox",
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-1"),
+					Modified:   modified,
+					Items:      []*model.Item{},
+				},
+				{
+					Name:       "New List",
+					Position:   1,
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-2"),
+					Modified:   modified,
+					Items:      []*model.Item{},
+				},
 			},
 		},
 		{
 			name: "missing provider aborts pull and schedules push",
-			setup: func(t *testing.T) (*errorProvider, []*SyncTarget, syncEvent) {
-				store := setupTestSQLite(t, []model.List{
+			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (store, md, tasks *errorProvider) {
+				store = setupTestSQLite(t, []model.List{
 					{
-						ID:         "store-list-1",
+						ID:         "custom-list-1",
 						Name:       "Inbox",
 						Status:     model.StatusOpen,
 						ExternalID: new("external-list-1"),
@@ -535,45 +263,35 @@ func TestProcessEvent(t *testing.T) {
 					},
 				})
 
-				md := setupTestMarkdown(t, []model.List{})
-				mdSyncer := NewSyncer(store, md)
-				mdTarget := &SyncTarget{
-					Name:   "markdown",
-					Syncer: mdSyncer,
-				}
+				md = setupTestMarkdown(t, []model.List{
+					{
+						ID:       "custom-list-1",
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: modified,
+					},
+				})
 
-				tasks := setupTestGoogleTasks(t, []model.List{})
-				tasks.errListLists = fs.ErrNotExist
-				tasksSyncer := NewSyncer(store, tasks)
-				tasksTarget := &SyncTarget{
-					Name:           "google_tasks",
-					Syncer:         tasksSyncer,
-					needsPullRetry: true,
-				}
+				tasks = setupTestGoogleTasks(t, []model.List{})
 
-				targets := []*SyncTarget{mdTarget, tasksTarget}
-
-				event := syncEvent{
-					target: tasksTarget,
-				}
-
-				return store, targets, event
+				return store, md, tasks
 			},
-			wantSyncTargets: []*SyncTarget{
-				{
-					Name:           "markdown",
-					needsPullRetry: false,
-					needsPushRetry: false,
-				},
-				{
-					Name:           "google_tasks",
-					needsPullRetry: false,
-					needsPushRetry: false,
-				},
+			sendEvents: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher, store, md, tasks *errorProvider) {
+				tasks.errListLists = errors.New("transient i/o error")
+
+				tasksWatcher.Events <- nil
+
+				synctest.Wait()
+
+				tasks.errListLists = fs.ErrNotExist
+
+				tasksWatcher.Events <- nil
+
+				synctest.Wait()
 			},
 			wantStore: []model.List{
 				{
-					ID:         "store-list-1",
+					ID:         "custom-list-1",
 					Name:       "Inbox",
 					Status:     model.StatusOpen,
 					ExternalID: new("external-list-1"),
@@ -581,223 +299,45 @@ func TestProcessEvent(t *testing.T) {
 					Items:      []*model.Item{},
 				},
 			},
-			wantRemotes: map[string][]model.List{
-				"markdown": {},
-				"google_tasks": {
-					{
-						Name:       "Inbox",
-						Status:     model.StatusOpen,
-						ExternalID: new("external-list-1"),
-						Modified:   modified,
-						Items:      []*model.Item{},
-					},
+			wantMd: []model.List{
+				{
+					ID:       "custom-list-1",
+					Name:     "Inbox",
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
 				},
 			},
-		},
-		{
-			name: "pull failure sets retry flag and skips push",
-			setup: func(t *testing.T) (*errorProvider, []*SyncTarget, syncEvent) {
-				store := setupTestSQLite(t, []model.List{})
-
-				md := setupTestMarkdown(t, []model.List{})
-				md.errListLists = errors.New("transient network error")
-				mdSyncer := NewSyncer(store, md)
-				mdTarget := &SyncTarget{
-					Name:   "markdown",
-					Syncer: mdSyncer,
-				}
-
-				tasks := setupTestGoogleTasks(t, []model.List{})
-				tasksSyncer := NewSyncer(store, tasks)
-				tasksTarget := &SyncTarget{
-					Name:   "google_tasks",
-					Syncer: tasksSyncer,
-				}
-
-				targets := []*SyncTarget{mdTarget, tasksTarget}
-
-				event := syncEvent{
-					target: mdTarget,
-				}
-
-				return store, targets, event
-			},
-			wantSyncTargets: []*SyncTarget{
+			wantTasks: []model.List{
 				{
-					Name:           "markdown",
-					needsPullRetry: true,
-					needsPushRetry: false,
-				},
-				{
-					Name:           "google_tasks",
-					needsPullRetry: false,
-					needsPushRetry: false,
-				},
-			},
-			wantStore: []model.List{},
-			wantRemotes: map[string][]model.List{
-				"markdown":     {},
-				"google_tasks": {},
-			},
-		},
-		{
-			name: "pull with changes triggers successful push",
-			setup: func(t *testing.T) (*errorProvider, []*SyncTarget, syncEvent) {
-				store := setupTestSQLite(t, []model.List{})
-
-				md := setupTestMarkdown(t, []model.List{})
-				mdSyncer := NewSyncer(store, md)
-				mdTarget := &SyncTarget{
-					Name:   "markdown",
-					Syncer: mdSyncer,
-				}
-
-				tasks := setupTestGoogleTasks(t, []model.List{
-					{
-						Name:     "New List",
-						Modified: modified,
-						Items:    []*model.Item{},
-					},
-				})
-
-				tasksSyncer := NewSyncer(store, tasks)
-				tasksTarget := &SyncTarget{
-					Name:   "google_tasks",
-					Syncer: tasksSyncer,
-				}
-
-				targets := []*SyncTarget{mdTarget, tasksTarget}
-
-				event := syncEvent{
-					target: tasksTarget,
-				}
-
-				return store, targets, event
-			},
-			wantSyncTargets: []*SyncTarget{
-				{
-					Name:           "markdown",
-					needsPullRetry: false,
-					needsPushRetry: false,
-				},
-				{
-					Name:           "google_tasks",
-					needsPullRetry: false,
-					needsPushRetry: false,
-				},
-			},
-			wantStore: []model.List{
-				{
-					ID:         "store-list-1",
-					Name:       "New List",
+					Name:       "Inbox",
 					Status:     model.StatusOpen,
 					ExternalID: new("external-list-1"),
 					Modified:   modified,
 					Items:      []*model.Item{},
-				},
-			},
-			wantRemotes: map[string][]model.List{
-				"markdown": {
-					{
-						ID:       "store-list-1",
-						Name:     "New List",
-						Status:   model.StatusOpen,
-						Modified: modified,
-						Items:    []*model.Item{},
-					},
-				},
-				"google_tasks": {
-					{
-						Name:       "New List",
-						Status:     model.StatusOpen,
-						ExternalID: new("external-list-1"),
-						Modified:   modified,
-						Items:      []*model.Item{},
-					},
-				},
-			},
-		},
-		{
-			name: "pull failure on one target blocks its subsequent push",
-			setup: func(t *testing.T) (*errorProvider, []*SyncTarget, syncEvent) {
-				store := setupTestSQLite(t, []model.List{})
-
-				md := setupTestMarkdown(t, []model.List{})
-				md.errListLists = errors.New("transient network error")
-				mdSyncer := NewSyncer(store, md)
-				mdTarget := &SyncTarget{
-					Name:   "markdown",
-					Syncer: mdSyncer,
-				}
-
-				tasks := setupTestGoogleTasks(t, []model.List{
-					{
-						Name:     "New List",
-						Modified: modified,
-						Items:    []*model.Item{},
-					},
-				})
-
-				tasksSyncer := NewSyncer(store, tasks)
-				tasksTarget := &SyncTarget{
-					Name:   "google_tasks",
-					Syncer: tasksSyncer,
-				}
-
-				targets := []*SyncTarget{mdTarget, tasksTarget}
-				event := syncEvent{}
-
-				return store, targets, event
-			},
-			wantSyncTargets: []*SyncTarget{
-				{
-					Name:           "markdown",
-					needsPullRetry: true,
-					needsPushRetry: false,
-				},
-				{
-					Name:           "google_tasks",
-					needsPullRetry: false,
-					needsPushRetry: false,
-				},
-			},
-			wantStore: []model.List{
-				{
-					ID:         "store-list-1",
-					Name:       "New List",
-					Status:     model.StatusOpen,
-					ExternalID: new("external-list-1"),
-					Modified:   modified,
-					Items:      []*model.Item{},
-				},
-			},
-			wantRemotes: map[string][]model.List{
-				"markdown": {},
-				"google_tasks": {
-					{
-						Name:       "New List",
-						Status:     model.StatusOpen,
-						ExternalID: new("external-list-1"),
-						Modified:   modified,
-						Items:      []*model.Item{},
-					},
 				},
 			},
 		},
 		{
 			name: "push failure sets retry flag",
-			setup: func(t *testing.T) (*errorProvider, []*SyncTarget, syncEvent) {
-				store := setupTestSQLite(t, []model.List{})
+			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (store, md, tasks *errorProvider) {
+				store = setupTestSQLite(t, []model.List{
+					{
+						ID:         "custom-list-1",
+						Name:       "Inbox",
+						Status:     model.StatusOpen,
+						ExternalID: new("external-list-1"),
+						Modified:   modified,
+					},
+				})
 
-				md := setupTestMarkdown(t, []model.List{})
-				md.errCreateList = errors.New("transient api error")
-				mdSyncer := NewSyncer(store, md)
-				mdTarget := &SyncTarget{
-					Name:   "markdown",
-					Syncer: mdSyncer,
-				}
-
-				tasks := setupTestGoogleTasks(t, []model.List{
+				md = setupTestMarkdown(t, []model.List{
+					{
+						ID:       "custom-list-1",
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: modified,
+					},
 					{
 						Name:     "New List",
 						Modified: modified,
@@ -805,51 +345,190 @@ func TestProcessEvent(t *testing.T) {
 					},
 				})
 
-				tasksSyncer := NewSyncer(store, tasks)
-				tasksTarget := &SyncTarget{
-					Name:   "google_tasks",
-					Syncer: tasksSyncer,
-				}
+				tasks = setupTestGoogleTasks(t, []model.List{
+					{
+						Name:       "Inbox",
+						Status:     model.StatusOpen,
+						ExternalID: new("external-list-1"),
+						Modified:   modified,
+					},
+				})
 
-				targets := []*SyncTarget{mdTarget, tasksTarget}
-				event := syncEvent{}
+				tasks.errCreateList = errors.New("transient api error")
 
-				return store, targets, event
+				return store, md, tasks
 			},
-			wantSyncTargets: []*SyncTarget{
-				{
-					Name:           "markdown",
-					needsPullRetry: false,
-					needsPushRetry: true,
-				},
-				{
-					Name:           "google_tasks",
-					needsPullRetry: false,
-					needsPushRetry: false,
-				},
+			sendEvents: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher, store, md, tasks *errorProvider) {
+				tasksWatcher.Events <- nil
+
+				synctest.Wait()
 			},
 			wantStore: []model.List{
 				{
-					ID:         "store-list-1",
-					Name:       "New List",
+					ID:         "custom-list-1",
+					Name:       "Inbox",
 					Status:     model.StatusOpen,
 					ExternalID: new("external-list-1"),
 					Modified:   modified,
 					Items:      []*model.Item{},
 				},
+				{
+					ID:         "store-list-1",
+					Name:       "New List",
+					Position:   1,
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-2"),
+					Modified:   modified,
+					Items:      []*model.Item{},
+				},
 			},
-			wantRemotes: map[string][]model.List{
-				"markdown": {},
-				"google_tasks": {
+			wantMd: []model.List{
+				{
+					ID:       "custom-list-1",
+					Name:     "Inbox",
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
+				},
+				{
+					ID:       "store-list-1",
+					Name:     "New List",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
+				},
+			},
+			wantTasks: []model.List{
+				{
+					Name:       "Inbox",
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-1"),
+					Modified:   modified,
+					Items:      []*model.Item{},
+				},
+				{
+					Name:       "New List",
+					Position:   1,
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-2"),
+					Modified:   modified,
+					Items:      []*model.Item{},
+				},
+			},
+		},
+		{
+			name: "pull failure on one target blocks its subsequent push",
+			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (store, md, tasks *errorProvider) {
+				store = setupTestSQLite(t, []model.List{
 					{
-						Name:       "New List",
+						ID:         "custom-list-1",
+						Name:       "Inbox",
 						Status:     model.StatusOpen,
 						ExternalID: new("external-list-1"),
 						Modified:   modified,
-						Items:      []*model.Item{},
 					},
+				})
+
+				md = setupTestMarkdown(t, []model.List{
+					{
+						ID:       "custom-list-1",
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: modified,
+					},
+				})
+				md.errListLists = errors.New("transient network error")
+
+				tasks = setupTestGoogleTasks(t, []model.List{
+					{
+						Name:       "Inbox",
+						Status:     model.StatusOpen,
+						ExternalID: new("external-list-1"),
+						Modified:   modified,
+					},
+					{
+						Name:     "New List",
+						Modified: modified,
+						Items:    []*model.Item{},
+					},
+				})
+
+				return store, md, tasks
+			},
+			wantStore: []model.List{
+				{
+					ID:         "custom-list-1",
+					Name:       "Inbox",
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-1"),
+					Modified:   modified,
+					Items:      []*model.Item{},
+				},
+				{
+					ID:         "store-list-1",
+					Name:       "New List",
+					Position:   1,
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-2"),
+					Modified:   modified,
+					Items:      []*model.Item{},
 				},
 			},
+			wantMd: []model.List{
+				{
+					ID:       "custom-list-1",
+					Name:     "Inbox",
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
+				},
+			},
+			wantTasks: []model.List{
+				{
+					Name:       "Inbox",
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-1"),
+					Modified:   modified,
+					Items:      []*model.Item{},
+				},
+				{
+					Name:       "New List",
+					Position:   1,
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-2"),
+					Modified:   modified,
+					Items:      []*model.Item{},
+				},
+			},
+		},
+		{
+			name: "watcher startup failure",
+			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (store, md, tasks *errorProvider) {
+				store = setupTestSQLite(t, []model.List{})
+				md = setupTestMarkdown(t, []model.List{})
+				tasks = setupTestGoogleTasks(t, []model.List{})
+
+				mdWatcher.watchErr = errors.New("simulated startup failure")
+
+				return store, md, tasks
+			},
+			wantErr: true,
+		},
+		{
+			name: "fatal watcher error aborts sync loop",
+			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (store, md, tasks *errorProvider) {
+				store = setupTestSQLite(t, []model.List{})
+				md = setupTestMarkdown(t, []model.List{})
+				tasks = setupTestGoogleTasks(t, []model.List{})
+
+				return store, md, tasks
+			},
+			sendEvents: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher, store, md, tasks *errorProvider) {
+				close(mdWatcher.Events)
+				synctest.Wait()
+			},
+			wantErr: true,
 		},
 	}
 
@@ -857,93 +536,118 @@ func TestProcessEvent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			store, targets, event := tt.setup(t)
+			synctest.Test(t, func(t *testing.T) {
+				mdWatcher := NewFakeWatcher()
+				tasksWatcher := NewFakeWatcher()
 
-			ctx, cancel := context.WithCancel(t.Context())
-			defer cancel()
+				store, md, tasks := tt.setup(t, mdWatcher, tasksWatcher)
 
-			handlerOpts := &slog.HandlerOptions{
-				Level: slog.LevelError,
-			}
+				mdSyncer := NewSyncer(store, md)
+				tasksSyncer := NewSyncer(store, tasks)
 
-			logger := slog.New(slog.NewTextHandler(os.Stderr, handlerOpts))
-			runner := NewRunner(targets, logger)
+				mdTarget := &SyncTarget{
+					Name:    "markdown",
+					Syncer:  mdSyncer,
+					Watcher: mdWatcher,
+				}
 
-			runner.processEvent(ctx, event)
+				tasksTarget := &SyncTarget{
+					Name:    "google_tasks",
+					Syncer:  tasksSyncer,
+					Watcher: tasksWatcher,
+				}
 
-			opts := []cmp.Option{
-				cmp.AllowUnexported(SyncTarget{}),
-				cmpopts.IgnoreFields(SyncTarget{}, "Syncer", "Watcher"),
-			}
+				targets := []*SyncTarget{mdTarget, tasksTarget}
 
-			if diff := cmp.Diff(tt.wantSyncTargets, targets, opts...); diff != "" {
-				t.Fatalf("Targets state mismatch (-want +got):\n%s", diff)
-			}
+				ctx, cancel := context.WithCancel(t.Context())
+				defer cancel()
 
-			opts = []cmp.Option{
-				cmpopts.EquateEmpty(),
-				cmpopts.IgnoreFields(model.List{}, "Modified"),
-			}
+				logger := slog.New(slog.DiscardHandler)
+				runner := NewRunner(targets, logger)
 
-			gotStoreLists, err := store.ListLists(t.Context())
-			if err != nil {
-				t.Fatalf("failed to list store lists: %v", err)
-			}
+				errChan := make(chan error, 1)
 
-			if diff := cmp.Diff(tt.wantStore, gotStoreLists, opts...); diff != "" {
-				t.Fatalf("Store state mismatch (-want +got):\n%s", diff)
-			}
+				go func() {
+					errChan <- runner.Run(ctx)
+				}()
 
-			for _, target := range targets {
-				gotLists, err := target.Syncer.remote.ListLists(t.Context())
+				synctest.Wait()
+
+				select {
+				case err := <-errChan:
+					if tt.wantErr {
+						return
+					}
+
+					t.Fatalf("Runner failed unexpectedly during startup: %v", err)
+				default:
+					// Non-blocking read: proceed to test logic if the runner booted successfully
+				}
+
+				if tt.sendEvents != nil {
+					tt.sendEvents(t, mdWatcher, tasksWatcher, store, md, tasks)
+					synctest.Wait()
+				}
+
+				if tt.wantErr {
+					select {
+					case <-errChan:
+						return
+					default:
+						t.Fatal("expected runner to fail, but it did not")
+					}
+				}
+
+				opts := []cmp.Option{
+					cmpopts.EquateEmpty(),
+					cmpopts.IgnoreFields(model.List{}, "Modified"),
+				}
+
+				gotStore, err := store.ListLists(t.Context())
 				if err != nil {
-					t.Fatalf("%v, %v", target.Name, err)
+					t.Fatalf("failed to list store lists: %v", err)
 				}
 
-				if diff := cmp.Diff(tt.wantRemotes[target.Name], gotLists, opts...); diff != "" {
-					t.Fatalf("Target %q state mismatch (-want +got):\n%s", target.Name, diff)
+				if diff := cmp.Diff(tt.wantStore, gotStore, opts...); diff != "" {
+					t.Fatalf("Store state mismatch (-want +got):\n%s", diff)
 				}
-			}
+
+				gotMd, err := md.ListLists(t.Context())
+				if err != nil {
+					t.Fatalf("failed to list md lists: %v", err)
+				}
+
+				if diff := cmp.Diff(tt.wantMd, gotMd, opts...); diff != "" {
+					t.Fatalf("Md state mismatch (-want +got):\n%s", diff)
+				}
+
+				gotTasks, err := tasks.ListLists(t.Context())
+				if err != nil {
+					t.Fatalf("failed to list tasks lists: %v", err)
+				}
+
+				if diff := cmp.Diff(tt.wantTasks, gotTasks, opts...); diff != "" {
+					t.Fatalf("Tasks state mismatch (-want +got):\n%s", diff)
+				}
+
+				cancel()
+				synctest.Wait()
+
+				select {
+				case err := <-errChan:
+					if err != nil && !errors.Is(err, context.Canceled) {
+						t.Fatalf("Run() returned unexpected error: %v", err)
+					}
+				default:
+					t.Fatal("Run() failed to return an error after context cancellation")
+				}
+			})
 		})
 	}
 }
 
 func TestMain(m *testing.M) {
 	goleak.VerifyTestMain(m)
-}
-
-func startRunner(t *testing.T, ctx context.Context, targets []*SyncTarget, logger *slog.Logger) (<-chan error, error) {
-	t.Helper()
-
-	errChan := make(chan error, 1)
-	ready := make(chan struct{})
-	go func() {
-		onReadyOpt := WithOnReady(func() {
-			close(ready)
-		})
-
-		runner := NewRunner(targets, logger, onReadyOpt)
-		errChan <- runner.Run(ctx)
-	}()
-
-	select {
-	case <-ready:
-		return errChan, nil
-	case <-time.After(1 * time.Second):
-		return errChan, errors.New("Runner failed to become ready within 1 second")
-	case err := <-errChan:
-		return errChan, err
-	}
-}
-
-func mustFakeWatcher(t *testing.T, w Watcher) *FakeWatcher {
-	t.Helper()
-	fakeWatcher, ok := w.(*FakeWatcher)
-	if !ok {
-		t.Fatalf("expected watcher to be *FakeWatcher, got %T", w)
-	}
-
-	return fakeWatcher
 }
 
 func setupTestSQLite(t *testing.T, lists []model.List) *errorProvider {
