@@ -105,9 +105,9 @@ func renderItem(buf *strings.Builder, item *model.Item) error {
 func renderTitle(item *model.Item) string {
 	titleParts := []string{item.Title}
 
-	if item.ProjectID != nil {
-		projectID := fmt.Sprintf("+%s", *item.ProjectID)
-		titleParts = append(titleParts, projectID)
+	if item.ProjectTag != nil {
+		projectTag := fmt.Sprintf("+%s", *item.ProjectTag)
+		titleParts = append(titleParts, projectTag)
 	}
 
 	if item.Due != nil {

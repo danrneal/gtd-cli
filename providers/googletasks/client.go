@@ -2,11 +2,12 @@
 package googletasks
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -252,8 +253,8 @@ func (c *Client) listItems(ctx context.Context, list *model.List) ([]*model.Item
 		return nil, fmt.Errorf("unable to retrieve tasks for list %q: %w", list.Name, err)
 	}
 
-	sort.Slice(resp.Items, func(i, j int) bool {
-		return resp.Items[i].Position < resp.Items[j].Position
+	slices.SortFunc(resp.Items, func(a, b *tasks.Task) int {
+		return cmp.Compare(a.Position, b.Position)
 	})
 
 	var items []*model.Item
@@ -403,9 +404,9 @@ func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
 // renderTitle constructs the task title by combining it with metadata (project, tags, due date, waiting on).
 func renderTitle(item *model.Item) string {
 	titleParts := []string{item.Title}
-	if item.ProjectID != nil {
-		projectID := fmt.Sprintf("+%s", *item.ProjectID)
-		titleParts = append(titleParts, projectID)
+	if item.ProjectTag != nil {
+		projectTag := fmt.Sprintf("+%s", *item.ProjectTag)
+		titleParts = append(titleParts, projectTag)
 	}
 
 	if item.Due != nil {
@@ -463,8 +464,8 @@ func parseTitle(title string) *model.Item {
 		switch {
 		case strings.HasPrefix(titleField, "+"):
 			if len(titleField) > 1 {
-				projectID := titleField[1:]
-				item.ProjectID = &projectID
+				projectTag := titleField[1:]
+				item.ProjectTag = &projectTag
 			}
 		case strings.HasPrefix(titleField, "due:"):
 			due := strings.TrimPrefix(titleField, "due:")

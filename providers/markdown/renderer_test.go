@@ -168,11 +168,11 @@ func TestRender(t *testing.T) {
 					Modified: modified,
 					Items: []*model.Item{
 						{
-							Title:     "Task",
-							Position:  0,
-							Status:    model.StatusNotStarted,
-							Modified:  modified,
-							ProjectID: new("proj-123"),
+							Title:      "Task",
+							Position:   0,
+							Status:     model.StatusNotStarted,
+							Modified:   modified,
+							ProjectTag: new("proj-123"),
 						},
 					},
 				},

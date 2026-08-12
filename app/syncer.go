@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/danrneal/gtd-cli/model"
@@ -104,6 +105,14 @@ func (s *Syncer) buildProviderState(ctx context.Context, p Provider) (*providerS
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve lists from provider: %w", err)
 	}
+
+	slices.SortStableFunc(lists, func(a, b model.List) int {
+		if strings.HasPrefix(a.Name, model.ListProjects) && !strings.HasPrefix(b.Name, model.ListProjects) {
+			return -1
+		}
+
+		return 0
+	})
 
 	listsMap := make(map[string]*model.List, len(lists))
 	itemsMap := make(map[string]*model.Item)
