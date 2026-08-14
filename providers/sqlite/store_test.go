@@ -81,11 +81,10 @@ func TestNewStore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			ctx := t.Context()
 
 			dbPath := tt.setupDBPath(t)
 			logger := slog.New(slog.DiscardHandler)
-			store, err := NewStore(ctx, dbPath, logger)
+			store, err := NewStore(t.Context(), dbPath, logger)
 
 			if tt.wantErr {
 				if err == nil {
@@ -1281,8 +1280,8 @@ func TestUpdateList(t *testing.T) {
 				t.Errorf("UpdateList() mismatch (-want +got):\n%s", diff)
 			}
 
-			tx, _ := store.db.BeginTx(t.Context(), &sql.TxOptions{ReadOnly: true})
-			items, err := store.listAllItems(t.Context(), tx)
+			tx, _ := store.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+			items, err := store.listAllItems(ctx, tx)
 			tx.Rollback()
 			if err != nil {
 				t.Fatalf("failed to list all items: %v", err)
@@ -1473,7 +1472,7 @@ func TestDeleteList(t *testing.T) {
 				return
 			}
 
-			lists, err := store.ListLists(t.Context())
+			lists, err := store.ListLists(ctx)
 			if err != nil {
 				t.Fatalf("failed to get all lists: %v", err)
 			}
@@ -1482,8 +1481,8 @@ func TestDeleteList(t *testing.T) {
 				t.Errorf("DeleteList() lists mismatch (-want +got):\n%s", diff)
 			}
 
-			tx, _ := store.db.BeginTx(t.Context(), &sql.TxOptions{ReadOnly: true})
-			items, err := store.listAllItems(t.Context(), tx)
+			tx, _ := store.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+			items, err := store.listAllItems(ctx, tx)
 			tx.Rollback()
 			if err != nil {
 				t.Fatalf("failed to get all items: %v", err)
@@ -2584,8 +2583,8 @@ func TestDeleteItem(t *testing.T) {
 				return
 			}
 
-			tx, _ := store.db.BeginTx(t.Context(), &sql.TxOptions{ReadOnly: true})
-			items, err := store.listAllItems(t.Context(), tx)
+			tx, _ := store.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+			items, err := store.listAllItems(ctx, tx)
 			tx.Rollback()
 			if err != nil {
 				t.Fatalf("failed to get all items: %v", err)
