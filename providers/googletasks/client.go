@@ -254,7 +254,6 @@ func (c *Client) listItems(ctx context.Context, list *model.List) ([]*model.Item
 			item = parseTitle(task.Title)
 		}
 
-		item.ListID = list.ID
 		item.Position = i
 		if task.Status == statusCompleted {
 			item.Status = model.StatusDone

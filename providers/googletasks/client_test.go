@@ -182,6 +182,527 @@ func TestListLists(t *testing.T) {
 			},
 		},
 		{
+			name: "basic properties (unsorted, position sort)",
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
+					Id:      "L1",
+					Title:   "Inbox",
+					Updated: "2024-01-01T12:00:00Z",
+				})
+
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t2",
+						Title:    "Task 2",
+						Position: "0002",
+						Status:   "needsAction",
+					},
+					{
+						Id:       "t1",
+						Title:    "Task 1",
+						Position: "0001",
+						Status:   "needsAction",
+					},
+					{
+						Id:       "t3",
+						Title:    "Task 3",
+						Position: "0001",
+						Status:   "needsAction",
+					},
+				}
+			},
+			wantLists: []model.List{
+				{
+					Name:       "Inbox",
+					ExternalID: new("L1"),
+					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Status:     model.StatusOpen,
+					Items: []*model.Item{
+						{
+							Title:          "Task 1",
+							Position:       0,
+							Status:         model.StatusOpen,
+							ExternalID:     new("t1"),
+							ExternalListID: new("L1"),
+						},
+						{
+							Title:          "Task 3",
+							Position:       1,
+							Status:         model.StatusOpen,
+							ExternalID:     new("t3"),
+							ExternalListID: new("L1"),
+						},
+						{
+							Title:          "Task 2",
+							Position:       2,
+							Status:         model.StatusOpen,
+							ExternalID:     new("t2"),
+							ExternalListID: new("L1"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "waiting for parsing",
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
+					Id:      "L1",
+					Title:   "Waiting For",
+					Updated: "2024-01-01T12:00:00Z",
+				})
+
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Alice - Send Mail",
+						Position: "0001",
+					},
+				}
+			},
+			wantLists: []model.List{
+				{
+					Name:       "Waiting For",
+					ExternalID: new("L1"),
+					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Status:     model.StatusOpen,
+					Items: []*model.Item{
+						{
+							Title:          "Send Mail",
+							WaitingOn:      "Alice",
+							Status:         model.StatusOpen,
+							ExternalID:     new("t1"),
+							ExternalListID: new("L1"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "waiting for parsing without separator",
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
+					Id:      "L1",
+					Title:   "Waiting For",
+					Updated: "2024-01-01T12:00:00Z",
+				})
+
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Send Mail",
+						Position: "0001",
+					},
+				}
+			},
+			wantLists: []model.List{
+				{
+					Name:       "Waiting For",
+					ExternalID: new("L1"),
+					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Status:     model.StatusOpen,
+					Items: []*model.Item{
+						{
+							Title:          "Send Mail",
+							WaitingOn:      "",
+							Status:         model.StatusOpen,
+							ExternalID:     new("t1"),
+							ExternalListID: new("L1"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "waiting for parsing with created date",
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
+					Id:      "L1",
+					Title:   "Waiting For",
+					Updated: "2024-01-01T12:00:00Z",
+				})
+
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Alice - Send Mail - 2026-01-23",
+						Position: "0001",
+					},
+				}
+			},
+			wantLists: []model.List{
+				{
+					Name:       "Waiting For",
+					ExternalID: new("L1"),
+					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Status:     model.StatusOpen,
+					Items: []*model.Item{
+						{
+							Title:          "Send Mail",
+							WaitingOn:      "Alice",
+							Status:         model.StatusOpen,
+							ExternalID:     new("t1"),
+							ExternalListID: new("L1"),
+							Created:        rfc3339ToDate("2026-01-23T00:00:00Z"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "waiting for parsing with invalid created date",
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
+					Id:      "L1",
+					Title:   "Waiting For",
+					Updated: "2024-01-01T12:00:00Z",
+				})
+
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Alice - Send Mail - 2026-01-42",
+						Position: "0001",
+					},
+				}
+			},
+			wantLists: []model.List{
+				{
+					Name:       "Waiting For",
+					ExternalID: new("L1"),
+					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Status:     model.StatusOpen,
+					Items: []*model.Item{
+						{
+							Title:          "Send Mail",
+							WaitingOn:      "Alice",
+							Status:         model.StatusOpen,
+							ExternalID:     new("t1"),
+							ExternalListID: new("L1"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "project parsing",
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
+					Id:      "L1",
+					Title:   "Inbox",
+					Updated: "2024-01-01T12:00:00Z",
+				})
+
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task +P",
+						Position: "0001",
+					},
+				}
+			},
+			wantLists: []model.List{
+				{
+					Name:       "Inbox",
+					ExternalID: new("L1"),
+					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Status:     model.StatusOpen,
+					Items: []*model.Item{
+						{
+							Title:          "Task",
+							ProjectID:      new("P"),
+							Status:         model.StatusOpen,
+							ExternalID:     new("t1"),
+							ExternalListID: new("L1"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "project parsing boundary",
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
+					Id:      "L1",
+					Title:   "Inbox",
+					Updated: "2024-01-01T12:00:00Z",
+				})
+
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task +",
+						Position: "0001",
+					},
+				}
+			},
+			wantLists: []model.List{
+				{
+					Name:       "Inbox",
+					ExternalID: new("L1"),
+					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Status:     model.StatusOpen,
+					Items: []*model.Item{
+						{
+							Title:          "Task",
+							ProjectID:      nil,
+							Status:         model.StatusOpen,
+							ExternalID:     new("t1"),
+							ExternalListID: new("L1"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "due date parsing (title)",
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
+					Id:      "L1",
+					Title:   "Inbox",
+					Updated: "2024-01-01T12:00:00Z",
+				})
+
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task due:2024-01-01",
+						Position: "0001",
+					},
+				}
+			},
+			wantLists: []model.List{
+				{
+					Name:       "Inbox",
+					ExternalID: new("L1"),
+					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Status:     model.StatusOpen,
+					Items: []*model.Item{
+						{
+							Title:          "Task",
+							Due:            iso8601ToDate("2024-01-01"),
+							Status:         model.StatusOpen,
+							ExternalID:     new("t1"),
+							ExternalListID: new("L1"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "multiple tags",
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
+					Id:      "L1",
+					Title:   "Inbox",
+					Updated: "2024-01-01T12:00:00Z",
+				})
+
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task #t #tag2",
+						Position: "0001",
+					},
+				}
+			},
+			wantLists: []model.List{
+				{
+					Name:       "Inbox",
+					ExternalID: new("L1"),
+					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Status:     model.StatusOpen,
+					Items: []*model.Item{
+						{
+							Title:          "Task",
+							Tags:           []string{"t", "tag2"},
+							Status:         model.StatusOpen,
+							ExternalID:     new("t1"),
+							ExternalListID: new("L1"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "tag parsing boundary",
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
+					Id:      "L1",
+					Title:   "Inbox",
+					Updated: "2024-01-01T12:00:00Z",
+				})
+
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task #",
+						Position: "0001",
+					},
+				}
+			},
+			wantLists: []model.List{
+				{
+					Name:       "Inbox",
+					ExternalID: new("L1"),
+					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Status:     model.StatusOpen,
+					Items: []*model.Item{
+						{
+							Title:          "Task",
+							Status:         model.StatusOpen,
+							ExternalID:     new("t1"),
+							ExternalListID: new("L1"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "completed task",
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
+					Id:      "L1",
+					Title:   "Inbox",
+					Updated: "2024-01-01T12:00:00Z",
+				})
+
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task",
+						Status:   "completed",
+						Position: "0001",
+					},
+				}
+			},
+			wantLists: []model.List{
+				{
+					Name:       "Inbox",
+					ExternalID: new("L1"),
+					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Status:     model.StatusOpen,
+					Items: []*model.Item{
+						{
+							Title:          "Task",
+							Status:         model.StatusDone,
+							ExternalID:     new("t1"),
+							ExternalListID: new("L1"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "description included",
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
+					Id:      "L1",
+					Title:   "Inbox",
+					Updated: "2024-01-01T12:00:00Z",
+				})
+
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task",
+						Notes:    "My notes",
+						Position: "0001",
+					},
+				}
+			},
+			wantLists: []model.List{
+				{
+					Name:       "Inbox",
+					ExternalID: new("L1"),
+					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Status:     model.StatusOpen,
+					Items: []*model.Item{
+						{
+							Title:          "Task",
+							Description:    "My notes",
+							Status:         model.StatusOpen,
+							ExternalID:     new("t1"),
+							ExternalListID: new("L1"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "native due date (snoozed)",
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
+					Id:      "L1",
+					Title:   "Inbox",
+					Updated: "2024-01-01T12:00:00Z",
+				})
+
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task",
+						Due:      "2024-01-01T00:00:00Z",
+						Position: "0001",
+					},
+				}
+			},
+			wantLists: []model.List{
+				{
+					Name:       "Inbox",
+					ExternalID: new("L1"),
+					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Status:     model.StatusOpen,
+					Items: []*model.Item{
+						{
+							Title:          "Task",
+							Snoozed:        iso8601ToDate("2024-01-01"),
+							Status:         model.StatusOpen,
+							ExternalID:     new("t1"),
+							ExternalListID: new("L1"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "updated timestamp",
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
+					Id:      "L1",
+					Title:   "Inbox",
+					Updated: "2024-01-01T12:00:00Z",
+				})
+
+				fake.Tasks["L1"] = []*tasks.Task{
+					{
+						Id:       "t1",
+						Title:    "Task",
+						Updated:  "2024-01-01T12:00:00Z",
+						Position: "0001",
+					},
+				}
+			},
+			wantLists: []model.List{
+				{
+					Name:       "Inbox",
+					ExternalID: new("L1"),
+					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Status:     model.StatusOpen,
+					Items: []*model.Item{
+						{
+							Title:          "Task",
+							Modified:       rfc3339ToDate("2024-01-01T12:00:00Z"),
+							Status:         model.StatusOpen,
+							ExternalID:     new("t1"),
+							ExternalListID: new("L1"),
+						},
+					},
+				},
+			},
+		},
+
+		{
 			name: "tasklists list failure",
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.FailListTaskLists = true
@@ -878,6 +1399,87 @@ func TestCreateItem(t *testing.T) {
 			wantErr:        false,
 		},
 		{
+			name:   "title with projectid",
+			listID: "L1",
+			item: &model.Item{
+				Title:          "Task",
+				ProjectID:      new("P1"),
+				ExternalListID: new("L1"),
+				Modified:       time.Now(),
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{}
+			},
+			wantTask: &tasks.Task{
+				Id:     "external-task-1",
+				Title:  "Task +P1",
+				Status: "needsAction",
+			},
+			wantExternalID: "external-task-1",
+			wantErr:        false,
+		},
+		{
+			name:   "title with due",
+			listID: "L1",
+			item: &model.Item{
+				Title:          "Task",
+				Due:            iso8601ToDate("2024-12-31"),
+				ExternalListID: new("L1"),
+				Modified:       time.Now(),
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{}
+			},
+			wantTask: &tasks.Task{
+				Id:     "external-task-1",
+				Title:  "Task due:2024-12-31",
+				Status: "needsAction",
+			},
+			wantExternalID: "external-task-1",
+			wantErr:        false,
+		},
+		{
+			name:   "title with multiple tags",
+			listID: "L1",
+			item: &model.Item{
+				Title:          "Task",
+				Tags:           []string{"t1", "t2"},
+				ExternalListID: new("L1"),
+				Modified:       time.Now(),
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{}
+			},
+			wantTask: &tasks.Task{
+				Id:     "external-task-1",
+				Title:  "Task #t1 #t2",
+				Status: "needsAction",
+			},
+			wantExternalID: "external-task-1",
+			wantErr:        false,
+		},
+		{
+			name:   "title with waiting on",
+			listID: "L1",
+			item: &model.Item{
+				Title:          "Task",
+				WaitingOn:      "Alice",
+				Created:        rfc3339ToDate("2024-01-02T10:00:00Z"),
+				ExternalListID: new("L1"),
+				Modified:       time.Now(),
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{}
+			},
+			wantTask: &tasks.Task{
+				Id:     "external-task-1",
+				Title:  "Alice - Task - 2024-01-02",
+				Status: "needsAction",
+			},
+			wantExternalID: "external-task-1",
+			wantErr:        false,
+		},
+		{
 			name:   "invalid item (validation failed)",
 			listID: "L1",
 			item: &model.Item{
@@ -1047,489 +1649,6 @@ func TestCreateItem(t *testing.T) {
 	}
 }
 
-func TestListItems(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		list      *model.List
-		setupFake func(fake *googletaskstest.FakeGoogleTasks)
-		wantItems []*model.Item
-		wantErr   bool
-	}{
-		{
-			name: "basic properties (unsorted, position sort)",
-			list: &model.List{
-				ID:         "1",
-				Name:       "Inbox",
-				ExternalID: new("L1"),
-				Modified:   time.Now(),
-			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.Tasks["L1"] = []*tasks.Task{
-					{
-						Id:       "t2",
-						Title:    "Task 2",
-						Position: "0002",
-						Status:   "needsAction",
-					},
-					{
-						Id:       "t1",
-						Title:    "Task 1",
-						Position: "0001",
-						Status:   "needsAction",
-					},
-					{
-						Id:       "t3",
-						Title:    "Task 3",
-						Position: "0001",
-						Status:   "needsAction",
-					},
-				}
-			},
-			wantItems: []*model.Item{
-				{
-					ListID:         "1",
-					Title:          "Task 1",
-					Position:       0,
-					Status:         model.StatusOpen,
-					ExternalID:     new("t1"),
-					ExternalListID: new("L1"),
-				},
-				{
-					ListID:         "1",
-					Title:          "Task 3",
-					Position:       1,
-					Status:         model.StatusOpen,
-					ExternalID:     new("t3"),
-					ExternalListID: new("L1"),
-				},
-				{
-					ListID:         "1",
-					Title:          "Task 2",
-					Position:       2,
-					Status:         model.StatusOpen,
-					ExternalID:     new("t2"),
-					ExternalListID: new("L1"),
-				},
-			},
-		},
-		{
-			name: "waiting for parsing",
-			list: &model.List{
-				ID:         "1",
-				Name:       "Waiting For",
-				ExternalID: new("L1"),
-			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.Tasks["L1"] = []*tasks.Task{
-					{
-						Id:       "t1",
-						Title:    "Alice - Send Mail",
-						Position: "0001",
-					},
-				}
-			},
-			wantItems: []*model.Item{
-				{
-					ListID:         "1",
-					Title:          "Send Mail",
-					WaitingOn:      "Alice",
-					Status:         model.StatusOpen,
-					ExternalID:     new("t1"),
-					ExternalListID: new("L1"),
-				},
-			},
-		},
-		{
-			name: "waiting for parsing without separator",
-			list: &model.List{
-				ID:         "1",
-				Name:       "Waiting For",
-				ExternalID: new("L1"),
-			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.Tasks["L1"] = []*tasks.Task{
-					{
-						Id:       "t1",
-						Title:    "Send Mail",
-						Position: "0001",
-					},
-				}
-			},
-			wantItems: []*model.Item{
-				{
-					ListID:         "1",
-					Title:          "Send Mail",
-					WaitingOn:      "",
-					Status:         model.StatusOpen,
-					ExternalID:     new("t1"),
-					ExternalListID: new("L1"),
-				},
-			},
-		},
-		{
-			name: "waiting for parsing with created date",
-			list: &model.List{
-				ID:         "1",
-				Name:       "Waiting For",
-				ExternalID: new("L1"),
-			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.Tasks["L1"] = []*tasks.Task{
-					{
-						Id:       "t1",
-						Title:    "Alice - Send Mail - 2026-01-23",
-						Position: "0001",
-					},
-				}
-			},
-			wantItems: []*model.Item{
-				{
-					ListID:         "1",
-					Title:          "Send Mail",
-					WaitingOn:      "Alice",
-					Status:         model.StatusOpen,
-					ExternalID:     new("t1"),
-					ExternalListID: new("L1"),
-					Created:        rfc3339ToDate("2026-01-23T00:00:00Z"),
-				},
-			},
-		},
-		{
-			name: "waiting for parsing with invalid created date",
-			list: &model.List{
-				ID:         "1",
-				Name:       "Waiting For",
-				ExternalID: new("L1"),
-			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.Tasks["L1"] = []*tasks.Task{
-					{
-						Id:       "t1",
-						Title:    "Alice - Send Mail - 2026-01-42",
-						Position: "0001",
-					},
-				}
-			},
-			wantItems: []*model.Item{
-				{
-					ListID:         "1",
-					Title:          "Send Mail",
-					WaitingOn:      "Alice",
-					Status:         model.StatusOpen,
-					ExternalID:     new("t1"),
-					ExternalListID: new("L1"),
-				},
-			},
-		},
-		{
-			name: "project parsing",
-			list: &model.List{
-				ID:         "1",
-				Name:       "Inbox",
-				ExternalID: new("L1"),
-				Modified:   time.Now(),
-			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.Tasks["L1"] = []*tasks.Task{
-					{
-						Id:       "t1",
-						Title:    "Task +P",
-						Position: "0001",
-					},
-				}
-			},
-			wantItems: []*model.Item{
-				{
-					ListID:         "1",
-					Title:          "Task",
-					ProjectID:      new("P"),
-					Status:         model.StatusOpen,
-					ExternalID:     new("t1"),
-					ExternalListID: new("L1"),
-				},
-			},
-		},
-		{
-			name: "project parsing boundary",
-			list: &model.List{
-				ID:         "1",
-				Name:       "Inbox",
-				ExternalID: new("L1"),
-				Modified:   time.Now(),
-			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.Tasks["L1"] = []*tasks.Task{
-					{
-						Id:       "t1",
-						Title:    "Task +",
-						Position: "0001",
-					},
-				}
-			},
-			wantItems: []*model.Item{
-				{
-					ListID:         "1",
-					Title:          "Task",
-					ProjectID:      nil,
-					Status:         model.StatusOpen,
-					ExternalID:     new("t1"),
-					ExternalListID: new("L1"),
-				},
-			},
-		},
-		{
-			name: "due date parsing (title)",
-			list: &model.List{
-				ID:         "1",
-				Name:       "Inbox",
-				ExternalID: new("L1"),
-				Modified:   time.Now(),
-			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.Tasks["L1"] = []*tasks.Task{
-					{
-						Id:       "t1",
-						Title:    "Task due:2024-01-01",
-						Position: "0001",
-					},
-				}
-			},
-			wantItems: []*model.Item{
-				{
-					ListID:         "1",
-					Title:          "Task",
-					Due:            iso8601ToDate("2024-01-01"),
-					Status:         model.StatusOpen,
-					ExternalID:     new("t1"),
-					ExternalListID: new("L1"),
-				},
-			},
-		},
-		{
-			name: "multiple tags",
-			list: &model.List{
-				ID:         "1",
-				Name:       "Inbox",
-				ExternalID: new("L1"),
-				Modified:   time.Now(),
-			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.Tasks["L1"] = []*tasks.Task{
-					{
-						Id:       "t1",
-						Title:    "Task #t #tag2",
-						Position: "0001",
-					},
-				}
-			},
-			wantItems: []*model.Item{
-				{
-					ListID:         "1",
-					Title:          "Task",
-					Tags:           []string{"t", "tag2"},
-					Status:         model.StatusOpen,
-					ExternalID:     new("t1"),
-					ExternalListID: new("L1"),
-				},
-			},
-		},
-		{
-			name: "tag parsing boundary",
-			list: &model.List{
-				ID:         "1",
-				Name:       "Inbox",
-				ExternalID: new("L1"),
-				Modified:   time.Now(),
-			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.Tasks["L1"] = []*tasks.Task{
-					{
-						Id:       "t1",
-						Title:    "Task #",
-						Position: "0001",
-					},
-				}
-			},
-			wantItems: []*model.Item{
-				{
-					ListID:         "1",
-					Title:          "Task",
-					Status:         model.StatusOpen,
-					ExternalID:     new("t1"),
-					ExternalListID: new("L1"),
-				},
-			},
-		},
-		{
-			name: "completed task",
-			list: &model.List{
-				ID:         "1",
-				Name:       "Inbox",
-				ExternalID: new("L1"),
-				Modified:   time.Now(),
-			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.Tasks["L1"] = []*tasks.Task{
-					{
-						Id:       "t1",
-						Title:    "Task",
-						Status:   "completed",
-						Position: "0001",
-					},
-				}
-			},
-			wantItems: []*model.Item{
-				{
-					ListID:         "1",
-					Title:          "Task",
-					Status:         model.StatusDone,
-					ExternalID:     new("t1"),
-					ExternalListID: new("L1"),
-				},
-			},
-		},
-		{
-			name: "description included",
-			list: &model.List{
-				ID:         "1",
-				Name:       "Inbox",
-				ExternalID: new("L1"),
-				Modified:   time.Now(),
-			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.Tasks["L1"] = []*tasks.Task{
-					{
-						Id:       "t1",
-						Title:    "Task",
-						Notes:    "My notes",
-						Position: "0001",
-					},
-				}
-			},
-			wantItems: []*model.Item{
-				{
-					ListID:         "1",
-					Title:          "Task",
-					Description:    "My notes",
-					Status:         model.StatusOpen,
-					ExternalID:     new("t1"),
-					ExternalListID: new("L1"),
-				},
-			},
-		},
-		{
-			name: "native due date (snoozed)",
-			list: &model.List{
-				ID:         "1",
-				Name:       "Inbox",
-				ExternalID: new("L1"),
-				Modified:   time.Now(),
-			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.Tasks["L1"] = []*tasks.Task{
-					{
-						Id:       "t1",
-						Title:    "Task",
-						Due:      "2024-01-01T00:00:00Z",
-						Position: "0001",
-					},
-				}
-			},
-			wantItems: []*model.Item{
-				{
-					ListID:         "1",
-					Title:          "Task",
-					Snoozed:        iso8601ToDate("2024-01-01"),
-					Status:         model.StatusOpen,
-					ExternalID:     new("t1"),
-					ExternalListID: new("L1"),
-				},
-			},
-		},
-		{
-			name: "updated timestamp",
-			list: &model.List{
-				ID:         "1",
-				Name:       "Inbox",
-				ExternalID: new("L1"),
-				Modified:   time.Now(),
-			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.Tasks["L1"] = []*tasks.Task{
-					{
-						Id:       "t1",
-						Title:    "Task",
-						Updated:  "2024-01-01T12:00:00Z",
-						Position: "0001",
-					},
-				}
-			},
-			wantItems: []*model.Item{
-				{
-					ListID:         "1",
-					Title:          "Task",
-					Modified:       rfc3339ToDate("2024-01-01T12:00:00Z"),
-					Status:         model.StatusOpen,
-					ExternalID:     new("t1"),
-					ExternalListID: new("L1"),
-				},
-			},
-		},
-		{
-			name: "api error",
-			list: &model.List{
-				ID:         "1",
-				Name:       "Inbox",
-				ExternalID: new("L1"),
-				Modified:   time.Now(),
-			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
-				fake.FailListTasks = true
-			},
-			wantItems: nil,
-			wantErr:   true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			fakeTasks := googletaskstest.NewFakeGoogleTasks(t)
-			tt.setupFake(fakeTasks)
-			mockClient := &http.Client{
-				Transport: fakeTasks,
-			}
-
-			tasksService, _ := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
-			pollInterval := 30 * time.Second
-			logger := slog.New(slog.DiscardHandler)
-			tasksClient := NewClient(tasksService, pollInterval, logger)
-
-			got, err := tasksClient.listItems(t.Context(), tt.list)
-
-			if tt.wantErr {
-				if err == nil {
-					t.Error("listItems() expected error, got nil")
-				}
-
-				return
-			}
-
-			if err != nil {
-				t.Errorf("listItems() unexpected error: %v", err)
-				return
-			}
-
-			if diff := cmp.Diff(tt.wantItems, got); diff != "" {
-				t.Errorf("listItems() mismatch (-want +got):\n%s", diff)
-			}
-		})
-	}
-}
-
 func TestUpdateItem(t *testing.T) {
 	t.Parallel()
 
@@ -1565,6 +1684,95 @@ func TestUpdateItem(t *testing.T) {
 				Title:  "Updated Task",
 				Notes:  "Has desc",
 				Due:    "2024-01-01T00:00:00Z",
+				Status: "needsAction",
+			},
+			wantErr: false,
+		},
+		{
+			name:   "title with projectid",
+			listID: "L1",
+			item: &model.Item{
+				Title:          "Task",
+				ProjectID:      new("P1"),
+				ExternalID:     new("T1"),
+				ExternalListID: new("L1"),
+				Modified:       time.Now(),
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{Id: "T1"},
+				}
+			},
+			wantTask: &tasks.Task{
+				Id:     "T1",
+				Title:  "Task +P1",
+				Status: "needsAction",
+			},
+			wantErr: false,
+		},
+		{
+			name:   "title with due",
+			listID: "L1",
+			item: &model.Item{
+				Title:          "Task",
+				Due:            iso8601ToDate("2024-12-31"),
+				ExternalID:     new("T1"),
+				ExternalListID: new("L1"),
+				Modified:       time.Now(),
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{Id: "T1"},
+				}
+			},
+			wantTask: &tasks.Task{
+				Id:     "T1",
+				Title:  "Task due:2024-12-31",
+				Status: "needsAction",
+			},
+			wantErr: false,
+		},
+		{
+			name:   "title with multiple tags",
+			listID: "L1",
+			item: &model.Item{
+				Title:          "Task",
+				Tags:           []string{"t1", "t2"},
+				ExternalID:     new("T1"),
+				ExternalListID: new("L1"),
+				Modified:       time.Now(),
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{Id: "T1"},
+				}
+			},
+			wantTask: &tasks.Task{
+				Id:     "T1",
+				Title:  "Task #t1 #t2",
+				Status: "needsAction",
+			},
+			wantErr: false,
+		},
+		{
+			name:   "title with waiting on",
+			listID: "L1",
+			item: &model.Item{
+				Title:          "Task",
+				WaitingOn:      "Alice",
+				Created:        rfc3339ToDate("2024-01-02T10:00:00Z"),
+				ExternalID:     new("T1"),
+				ExternalListID: new("L1"),
+				Modified:       time.Now(),
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{
+					{Id: "T1"},
+				}
+			},
+			wantTask: &tasks.Task{
+				Id:     "T1",
+				Title:  "Alice - Task - 2024-01-02",
 				Status: "needsAction",
 			},
 			wantErr: false,
@@ -1824,68 +2032,6 @@ func TestDeleteItem(t *testing.T) {
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DeleteItem() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestRenderTitle(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		item      *model.Item
-		wantTitle string
-	}{
-		{
-			name: "simple title",
-			item: &model.Item{
-				Title: "Simple",
-			},
-			wantTitle: "Simple",
-		},
-		{
-			name: "title with projectid",
-			item: &model.Item{
-				Title:     "Task",
-				ProjectID: new("P1"),
-			},
-			wantTitle: "Task +P1",
-		},
-		{
-			name: "title with due",
-			item: &model.Item{
-				Title: "Task",
-				Due:   iso8601ToDate("2024-12-31"),
-			},
-			wantTitle: "Task due:2024-12-31",
-		},
-		{
-			name: "title with multiple tags",
-			item: &model.Item{
-				Title: "Task",
-				Tags:  []string{"t1", "t2"},
-			},
-			wantTitle: "Task #t1 #t2",
-		},
-		{
-			name: "title with waiting on",
-			item: &model.Item{
-				Title:     "Task",
-				WaitingOn: "Alice",
-				Created:   rfc3339ToDate("2024-01-02T10:00:00Z"),
-			},
-			wantTitle: "Alice - Task - 2024-01-02",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			got := renderTitle(tt.item)
-			if got != tt.wantTitle {
-				t.Errorf("renderTitle() = %q, want %q", got, tt.wantTitle)
 			}
 		})
 	}

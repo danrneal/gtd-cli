@@ -35,8 +35,6 @@ providers/markdown/client.go:326:branch/if
 providers/markdown/client.go:399:branch/if
 providers/markdown/parser.go:61:branch/case
 providers/markdown/watcher.go:99:branch/if
-providers/markdown/watcher.go:118:branch/if
-providers/markdown/watcher.go:122:branch/if
 providers/sqlite/store.go:63:branch/if
 providers/sqlite/store.go:63:statement/remove
 providers/sqlite/store.go:70:numbers/decrementer
