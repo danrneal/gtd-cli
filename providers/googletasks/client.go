@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/api/tasks/v1"
 
 	"github.com/danrneal/gtd-cli/model"
@@ -82,7 +83,9 @@ func (c *Client) ListLists(ctx context.Context) ([]model.List, error) {
 		return nil, fmt.Errorf("unable to retrieve tasklists: %w", err)
 	}
 
-	var lists []model.List
+	g, ctx := errgroup.WithContext(ctx)
+
+	lists := make([]model.List, len(resp.Items))
 	for i, tasklist := range resp.Items {
 		list := model.List{
 			Name:       tasklist.Title,
@@ -97,13 +100,21 @@ func (c *Client) ListLists(ctx context.Context) ([]model.List, error) {
 			}
 		}
 
-		items, err := c.listItems(ctx, &list)
-		if err != nil {
-			return nil, err
-		}
+		g.Go(func() error {
+			items, err := c.listItems(ctx, &list)
+			if err != nil {
+				return err
+			}
 
-		list.Items = items
-		lists = append(lists, list)
+			list.Items = items
+			lists[i] = list
+
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, fmt.Errorf("failed to retrieve items for all tasklists: %w", err)
 	}
 
 	return lists, nil

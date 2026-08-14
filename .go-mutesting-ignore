@@ -20,8 +20,8 @@ model/list.go:162:numbers/decrementer
 model/list.go:162:numbers/incrementer
 model/list.go:166:numbers/incrementer
 model/list.go:171:numbers/incrementer
-providers/googletasks/client.go:66:statement/remove
-providers/googletasks/client.go:127:statement/remove
+providers/googletasks/client.go:67:statement/remove
+providers/googletasks/client.go:138:statement/remove
 providers/markdown/client.go:72:statement/remove
 providers/markdown/client.go:93:branch/if
 providers/markdown/client.go:140:branch/if
