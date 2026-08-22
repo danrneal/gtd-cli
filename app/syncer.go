@@ -88,6 +88,12 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider, syncStart ti
 		}
 	}
 
+	for _, srcList := range srcState.lists {
+		if err := ss.syncNextActionProjectUpdate(ctx, &srcList); err != nil {
+			return changed, err
+		}
+	}
+
 	for _, dstList := range dstState.lists {
 		deleted, err := ss.syncListDeletion(ctx, &dstList)
 		changed = changed || deleted
@@ -105,14 +111,6 @@ func (s *Syncer) buildProviderState(ctx context.Context, p Provider) (*providerS
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve lists from provider: %w", err)
 	}
-
-	slices.SortStableFunc(lists, func(a, b model.List) int {
-		if strings.HasPrefix(a.Name, model.ListProjects) && !strings.HasPrefix(b.Name, model.ListProjects) {
-			return -1
-		}
-
-		return 0
-	})
 
 	listsMap := make(map[string]*model.List, len(lists))
 	itemsMap := make(map[string]*model.Item)
@@ -253,10 +251,36 @@ func (ss *syncSession) syncListUpdate(ctx context.Context, srcList *model.List) 
 			}
 
 			updated = true
+		} else if dstItem.ProjectID != nil {
+			srcItem.ProjectID = dstItem.ProjectID
 		}
 	}
 
 	return updated, nil
+}
+
+func (ss *syncSession) syncNextActionProjectUpdate(ctx context.Context, srcList *model.List) error {
+	if strings.HasPrefix(srcList.Name, model.ListProjects) {
+		return nil
+	}
+
+	for _, srcItem := range srcList.Items {
+		if srcItem.ProjectTag == nil && srcItem.ExternalProjectID == nil {
+			continue
+		}
+
+		if srcItem.ProjectID != nil {
+			continue
+		}
+
+		itemKey := ss.getKey(srcItem)
+		dstItem := ss.dstState.itemsMap[itemKey]
+		if err := ss.updateItem(ctx, srcItem, dstItem); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // syncListDeletion processes a single list from the destination provider state, deleting it or its items

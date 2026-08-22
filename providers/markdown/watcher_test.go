@@ -457,6 +457,10 @@ func TestClient_watchLoop(t *testing.T) {
 	}
 }
 
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
+
 func assertEventEmitted(t *testing.T, events <-chan error) {
 	t.Helper()
 
@@ -492,8 +496,4 @@ func assertChannelClosed(t *testing.T, events <-chan error) {
 	default:
 		t.Fatal("expected events channel to be closed, but it was empty and open")
 	}
-}
-
-func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(m)
 }

@@ -28,12 +28,12 @@ type Store struct {
 	logger         *slog.Logger
 }
 
-// StoreOption defines a functional option for configuring a Store.
-type StoreOption func(*Store)
+// Option defines a functional option for configuring a Store.
+type Option func(*Store)
 
 // WithListIDGenerator overrides the default List ID generation function.
 // This is primarily used for deterministic testing.
-func WithListIDGenerator(fn func() string) StoreOption {
+func WithListIDGenerator(fn func() string) Option {
 	listIDGeneratorOpt := func(s *Store) {
 		s.generateListID = fn
 	}
@@ -43,7 +43,7 @@ func WithListIDGenerator(fn func() string) StoreOption {
 
 // WithItemIDGenerator overrides the default Item ID generation function.
 // This is primarily used for deterministic testing.
-func WithItemIDGenerator(fn func() string) StoreOption {
+func WithItemIDGenerator(fn func() string) Option {
 	itemIDGeneratorOpt := func(s *Store) {
 		s.generateItemID = fn
 	}
@@ -53,7 +53,7 @@ func WithItemIDGenerator(fn func() string) StoreOption {
 
 // NewStore initializes a new SQLite store.
 // It opens the database at dbPath, ensures it is accessible, and creates the necessary schema.
-func NewStore(ctx context.Context, dbPath string, logger *slog.Logger, opts ...StoreOption) (*Store, error) {
+func NewStore(ctx context.Context, dbPath string, logger *slog.Logger, opts ...Option) (*Store, error) {
 	dataSourceName := fmt.Sprintf("%s?_busy_timeout=5000&_foreign_keys=on&_journal_mode=WAL", dbPath)
 	db, err := sql.Open("sqlite3", dataSourceName)
 	if err != nil {
@@ -519,10 +519,7 @@ func (s *Store) execInsertItem(ctx context.Context, tx *sql.Tx, list *model.List
 		var projectID *string
 		if projectID, err = s.getProjectID(ctx, tx, item); err == nil {
 			item.ProjectID = projectID
-		} else if errors.Is(err, ErrNotFound) {
-			item.ExternalProjectID = nil
-			item.ProjectTag = nil
-		} else {
+		} else if !errors.Is(err, ErrNotFound) {
 			return err
 		}
 	}
@@ -873,10 +870,7 @@ func (s *Store) execUpdateItem(ctx context.Context, tx *sql.Tx, list *model.List
 		var projectID *string
 		if projectID, err = s.getProjectID(ctx, tx, item); err == nil {
 			item.ProjectID = projectID
-		} else if errors.Is(err, ErrNotFound) {
-			item.ExternalProjectID = nil
-			item.ProjectTag = nil
-		} else {
+		} else if !errors.Is(err, ErrNotFound) {
 			return err
 		}
 	}

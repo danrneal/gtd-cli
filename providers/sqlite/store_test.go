@@ -1981,18 +1981,6 @@ func TestCreateItem(t *testing.T) {
 			if diff := cmp.Diff(tt.wantItem, &gotItem, opts...); diff != "" {
 				t.Errorf("CreateItem() mismatch (-want +got):\n%s", diff)
 			}
-
-			if tt.wantItem.ProjectID == nil && tt.wantItem.ExternalProjectID == nil &&
-				tt.item.ExternalProjectID != nil {
-				t.Errorf(
-					"expected original item ExternalProjectID to be cleared, but got %v",
-					*tt.item.ExternalProjectID,
-				)
-			}
-
-			if tt.wantItem.ProjectID == nil && tt.wantItem.ProjectTag == nil && tt.item.ProjectTag != nil {
-				t.Errorf("expected original item ProjectTag to be cleared, but got %v", *tt.item.ProjectTag)
-			}
 		})
 	}
 }
@@ -2830,14 +2818,6 @@ func TestUpdateItem(t *testing.T) {
 
 			if diff := cmp.Diff(tt.wantItem, &gotItem); diff != "" {
 				t.Errorf("UpdateItem() mismatch (-want +got):\n%s", diff)
-			}
-
-			if tt.wantItem.ProjectID == nil && tt.wantItem.ExternalProjectID == nil && item.ExternalProjectID != nil {
-				t.Errorf("expected original item ExternalProjectID to be cleared, but got %v", *item.ExternalProjectID)
-			}
-
-			if tt.wantItem.ProjectID == nil && tt.wantItem.ProjectTag == nil && item.ProjectTag != nil {
-				t.Errorf("expected original item ProjectTag to be cleared, but got %v", *item.ProjectTag)
 			}
 		})
 	}

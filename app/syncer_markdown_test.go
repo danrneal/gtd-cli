@@ -101,15 +101,14 @@ func TestPushMarkdown(t *testing.T) {
 			setupSqlite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{
 					{
-						Name:     "L1",
-						Status:   model.StatusDeleted,
-						Modified: baseTime.Add(1),
-					},
-					{
-						ID:       "custom-list-1",
 						Name:     "Inbox",
 						Status:   model.StatusOpen,
 						Modified: baseTime,
+					},
+					{
+						Name:     "L1",
+						Status:   model.StatusDeleted,
+						Modified: baseTime.Add(1),
 					},
 				})
 
@@ -118,7 +117,7 @@ func TestPushMarkdown(t *testing.T) {
 			setupMarkdown: func(t *testing.T) *errorProvider {
 				md := setupTestMarkdown(t, []model.List{
 					{
-						ID:       "custom-list-1",
+						ID:       "store-list-1",
 						Name:     "Inbox",
 						Status:   model.StatusOpen,
 						Modified: baseTime,
@@ -129,14 +128,14 @@ func TestPushMarkdown(t *testing.T) {
 			},
 			wantSqliteLists: []model.List{
 				{
-					ID:       "custom-list-1",
+					ID:       "store-list-1",
 					Name:     "Inbox",
 					Position: 0,
 					Status:   model.StatusOpen,
 					Items:    []*model.Item{},
 				},
 				{
-					ID:       "store-list-1",
+					ID:       "store-list-2",
 					Name:     "L1",
 					Position: 1,
 					Status:   model.StatusDeleted,
@@ -145,11 +144,10 @@ func TestPushMarkdown(t *testing.T) {
 			},
 			wantMarkdownLists: []model.List{
 				{
-					ID:       "custom-list-1",
-					Name:     "Inbox",
-					Position: 0,
-					Status:   model.StatusOpen,
-					Items:    []*model.Item{},
+					ID:     "store-list-1",
+					Name:   "Inbox",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
 				},
 			},
 		},
@@ -160,12 +158,10 @@ func TestPushMarkdown(t *testing.T) {
 					{
 						Name:     "L1",
 						Modified: baseTime,
-						Position: 0,
 					},
 					{
 						Name:     "L2",
 						Modified: baseTime,
-						Position: 1,
 					},
 				})
 
@@ -318,6 +314,7 @@ func TestPushMarkdown(t *testing.T) {
 						},
 					},
 				})
+
 				md.errUpdateList = errors.New("redundant update list called")
 
 				return md
@@ -329,10 +326,11 @@ func TestPushMarkdown(t *testing.T) {
 					Status: model.StatusOpen,
 					Items: []*model.Item{
 						{
-							ID:     "store-item-1",
-							Title:  "I1",
-							Status: model.StatusNotStarted,
-							ListID: "store-list-1",
+							ID:       "store-item-1",
+							Title:    "I1",
+							Position: 0,
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-1",
 						},
 						{
 							ID:       "store-item-2",
@@ -351,10 +349,11 @@ func TestPushMarkdown(t *testing.T) {
 					Status: model.StatusOpen,
 					Items: []*model.Item{
 						{
-							ID:     "store-item-1",
-							Title:  "I1",
-							Status: model.StatusNotStarted,
-							ListID: "store-list-1",
+							ID:       "store-item-1",
+							Title:    "I1",
+							Position: 0,
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-1",
 						},
 						{
 							ID:       "store-item-2",
@@ -447,20 +446,16 @@ func TestPushMarkdown(t *testing.T) {
 					{
 						Name:     "L1",
 						Modified: baseTime,
-						Position: 0,
 					},
 					{
 						Name:     "L2",
 						Modified: baseTime.Add(1),
-						Position: 1,
 						Items: []*model.Item{
 							{
-								ID:       "store-item-1",
 								Title:    "I1",
 								Modified: baseTime.Add(1),
 							},
 							{
-								ID:       "store-item-2",
 								Title:    "I2",
 								Modified: baseTime.Add(1),
 							},
@@ -602,14 +597,13 @@ func TestPushMarkdown(t *testing.T) {
 			setupSqlite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{
 					{
-						ID:       "store-list-2",
-						Name:     "L2",
-						Modified: baseTime,
-					},
-					{
 						Name:     "L1",
 						Status:   model.StatusDeleted,
 						Modified: baseTime.Add(1),
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime,
 					},
 				})
 
@@ -717,12 +711,10 @@ func TestPushMarkdown(t *testing.T) {
 					{
 						Name:     "L1",
 						Modified: baseTime,
-						Position: 1,
 					},
 					{
 						Name:     "L2",
 						Modified: baseTime,
-						Position: 0,
 					},
 				})
 
@@ -731,13 +723,13 @@ func TestPushMarkdown(t *testing.T) {
 			setupMarkdown: func(t *testing.T) *errorProvider {
 				md := setupTestMarkdown(t, []model.List{
 					{
-						ID:       "store-list-1",
-						Name:     "L1",
+						ID:       "store-list-2",
+						Name:     "L2",
 						Modified: baseTime,
 					},
 					{
-						ID:       "store-list-2",
-						Name:     "L2",
+						ID:       "store-list-1",
+						Name:     "L1",
 						Modified: baseTime,
 					},
 				})
@@ -746,15 +738,15 @@ func TestPushMarkdown(t *testing.T) {
 			},
 			wantSqliteLists: []model.List{
 				{
-					ID:       "store-list-2",
-					Name:     "L2",
+					ID:       "store-list-1",
+					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 0,
 					Items:    []*model.Item{},
 				},
 				{
-					ID:       "store-list-1",
-					Name:     "L1",
+					ID:       "store-list-2",
+					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 1,
 					Items:    []*model.Item{},
@@ -762,15 +754,15 @@ func TestPushMarkdown(t *testing.T) {
 			},
 			wantMarkdownLists: []model.List{
 				{
-					ID:       "store-list-2",
-					Name:     "L2",
+					ID:       "store-list-1",
+					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 0,
 					Items:    []*model.Item{},
 				},
 				{
-					ID:       "store-list-1",
-					Name:     "L1",
+					ID:       "store-list-2",
+					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 1,
 					Items:    []*model.Item{},
@@ -789,19 +781,16 @@ func TestPushMarkdown(t *testing.T) {
 								Title:    "Deleted Item",
 								Status:   model.StatusDeleted,
 								Modified: baseTime,
-								Position: 0,
 							},
 							{
 								Title:    "Valid Synced Item Updated",
 								Status:   model.StatusNotStarted,
 								Modified: baseTime.Add(1),
-								Position: 1,
 							},
 							{
 								Title:    "Active Item",
 								Status:   model.StatusNotStarted,
 								Modified: baseTime,
-								Position: 2,
 							},
 						},
 					},
@@ -965,13 +954,11 @@ func TestPushMarkdown(t *testing.T) {
 						Modified: baseTime,
 						Items: []*model.Item{
 							{
-								ID:       "store-item-2",
-								Title:    "I2 Unsynced",
+								Title:    "I1 Unsynced",
 								Modified: baseTime,
 							},
 							{
-								ID:       "store-item-1",
-								Title:    "I1 Updated",
+								Title:    "I2 Updated",
 								Modified: baseTime.Add(1),
 							},
 						},
@@ -988,8 +975,8 @@ func TestPushMarkdown(t *testing.T) {
 						Modified: baseTime,
 						Items: []*model.Item{
 							{
-								ID:       "store-item-1",
-								Title:    "I1 Original",
+								ID:       "store-item-2",
+								Title:    "I2 Original",
 								Modified: baseTime,
 							},
 						},
@@ -1005,15 +992,15 @@ func TestPushMarkdown(t *testing.T) {
 					Status: model.StatusOpen,
 					Items: []*model.Item{
 						{
-							ID:       "store-item-2",
-							Title:    "I2 Unsynced",
+							ID:       "store-item-1",
+							Title:    "I1 Unsynced",
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							ListID:   "store-list-1",
 						},
 						{
-							ID:       "store-item-1",
-							Title:    "I1 Updated",
+							ID:       "store-item-2",
+							Title:    "I2 Updated",
 							Position: 1,
 							Status:   model.StatusNotStarted,
 							ListID:   "store-list-1",
@@ -1028,18 +1015,219 @@ func TestPushMarkdown(t *testing.T) {
 					Status: model.StatusOpen,
 					Items: []*model.Item{
 						{
-							ID:       "store-item-2",
-							Title:    "I2 Unsynced",
+							ID:       "store-item-1",
+							Title:    "I1 Unsynced",
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							ListID:   "store-list-1",
 						},
 						{
-							ID:       "store-item-1",
-							Title:    "I1 Updated",
+							ID:       "store-item-2",
+							Title:    "I2 Updated",
 							Position: 1,
 							Status:   model.StatusNotStarted,
 							ListID:   "store-list-1",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "skips project backfill for projects list",
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) *errorProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:         "store-item-1",
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+				})
+
+				return md
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   model.ListProjects,
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-1",
+							Title:      "Project A",
+							Status:     model.StatusNotStarted,
+							ListID:     "store-list-1",
+							ProjectTag: new("project-a"),
+						},
+					},
+				},
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   model.ListProjects,
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-1",
+							Title:      "Project A",
+							Status:     model.StatusNotStarted,
+							ListID:     "store-list-1",
+							ProjectTag: new("project-a"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "skips project backfill if project id is present",
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:     "Item with Project",
+								Modified:  baseTime,
+								ProjectID: new("store-item-1"),
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			setupMarkdown: func(t *testing.T) *errorProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:         "store-item-1",
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+					{
+						ID:       "store-list-2",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:         "store-item-2",
+								Title:      "Item with Project",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+				})
+
+				md.errUpdateItem = errors.New("boom")
+
+				return md
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     model.ListProjects,
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-1",
+							Title:      "Project A",
+							Status:     model.StatusNotStarted,
+							ListID:     "store-list-1",
+							ProjectTag: new("project-a"),
+						},
+					},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-2",
+							Title:      "Item with Project",
+							Status:     model.StatusNotStarted,
+							ListID:     "store-list-2",
+							ProjectID:  new("store-item-1"),
+							ProjectTag: new("project-a"),
+						},
+					},
+				},
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     model.ListProjects,
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-1",
+							Title:      "Project A",
+							Status:     model.StatusNotStarted,
+							ListID:     "store-list-1",
+							ProjectTag: new("project-a"),
+						},
+					},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-2",
+							Title:      "Item with Project",
+							Status:     model.StatusNotStarted,
+							ListID:     "store-list-2",
+							ProjectTag: new("project-a"),
 						},
 					},
 				},
@@ -1064,7 +1252,6 @@ func TestPushMarkdown(t *testing.T) {
 			wantSqliteLists: []model.List{},
 			wantMarkdownLists: []model.List{
 				{
-					ID:     "",
 					Name:   "L1",
 					Status: model.StatusOpen,
 					Items:  []*model.Item{},
@@ -1080,8 +1267,7 @@ func TestPushMarkdown(t *testing.T) {
 						Modified: baseTime,
 						Items: []*model.Item{
 							{
-								ID:       "store-item-2",
-								Title:    "I2 To Be Deleted",
+								Title:    "I1 To Be Deleted",
 								Status:   model.StatusDeleted,
 								Modified: baseTime.Add(1),
 							},
@@ -1099,12 +1285,12 @@ func TestPushMarkdown(t *testing.T) {
 						Modified: baseTime,
 						Items: []*model.Item{
 							{
-								Title:    "I1",
+								Title:    "I2",
 								Modified: baseTime,
 							},
 							{
-								ID:       "store-item-2",
-								Title:    "I2 To Be Deleted",
+								ID:       "store-item-1",
+								Title:    "I1 To Be Deleted",
 								Modified: baseTime,
 							},
 						},
@@ -1128,8 +1314,7 @@ func TestPushMarkdown(t *testing.T) {
 					Status: model.StatusOpen,
 					Items: []*model.Item{
 						{
-							ID:     "",
-							Title:  "I1",
+							Title:  "I2",
 							Status: model.StatusNotStarted,
 							ListID: "store-list-1",
 						},
@@ -1188,135 +1373,6 @@ func TestPushMarkdown(t *testing.T) {
 					Name:   "L1",
 					Status: model.StatusOpen,
 					Items:  []*model.Item{},
-				},
-			},
-		},
-		{
-			name: "prioritizes Projects list when preceded by normal list",
-			setupSqlite: func(t *testing.T) *errorProvider {
-				sqlite := setupTestSQLite(t, []model.List{
-					{
-						Name:     "L1 Normal",
-						Modified: baseTime,
-						Position: 0,
-					},
-					{
-						Name:     model.ListProjects,
-						Modified: baseTime,
-						Position: 1,
-					},
-					{
-						Name:     "Projects Archive",
-						Modified: baseTime,
-						Position: 2,
-					},
-				})
-
-				return sqlite
-			},
-			setupMarkdown: func(t *testing.T) *errorProvider {
-				md := setupTestMarkdown(t, []model.List{})
-				return md
-			},
-			wantSqliteLists: []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1 Normal",
-					Status:   model.StatusOpen,
-					Position: 0,
-					Items:    []*model.Item{},
-				},
-				{
-					ID:       "store-list-2",
-					Name:     model.ListProjects,
-					Status:   model.StatusOpen,
-					Position: 1,
-					Items:    []*model.Item{},
-				},
-				{
-					ID:       "store-list-3",
-					Name:     "Projects Archive",
-					Status:   model.StatusOpen,
-					Position: 2,
-					Items:    []*model.Item{},
-				},
-			},
-			wantMarkdownLists: []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1 Normal",
-					Status:   model.StatusOpen,
-					Position: 0,
-					Items:    []*model.Item{},
-				},
-				{
-					ID:       "store-list-2",
-					Name:     model.ListProjects,
-					Status:   model.StatusOpen,
-					Position: 1,
-					Items:    []*model.Item{},
-				},
-				{
-					ID:       "store-list-3",
-					Name:     "Projects Archive",
-					Status:   model.StatusOpen,
-					Position: 2,
-					Items:    []*model.Item{},
-				},
-			},
-		},
-		{
-			name: "maintains Projects list priority when followed by normal list",
-			setupSqlite: func(t *testing.T) *errorProvider {
-				sqlite := setupTestSQLite(t, []model.List{
-					{
-						Name:     model.ListProjects,
-						Modified: baseTime,
-						Position: 0,
-					},
-					{
-						Name:     "L1 Normal",
-						Modified: baseTime,
-						Position: 1,
-					},
-				})
-
-				return sqlite
-			},
-			setupMarkdown: func(t *testing.T) *errorProvider {
-				md := setupTestMarkdown(t, []model.List{})
-				return md
-			},
-			wantSqliteLists: []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     model.ListProjects,
-					Status:   model.StatusOpen,
-					Position: 0,
-					Items:    []*model.Item{},
-				},
-				{
-					ID:       "store-list-2",
-					Name:     "L1 Normal",
-					Status:   model.StatusOpen,
-					Position: 1,
-					Items:    []*model.Item{},
-				},
-			},
-			wantMarkdownLists: []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     model.ListProjects,
-					Status:   model.StatusOpen,
-					Position: 0,
-					Items:    []*model.Item{},
-				},
-				{
-					ID:       "store-list-2",
-					Name:     "L1 Normal",
-					Status:   model.StatusOpen,
-					Position: 1,
-					Items:    []*model.Item{},
 				},
 			},
 		},
@@ -1429,6 +1485,7 @@ func TestPushMarkdown(t *testing.T) {
 						Modified: baseTime,
 					},
 				})
+
 				md.errCreateItem = errors.New("boom")
 
 				return md
@@ -1455,6 +1512,7 @@ func TestPushMarkdown(t *testing.T) {
 						Modified: baseTime,
 					},
 				})
+
 				md.errUpdateList = errors.New("boom")
 
 				return md
@@ -1494,6 +1552,7 @@ func TestPushMarkdown(t *testing.T) {
 						},
 					},
 				})
+
 				md.errUpdateItem = errors.New("boom")
 
 				return md
@@ -1521,6 +1580,7 @@ func TestPushMarkdown(t *testing.T) {
 						Modified: baseTime,
 					},
 				})
+
 				md.errDeleteList = errors.New("boom")
 
 				return md
@@ -1537,6 +1597,7 @@ func TestPushMarkdown(t *testing.T) {
 						Modified: baseTime.Add(1),
 					},
 				})
+
 				sqlite.errDeleteList = errors.New("boom")
 
 				return sqlite
@@ -1588,6 +1649,7 @@ func TestPushMarkdown(t *testing.T) {
 						},
 					},
 				})
+
 				md.errDeleteItem = errors.New("boom")
 
 				return md
@@ -1610,6 +1672,7 @@ func TestPushMarkdown(t *testing.T) {
 						},
 					},
 				})
+
 				sqlite.errDeleteItem = errors.New("boom")
 
 				return sqlite
@@ -1904,12 +1967,12 @@ func TestPullMarkdown(t *testing.T) {
 						Modified: baseTime,
 						Items: []*model.Item{
 							{
-								Title:    "I1 (Unsynced)",
+								Title:    "I2 (Unsynced)",
 								Modified: baseTime.Add(1),
 							},
 							{
-								ID:       "store-item-2",
-								Title:    "I2 (Synced)",
+								ID:       "store-item-1",
+								Title:    "I1 (Synced)",
 								Modified: baseTime,
 							},
 						},
@@ -1925,8 +1988,7 @@ func TestPullMarkdown(t *testing.T) {
 						Modified: baseTime,
 						Items: []*model.Item{
 							{
-								ID:       "store-item-2",
-								Title:    "I2 (Synced)",
+								Title:    "I1 (Synced)",
 								Modified: baseTime,
 							},
 						},
@@ -1942,15 +2004,15 @@ func TestPullMarkdown(t *testing.T) {
 					Status: model.StatusOpen,
 					Items: []*model.Item{
 						{
-							ID:       "store-item-1",
-							Title:    "I1 (Unsynced)",
+							ID:       "store-item-2",
+							Title:    "I2 (Unsynced)",
 							Status:   model.StatusNotStarted,
 							Position: 0,
 							ListID:   "store-list-1",
 						},
 						{
-							ID:       "store-item-2",
-							Title:    "I2 (Synced)",
+							ID:       "store-item-1",
+							Title:    "I1 (Synced)",
 							Position: 1,
 							Status:   model.StatusNotStarted,
 							ListID:   "store-list-1",
@@ -1965,15 +2027,15 @@ func TestPullMarkdown(t *testing.T) {
 					Status: model.StatusOpen,
 					Items: []*model.Item{
 						{
-							ID:       "store-item-1",
-							Title:    "I1 (Unsynced)",
+							ID:       "store-item-2",
+							Title:    "I2 (Unsynced)",
 							Position: 0,
 							Status:   model.StatusNotStarted,
 							ListID:   "store-list-1",
 						},
 						{
-							ID:       "store-item-2",
-							Title:    "I2 (Synced)",
+							ID:       "store-item-1",
+							Title:    "I1 (Synced)",
 							Position: 1,
 							Status:   model.StatusNotStarted,
 							ListID:   "store-list-1",
@@ -2065,16 +2127,14 @@ func TestPullMarkdown(t *testing.T) {
 			setupMarkdown: func(t *testing.T) *errorProvider {
 				md := setupTestMarkdown(t, []model.List{
 					{
-						ID:       "store-list-1",
-						Name:     "L1",
-						Modified: baseTime,
-						Position: 0,
-					},
-					{
 						ID:       "store-list-2",
 						Name:     "L2",
+						Modified: baseTime,
+					},
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
 						Modified: baseTime.Add(1),
-						Position: 1,
 						Items: []*model.Item{
 							{
 								ID:       "store-item-1",
@@ -2097,6 +2157,10 @@ func TestPullMarkdown(t *testing.T) {
 					{
 						Name:     "L1",
 						Modified: baseTime,
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime,
 						Items: []*model.Item{
 							{
 								Title:    "I1",
@@ -2104,25 +2168,21 @@ func TestPullMarkdown(t *testing.T) {
 							},
 						},
 					},
-					{
-						Name:     "L2",
-						Modified: baseTime,
-					},
 				})
 
 				return sqlite
 			},
 			wantMarkdownLists: []model.List{
 				{
-					ID:       "store-list-1",
-					Name:     "L1",
+					ID:       "store-list-2",
+					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 0,
 					Items:    []*model.Item{},
 				},
 				{
-					ID:       "store-list-2",
-					Name:     "L2",
+					ID:       "store-list-1",
+					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 1,
 					Items: []*model.Item{
@@ -2131,29 +2191,29 @@ func TestPullMarkdown(t *testing.T) {
 							Title:    "I1",
 							Position: 0,
 							Status:   model.StatusNotStarted,
-							ListID:   "store-list-2",
+							ListID:   "store-list-1",
 						},
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
 							Position: 1,
 							Status:   model.StatusNotStarted,
-							ListID:   "store-list-2",
+							ListID:   "store-list-1",
 						},
 					},
 				},
 			},
 			wantSqliteLists: []model.List{
 				{
-					ID:       "store-list-1",
-					Name:     "L1",
+					ID:       "store-list-2",
+					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 0,
 					Items:    []*model.Item{},
 				},
 				{
-					ID:       "store-list-2",
-					Name:     "L2",
+					ID:       "store-list-1",
+					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 1,
 					Items: []*model.Item{
@@ -2162,14 +2222,14 @@ func TestPullMarkdown(t *testing.T) {
 							Title:    "I1",
 							Position: 0,
 							Status:   model.StatusNotStarted,
-							ListID:   "store-list-2",
+							ListID:   "store-list-1",
 						},
 						{
 							ID:       "store-item-2",
 							Title:    "I2",
 							Position: 1,
 							Status:   model.StatusNotStarted,
-							ListID:   "store-list-2",
+							ListID:   "store-list-1",
 						},
 					},
 				},
@@ -2181,10 +2241,9 @@ func TestPullMarkdown(t *testing.T) {
 			setupMarkdown: func(t *testing.T) *errorProvider {
 				md := setupTestMarkdown(t, []model.List{
 					{
-						ID:       "store-list-1",
-						Name:     "L1 Updated",
+						ID:       "store-list-2",
+						Name:     "L2 Updated",
 						Modified: baseTime.Add(1),
-						Position: 0,
 						Items: []*model.Item{
 							{
 								ID:       "store-item-1",
@@ -2194,10 +2253,9 @@ func TestPullMarkdown(t *testing.T) {
 						},
 					},
 					{
-						ID:       "store-list-2",
-						Name:     "L2 Unchanged",
+						ID:       "store-list-1",
+						Name:     "L1 Unchanged",
 						Modified: baseTime,
-						Position: 1,
 					},
 				})
 
@@ -2206,7 +2264,11 @@ func TestPullMarkdown(t *testing.T) {
 			setupSqlite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{
 					{
-						Name:     "L1 Original",
+						Name:     "L1 Unchanged",
+						Modified: baseTime,
+					},
+					{
+						Name:     "L2 Original",
 						Modified: baseTime,
 						Items: []*model.Item{
 							{
@@ -2215,19 +2277,14 @@ func TestPullMarkdown(t *testing.T) {
 							},
 						},
 					},
-					{
-						ID:       "store-list-2",
-						Name:     "L2 Unchanged",
-						Modified: baseTime,
-					},
 				})
 
 				return sqlite
 			},
 			wantMarkdownLists: []model.List{
 				{
-					ID:       "store-list-1",
-					Name:     "L1 Updated",
+					ID:       "store-list-2",
+					Name:     "L2 Updated",
 					Status:   model.StatusOpen,
 					Position: 0,
 					Items: []*model.Item{
@@ -2235,13 +2292,13 @@ func TestPullMarkdown(t *testing.T) {
 							ID:     "store-item-1",
 							Title:  "I1 Original",
 							Status: model.StatusNotStarted,
-							ListID: "store-list-1",
+							ListID: "store-list-2",
 						},
 					},
 				},
 				{
-					ID:       "store-list-2",
-					Name:     "L2 Unchanged",
+					ID:       "store-list-1",
+					Name:     "L1 Unchanged",
 					Status:   model.StatusOpen,
 					Position: 1,
 					Items:    []*model.Item{},
@@ -2249,8 +2306,8 @@ func TestPullMarkdown(t *testing.T) {
 			},
 			wantSqliteLists: []model.List{
 				{
-					ID:       "store-list-1",
-					Name:     "L1 Updated",
+					ID:       "store-list-2",
+					Name:     "L2 Updated",
 					Status:   model.StatusOpen,
 					Position: 0,
 					Items: []*model.Item{
@@ -2258,13 +2315,13 @@ func TestPullMarkdown(t *testing.T) {
 							ID:     "store-item-1",
 							Title:  "I1 Original",
 							Status: model.StatusNotStarted,
-							ListID: "store-list-1",
+							ListID: "store-list-2",
 						},
 					},
 				},
 				{
-					ID:       "store-list-2",
-					Name:     "L2 Unchanged",
+					ID:       "store-list-1",
+					Name:     "L1 Unchanged",
 					Status:   model.StatusOpen,
 					Position: 1,
 					Items:    []*model.Item{},
@@ -2277,16 +2334,14 @@ func TestPullMarkdown(t *testing.T) {
 			setupMarkdown: func(t *testing.T) *errorProvider {
 				md := setupTestMarkdown(t, []model.List{
 					{
-						ID:       "store-list-1",
-						Name:     "L1",
-						Modified: baseTime,
-						Position: 0,
-					},
-					{
 						ID:       "store-list-2",
 						Name:     "L2",
 						Modified: baseTime,
-						Position: 1,
+					},
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
 					},
 				})
 
@@ -2297,12 +2352,10 @@ func TestPullMarkdown(t *testing.T) {
 					{
 						Name:     "L1",
 						Modified: baseTime,
-						Position: 1,
 					},
 					{
 						Name:     "L2",
 						Modified: baseTime,
-						Position: 0,
 					},
 				})
 
@@ -2310,15 +2363,15 @@ func TestPullMarkdown(t *testing.T) {
 			},
 			wantMarkdownLists: []model.List{
 				{
-					ID:       "store-list-1",
-					Name:     "L1",
+					ID:       "store-list-2",
+					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 0,
 					Items:    []*model.Item{},
 				},
 				{
-					ID:       "store-list-2",
-					Name:     "L2",
+					ID:       "store-list-1",
+					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 1,
 					Items:    []*model.Item{},
@@ -2326,21 +2379,76 @@ func TestPullMarkdown(t *testing.T) {
 			},
 			wantSqliteLists: []model.List{
 				{
-					ID:       "store-list-1",
-					Name:     "L1",
+					ID:       "store-list-2",
+					Name:     "L2",
 					Status:   model.StatusOpen,
 					Position: 0,
 					Items:    []*model.Item{},
 				},
 				{
-					ID:       "store-list-2",
-					Name:     "L2",
+					ID:       "store-list-1",
+					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 1,
 					Items:    []*model.Item{},
 				},
 			},
 			wantUpdated: true,
+		},
+		{
+			name: "preserves tombstoned items in destination during pull",
+			setupMarkdown: func(t *testing.T) *errorProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "Already Deleted Task",
+								Status:   model.StatusDeleted,
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   "L1",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:     "store-item-1",
+							Title:  "Already Deleted Task",
+							Status: model.StatusDeleted,
+							ListID: "store-list-1",
+						},
+					},
+				},
+			},
+			wantUpdated: false,
 		},
 		{
 			name: "updates item content",
@@ -2410,11 +2518,509 @@ func TestPullMarkdown(t *testing.T) {
 			},
 			wantUpdated: true,
 		},
+
+		{
+			name: "skips project backfill entirely when all projects are linked",
+			setupMarkdown: func(t *testing.T) *errorProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:         "store-item-1",
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+					{
+						ID:       "store-list-2",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:         "store-item-2",
+								Title:      "Trap: Already Has ProjectID",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+				})
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Trap: Already Has ProjectID",
+								Modified:   baseTime,
+								ProjectID:  new("store-item-1"),
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+				})
+
+				sqlite.errUpdateItem = errors.New("boom")
+
+				return sqlite
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     model.ListProjects,
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-1",
+							Title:      "Project A",
+							Status:     model.StatusNotStarted,
+							ProjectTag: new("project-a"),
+							ListID:     "store-list-1",
+						},
+					},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-2",
+							Title:      "Trap: Already Has ProjectID",
+							Status:     model.StatusNotStarted,
+							Position:   0,
+							ProjectTag: new("project-a"),
+							ListID:     "store-list-2",
+						},
+					},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     model.ListProjects,
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-1",
+							Title:      "Project A",
+							Status:     model.StatusNotStarted,
+							ListID:     "store-list-1",
+							ProjectTag: new("project-a"),
+						},
+					},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-2",
+							Title:      "Trap: Already Has ProjectID",
+							Status:     model.StatusNotStarted,
+							Position:   0,
+							ListID:     "store-list-2",
+							ProjectID:  new("store-item-1"),
+							ProjectTag: new("project-a"),
+						},
+					},
+				},
+			},
+			wantUpdated: false,
+		},
+
+		{
+			name: "skips project backfill for projects list",
+			setupMarkdown: func(t *testing.T) *errorProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:         "store-item-1",
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+				})
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   model.ListProjects,
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-1",
+							Title:      "Project A",
+							Status:     model.StatusNotStarted,
+							ListID:     "store-list-1",
+							ProjectTag: new("project-a"),
+						},
+					},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:     "store-list-1",
+					Name:   model.ListProjects,
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-1",
+							Title:      "Project A",
+							Status:     model.StatusNotStarted,
+							ListID:     "store-list-1",
+							ProjectTag: new("project-a"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "continues backfill loop after optimized item",
+			setupMarkdown: func(t *testing.T) *errorProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-2",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Item 1",
+								Modified:   baseTime,
+								ProjectTag: new("project-old"),
+							},
+							{
+								Title:      "Item 2",
+								Modified:   baseTime,
+								ProjectTag: new("project-new"),
+							},
+						},
+					},
+					{
+						ID:       "store-list-1",
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Project New",
+								Modified:   baseTime,
+								ProjectTag: new("project-new"),
+							},
+							{
+								ID:         "store-item-1",
+								Title:      "Project Old",
+								Modified:   baseTime,
+								ProjectTag: new("project-old"),
+							},
+						},
+					},
+				})
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Project Old",
+								Modified:   baseTime,
+								ProjectTag: new("project-old"),
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:       "store-list-2",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-2",
+							Title:      "Item 1",
+							Status:     model.StatusNotStarted,
+							Position:   0,
+							ListID:     "store-list-2",
+							ProjectTag: new("project-old"),
+						},
+						{
+							ID:         "store-item-3",
+							Title:      "Item 2",
+							Status:     model.StatusNotStarted,
+							Position:   1,
+							ListID:     "store-list-2",
+							ProjectTag: new("project-new"),
+						},
+					},
+				},
+				{
+					ID:       "store-list-1",
+					Name:     model.ListProjects,
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-4",
+							Title:      "Project New",
+							Status:     model.StatusNotStarted,
+							Position:   0,
+							ListID:     "store-list-1",
+							ProjectTag: new("project-new"),
+						},
+						{
+							ID:         "store-item-1",
+							Title:      "Project Old",
+							Status:     model.StatusNotStarted,
+							Position:   1,
+							ListID:     "store-list-1",
+							ProjectTag: new("project-old"),
+						},
+					},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:       "store-list-2",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-2",
+							Title:      "Item 1",
+							Status:     model.StatusNotStarted,
+							Position:   0,
+							ListID:     "store-list-2",
+							ProjectID:  new("store-item-1"),
+							ProjectTag: new("project-old"),
+						},
+						{
+							ID:         "store-item-3",
+							Title:      "Item 2",
+							Status:     model.StatusNotStarted,
+							Position:   1,
+							ListID:     "store-list-2",
+							ProjectID:  new("store-item-4"),
+							ProjectTag: new("project-new"),
+						},
+					},
+				},
+				{
+					ID:       "store-list-1",
+					Name:     model.ListProjects,
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-4",
+							Title:      "Project New",
+							Status:     model.StatusNotStarted,
+							Position:   0,
+							ListID:     "store-list-1",
+							ProjectTag: new("project-new"),
+						},
+						{
+							ID:         "store-item-1",
+							Title:      "Project Old",
+							Status:     model.StatusNotStarted,
+							Position:   1,
+							ListID:     "store-list-1",
+							ProjectTag: new("project-old"),
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "backfills project id when projects list is created last",
+			setupMarkdown: func(t *testing.T) *errorProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "Normal Item",
+								Modified: baseTime,
+							},
+							{
+								ID:         "store-item-2",
+								Title:      "Item with Project",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+					{
+						ID:       "store-list-2",
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:         "store-item-3",
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+				})
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{})
+				return sqlite
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "Normal Item",
+							Status:   model.StatusNotStarted,
+							Position: 0,
+							ListID:   "store-list-1",
+						},
+						{
+							ID:         "store-item-2",
+							Title:      "Item with Project",
+							Status:     model.StatusNotStarted,
+							Position:   1,
+							ListID:     "store-list-1",
+							ProjectTag: new("project-a"),
+						},
+					},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     model.ListProjects,
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-3",
+							Title:      "Project A",
+							Status:     model.StatusNotStarted,
+							ListID:     "store-list-2",
+							ProjectTag: new("project-a"),
+						},
+					},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Status:   model.StatusOpen,
+					Position: 0,
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "Normal Item",
+							Status:   model.StatusNotStarted,
+							Position: 0,
+							ListID:   "store-list-1",
+						},
+						{
+							ID:         "store-item-2",
+							Title:      "Item with Project",
+							Status:     model.StatusNotStarted,
+							Position:   1,
+							ListID:     "store-list-1",
+							ProjectID:  new("store-item-3"),
+							ProjectTag: new("project-a"),
+						},
+					},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     model.ListProjects,
+					Status:   model.StatusOpen,
+					Position: 1,
+					Items: []*model.Item{
+						{
+							ID:         "store-item-3",
+							Title:      "Project A",
+							Status:     model.StatusNotStarted,
+							ListID:     "store-list-2",
+							ProjectTag: new("project-a"),
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
 		{
 			name: "skips already deleted list during deletion phase",
 			setupMarkdown: func(t *testing.T) *errorProvider {
 				md := setupTestMarkdown(t, []model.List{
 					{
+						ID:       "store-list-1",
 						Name:     "Inbox",
 						Status:   model.StatusOpen,
 						Modified: baseTime,
@@ -2431,7 +3037,7 @@ func TestPullMarkdown(t *testing.T) {
 						Modified: baseTime,
 					},
 					{
-						Name:     "L1",
+						Name:     "L2",
 						Status:   model.StatusDeleted,
 						Modified: baseTime,
 					},
@@ -2441,7 +3047,7 @@ func TestPullMarkdown(t *testing.T) {
 			},
 			wantMarkdownLists: []model.List{
 				{
-					ID:     "store-list-3",
+					ID:     "store-list-1",
 					Name:   "Inbox",
 					Status: model.StatusOpen,
 					Items:  []*model.Item{},
@@ -2449,33 +3055,28 @@ func TestPullMarkdown(t *testing.T) {
 			},
 			wantSqliteLists: []model.List{
 				{
-					ID:     "store-list-3",
-					Name:   "Inbox",
-					Status: model.StatusOpen,
-					Items:  []*model.Item{},
-				},
-				{
 					ID:       "store-list-1",
 					Name:     "Inbox",
-					Position: 1,
-					Status:   model.StatusDeleted,
+					Position: 0,
+					Status:   model.StatusOpen,
 					Items:    []*model.Item{},
 				},
 				{
 					ID:       "store-list-2",
-					Name:     "L1",
-					Position: 2,
+					Name:     "L2",
+					Position: 1,
 					Status:   model.StatusDeleted,
 					Items:    []*model.Item{},
 				},
 			},
-			wantUpdated: true,
+			wantUpdated: false,
 		},
 		{
 			name: "deletes list in destination",
 			setupMarkdown: func(t *testing.T) *errorProvider {
 				md := setupTestMarkdown(t, []model.List{
 					{
+						ID:       "store-list-1",
 						Name:     "Inbox",
 						Status:   model.StatusOpen,
 						Modified: baseTime,
@@ -2492,7 +3093,7 @@ func TestPullMarkdown(t *testing.T) {
 						Modified: baseTime,
 					},
 					{
-						Name:     "L1",
+						Name:     "L2",
 						Status:   model.StatusOpen,
 						Modified: baseTime,
 					},
@@ -2502,7 +3103,7 @@ func TestPullMarkdown(t *testing.T) {
 			},
 			wantMarkdownLists: []model.List{
 				{
-					ID:     "store-list-3",
+					ID:     "store-list-1",
 					Name:   "Inbox",
 					Status: model.StatusOpen,
 					Items:  []*model.Item{},
@@ -2510,23 +3111,16 @@ func TestPullMarkdown(t *testing.T) {
 			},
 			wantSqliteLists: []model.List{
 				{
-					ID:       "store-list-2",
-					Name:     "L1",
-					Position: 0,
-					Status:   model.StatusDeleted,
-					Items:    []*model.Item{},
-				},
-				{
-					ID:       "store-list-3",
+					ID:       "store-list-1",
 					Name:     "Inbox",
-					Position: 1,
+					Position: 0,
 					Status:   model.StatusOpen,
 					Items:    []*model.Item{},
 				},
 				{
-					ID:       "store-list-1",
-					Name:     "Inbox",
-					Position: 2,
+					ID:       "store-list-2",
+					Name:     "L2",
+					Position: 1,
 					Status:   model.StatusDeleted,
 					Items:    []*model.Item{},
 				},
@@ -2610,7 +3204,6 @@ func TestPullMarkdown(t *testing.T) {
 						ID:       "store-list-1",
 						Name:     "L1",
 						Modified: baseTime,
-						Items:    []*model.Item{},
 					},
 				})
 
@@ -2653,137 +3246,6 @@ func TestPullMarkdown(t *testing.T) {
 							ListID: "store-list-1",
 						},
 					},
-				},
-			},
-			wantUpdated: true,
-		},
-		{
-			name: "prioritizes Projects list when preceded by normal list",
-			setupMarkdown: func(t *testing.T) *errorProvider {
-				md := setupTestMarkdown(t, []model.List{
-					{
-						Name:     "L1 Normal",
-						Modified: baseTime,
-						Position: 0,
-					},
-					{
-						Name:     model.ListProjects,
-						Modified: baseTime,
-						Position: 1,
-					},
-					{
-						Name:     "Projects Archive",
-						Modified: baseTime,
-						Position: 2,
-					},
-				})
-
-				return md
-			},
-			setupSqlite: func(t *testing.T) *errorProvider {
-				sqlite := setupTestSQLite(t, []model.List{})
-				return sqlite
-			},
-			wantMarkdownLists: []model.List{
-				{
-					ID:       "store-list-3",
-					Name:     "L1 Normal",
-					Status:   model.StatusOpen,
-					Position: 0,
-					Items:    []*model.Item{},
-				},
-				{
-					ID:       "store-list-1",
-					Name:     model.ListProjects,
-					Status:   model.StatusOpen,
-					Position: 1,
-					Items:    []*model.Item{},
-				},
-				{
-					ID:       "store-list-2",
-					Name:     "Projects Archive",
-					Status:   model.StatusOpen,
-					Position: 2,
-					Items:    []*model.Item{},
-				},
-			},
-			wantSqliteLists: []model.List{
-				{
-					ID:       "store-list-3",
-					Name:     "L1 Normal",
-					Status:   model.StatusOpen,
-					Position: 0,
-					Items:    []*model.Item{},
-				},
-				{
-					ID:       "store-list-1",
-					Name:     model.ListProjects,
-					Status:   model.StatusOpen,
-					Position: 1,
-					Items:    []*model.Item{},
-				},
-				{
-					ID:       "store-list-2",
-					Name:     "Projects Archive",
-					Status:   model.StatusOpen,
-					Position: 2,
-					Items:    []*model.Item{},
-				},
-			},
-			wantUpdated: true,
-		},
-		{
-			name: "maintains Projects list priority when followed by normal list",
-			setupMarkdown: func(t *testing.T) *errorProvider {
-				md := setupTestMarkdown(t, []model.List{
-					{
-						Name:     model.ListProjects,
-						Modified: baseTime,
-						Position: 0,
-					},
-					{
-						Name:     "L1 Normal",
-						Modified: baseTime,
-						Position: 1,
-					},
-				})
-
-				return md
-			},
-			setupSqlite: func(t *testing.T) *errorProvider {
-				sqlite := setupTestSQLite(t, []model.List{})
-				return sqlite
-			},
-			wantMarkdownLists: []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     model.ListProjects,
-					Status:   model.StatusOpen,
-					Position: 0,
-					Items:    []*model.Item{},
-				},
-				{
-					ID:       "store-list-2",
-					Name:     "L1 Normal",
-					Status:   model.StatusOpen,
-					Position: 1,
-					Items:    []*model.Item{},
-				},
-			},
-			wantSqliteLists: []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     model.ListProjects,
-					Status:   model.StatusOpen,
-					Position: 0,
-					Items:    []*model.Item{},
-				},
-				{
-					ID:       "store-list-2",
-					Name:     "L1 Normal",
-					Status:   model.StatusOpen,
-					Position: 1,
-					Items:    []*model.Item{},
 				},
 			},
 			wantUpdated: true,
@@ -2846,6 +3308,7 @@ func TestPullMarkdown(t *testing.T) {
 						Modified: baseTime.Add(1),
 					},
 				})
+
 				md.errUpdateList = errors.New("boom")
 
 				return md
@@ -2882,6 +3345,7 @@ func TestPullMarkdown(t *testing.T) {
 						Modified: baseTime,
 					},
 				})
+
 				sqlite.errCreateItem = errors.New("boom")
 
 				return sqlite
@@ -2904,6 +3368,7 @@ func TestPullMarkdown(t *testing.T) {
 						},
 					},
 				})
+
 				md.errUpdateItem = errors.New("boom")
 
 				return md
@@ -2940,6 +3405,7 @@ func TestPullMarkdown(t *testing.T) {
 						Modified: baseTime,
 					},
 				})
+
 				sqlite.errUpdateList = errors.New("boom")
 
 				return sqlite
@@ -2979,6 +3445,49 @@ func TestPullMarkdown(t *testing.T) {
 						},
 					},
 				})
+
+				sqlite.errUpdateItem = errors.New("boom")
+
+				return sqlite
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to backfill project id in destination",
+			setupMarkdown: func(t *testing.T) *errorProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:         "store-item-1",
+								Title:      "Item with Project",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+					{
+						ID:       "store-list-2",
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:         "store-item-2",
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+				})
+
+				return md
+			},
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{})
 				sqlite.errUpdateItem = errors.New("boom")
 
 				return sqlite
@@ -2998,6 +3507,7 @@ func TestPullMarkdown(t *testing.T) {
 						Modified: baseTime,
 					},
 				})
+
 				sqlite.errUpdateList = errors.New("boom")
 
 				return sqlite
@@ -3012,7 +3522,6 @@ func TestPullMarkdown(t *testing.T) {
 						ID:       "store-list-1",
 						Name:     "L1",
 						Modified: baseTime,
-						Items:    []*model.Item{},
 					},
 				})
 
@@ -3031,6 +3540,7 @@ func TestPullMarkdown(t *testing.T) {
 						},
 					},
 				})
+
 				sqlite.errUpdateItem = errors.New("boom")
 
 				return sqlite
@@ -3096,7 +3606,9 @@ func setupTestMarkdown(t *testing.T, lists []model.List) *errorProvider {
 	client := markdown.NewClient(path, logger)
 
 	var lastModTime time.Time
-	for _, list := range lists {
+	for i, list := range lists {
+		list.Position = i
+
 		if list.Modified.After(lastModTime) {
 			lastModTime = list.Modified
 		}

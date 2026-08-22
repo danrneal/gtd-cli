@@ -670,7 +670,7 @@ func setupTestSQLite(t *testing.T, lists []model.List) *errorProvider {
 		return id
 	})
 
-	opts := []sqlite.StoreOption{listIDGeneratorOpt, itemIDGeneratorOpt}
+	opts := []sqlite.Option{listIDGeneratorOpt, itemIDGeneratorOpt}
 
 	store, err := sqlite.NewStore(t.Context(), dbPath, logger, opts...)
 	if err != nil {
@@ -688,7 +688,9 @@ func setupTestSQLite(t *testing.T, lists []model.List) *errorProvider {
 
 	defer db.Close()
 
-	for _, list := range lists {
+	for i, list := range lists {
+		list.Position = i
+
 		listStatus := list.Status
 		if listStatus == model.StatusDeleted {
 			list.Status = model.StatusOpen
@@ -707,8 +709,10 @@ func setupTestSQLite(t *testing.T, lists []model.List) *errorProvider {
 			}
 		}
 
-		for _, item := range list.Items {
+		for j, item := range list.Items {
+			item.Position = j
 			item.ListID = list.ID
+
 			itemStatus := item.Status
 			if itemStatus == model.StatusDeleted {
 				item.Status = model.StatusNotStarted

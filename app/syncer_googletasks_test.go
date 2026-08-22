@@ -270,6 +270,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						},
 					},
 				})
+
 				tasks.errUpdateList = errors.New("redundant update list called")
 
 				return tasks
@@ -284,6 +285,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						{
 							ID:             "store-item-1",
 							Title:          "I1",
+							Position:       0,
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
 							ExternalListID: new("external-list-1"),
@@ -310,6 +312,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						{
 							Title:          "I1",
 							Status:         model.StatusOpen,
+							Position:       0,
 							ExternalListID: new("external-list-1"),
 							ExternalID:     new("external-task-1"),
 						},
@@ -409,24 +412,20 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1",
 						Modified:   baseTime,
-						Position:   0,
 						ExternalID: new("external-list-1"),
 					},
 					{
 						Name:       "L2",
 						Modified:   baseTime.Add(1),
-						Position:   1,
 						ExternalID: new("external-list-2"),
 						Items: []*model.Item{
 							{
-								ID:             "store-item-1",
 								Title:          "I1",
 								Modified:       baseTime.Add(1),
 								ExternalID:     new("external-task-1"),
 								ExternalListID: new("external-list-1"),
 							},
 							{
-								ID:       "store-item-2",
 								Title:    "I2",
 								Modified: baseTime.Add(1),
 							},
@@ -574,7 +573,6 @@ func TestPushGoogleTasks(t *testing.T) {
 					{
 						Name:       "L1 Updated",
 						Modified:   baseTime.Add(1),
-						Position:   0,
 						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
@@ -586,17 +584,13 @@ func TestPushGoogleTasks(t *testing.T) {
 						},
 					},
 					{
-						ID:         "store-list-2",
 						Name:       "L2 Unchanged",
 						Modified:   baseTime,
-						Position:   1,
 						ExternalID: new("external-list-2"),
 					},
 					{
-						ID:         "store-list-3",
 						Name:       "L3 Older",
 						Modified:   baseTime,
-						Position:   2,
 						ExternalID: new("external-list-3"),
 					},
 				})
@@ -639,7 +633,6 @@ func TestPushGoogleTasks(t *testing.T) {
 							ID:             "store-item-1",
 							Title:          "I1 Original",
 							Status:         model.StatusNotStarted,
-							Position:       0,
 							ListID:         "store-list-1",
 							ExternalID:     new("external-task-1"),
 							ExternalListID: new("external-list-1"),
@@ -673,7 +666,6 @@ func TestPushGoogleTasks(t *testing.T) {
 						{
 							Title:          "I1 Original",
 							Status:         model.StatusOpen,
-							Position:       0,
 							ExternalID:     new("external-task-1"),
 							ExternalListID: new("external-list-1"),
 						},
@@ -705,27 +697,21 @@ func TestPushGoogleTasks(t *testing.T) {
 						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
-								ID:       "store-item-3",
 								Title:    "Deleted Item",
 								Status:   model.StatusDeleted,
 								Modified: baseTime,
-								Position: 0,
 							},
 							{
-								ID:             "store-item-2",
 								Title:          "Valid Synced Item Updated",
 								Status:         model.StatusNotStarted,
 								Modified:       baseTime.Add(1),
-								Position:       1,
 								ExternalID:     new("external-task-2"),
 								ExternalListID: new("external-list-1"),
 							},
 							{
-								ID:             "store-item-1",
 								Title:          "Active Item",
 								Status:         model.StatusNotStarted,
 								Modified:       baseTime,
-								Position:       2,
 								ExternalID:     new("external-task-1"),
 								ExternalListID: new("external-list-1"),
 							},
@@ -765,9 +751,10 @@ func TestPushGoogleTasks(t *testing.T) {
 					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
-							ID:             "store-item-3",
+							ID:             "store-item-1",
 							ListID:         "store-list-1",
 							Title:          "Deleted Item",
+							Position:       0,
 							Status:         model.StatusDeleted,
 							ExternalListID: new("external-list-1"),
 						},
@@ -781,7 +768,7 @@ func TestPushGoogleTasks(t *testing.T) {
 							ExternalListID: new("external-list-1"),
 						},
 						{
-							ID:             "store-item-1",
+							ID:             "store-item-3",
 							ListID:         "store-list-1",
 							Title:          "Active Item",
 							Position:       2,
@@ -898,13 +885,11 @@ func TestPushGoogleTasks(t *testing.T) {
 						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
-								ID:       "store-item-2",
-								Title:    "I2 Unsynced",
+								Title:    "I1 Unsynced",
 								Modified: baseTime,
 							},
 							{
-								ID:             "store-item-1",
-								Title:          "I1 Updated",
+								Title:          "I2 Updated",
 								Modified:       baseTime.Add(1),
 								ExternalID:     new("external-task-1"),
 								ExternalListID: new("external-list-1"),
@@ -922,7 +907,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						Modified: baseTime,
 						Items: []*model.Item{
 							{
-								Title:    "I1 Original",
+								Title:    "I2 Original",
 								Modified: baseTime,
 							},
 						},
@@ -939,8 +924,8 @@ func TestPushGoogleTasks(t *testing.T) {
 					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
-							ID:             "store-item-2",
-							Title:          "I2 Unsynced",
+							ID:             "store-item-1",
+							Title:          "I1 Unsynced",
 							Position:       0,
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
@@ -948,8 +933,8 @@ func TestPushGoogleTasks(t *testing.T) {
 							ExternalID:     new("external-task-2"),
 						},
 						{
-							ID:             "store-item-1",
-							Title:          "I1 Updated",
+							ID:             "store-item-2",
+							Title:          "I2 Updated",
 							Position:       1,
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
@@ -966,14 +951,14 @@ func TestPushGoogleTasks(t *testing.T) {
 					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
-							Title:          "I2 Unsynced",
+							Title:          "I1 Unsynced",
 							Status:         model.StatusOpen,
 							Position:       0,
 							ExternalID:     new("external-task-2"),
 							ExternalListID: new("external-list-1"),
 						},
 						{
-							Title:          "I1 Updated",
+							Title:          "I2 Updated",
 							Status:         model.StatusOpen,
 							Position:       1,
 							ExternalID:     new("external-task-1"),
@@ -984,16 +969,228 @@ func TestPushGoogleTasks(t *testing.T) {
 			},
 		},
 		{
+			name: "skips project backfill for projects list",
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:       model.ListProjects,
+						Modified:   baseTime,
+						ExternalID: new("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:          "Project A",
+								Modified:       baseTime,
+								ProjectTag:     new("project-a"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			setupGoogleTasks: func(t *testing.T) *errorProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+				})
+
+				return tasks
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-1"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-1",
+							Title:          "Project A",
+							Status:         model.StatusNotStarted,
+							ListID:         "store-list-1",
+							ProjectTag:     new("project-a"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
+						},
+					},
+				},
+			},
+			wantGoogleTasksLists: []model.List{
+				{
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-1"),
+					Items: []*model.Item{
+						{
+							Title:          "Project A",
+							Status:         model.StatusOpen,
+							ProjectTag:     new("project-a"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "skips project backfill if project id is present",
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:       model.ListProjects,
+						Modified:   baseTime,
+						ExternalID: new("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+								ExternalID: new("external-task-1"),
+							},
+						},
+					},
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: new("external-list-2"),
+						Items: []*model.Item{
+							{
+								Title:      "Item with Project",
+								Modified:   baseTime,
+								ProjectID:  new("store-item-1"),
+								ProjectTag: new("project-a"),
+								ExternalID: new("external-task-2"),
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			setupGoogleTasks: func(t *testing.T) *errorProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Item with Project",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+				})
+
+				tasks.errUpdateItem = errors.New("boom")
+
+				return tasks
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: new("external-list-1"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-1",
+							Title:          "Project A",
+							Status:         model.StatusNotStarted,
+							ListID:         "store-list-1",
+							ProjectTag:     new("project-a"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
+						},
+					},
+				},
+				{
+					ID:         "store-list-2",
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items: []*model.Item{
+						{
+							ID:                "store-item-2",
+							Title:             "Item with Project",
+							Status:            model.StatusNotStarted,
+							ListID:            "store-list-2",
+							ProjectID:         new("store-item-1"),
+							ProjectTag:        new("project-a"),
+							ExternalID:        new("external-task-2"),
+							ExternalListID:    new("external-list-2"),
+							ExternalProjectID: new("external-task-1"),
+						},
+					},
+				},
+			},
+			wantGoogleTasksLists: []model.List{
+				{
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: new("external-list-1"),
+					Items: []*model.Item{
+						{
+							Title:          "Project A",
+							Status:         model.StatusOpen,
+							ProjectTag:     new("project-a"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
+						},
+					},
+				},
+				{
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items: []*model.Item{
+						{
+							Title:          "Item with Project",
+							Status:         model.StatusOpen,
+							ProjectTag:     new("project-a"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-2"),
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "deletes list in destination",
 			setupSqlite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{
 					{
-						ID:       "store-list-2",
-						Name:     "L2",
+						Name:     "L1",
 						Modified: baseTime,
 					},
 					{
-						Name:       "L1",
+						Name:       "L2",
 						Status:     model.StatusDeleted,
 						Modified:   baseTime.Add(1),
 						ExternalID: new("external-list-1"),
@@ -1005,7 +1202,7 @@ func TestPushGoogleTasks(t *testing.T) {
 			setupGoogleTasks: func(t *testing.T) *errorProvider {
 				tasks := setupTestGoogleTasks(t, []model.List{
 					{
-						Name:     "L1",
+						Name:     "L2",
 						Modified: baseTime,
 					},
 				})
@@ -1014,8 +1211,8 @@ func TestPushGoogleTasks(t *testing.T) {
 			},
 			wantSqliteLists: []model.List{
 				{
-					ID:         "store-list-2",
-					Name:       "L2",
+					ID:         "store-list-1",
+					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: new("external-list-2"),
 					Items:      []*model.Item{},
@@ -1023,7 +1220,7 @@ func TestPushGoogleTasks(t *testing.T) {
 			},
 			wantGoogleTasksLists: []model.List{
 				{
-					Name:       "L2",
+					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: new("external-list-2"),
 					Items:      []*model.Item{},
@@ -1087,140 +1284,6 @@ func TestPushGoogleTasks(t *testing.T) {
 			},
 		},
 		{
-			name: "prioritizes Projects list when preceded by normal list",
-			setupSqlite: func(t *testing.T) *errorProvider {
-				sqlite := setupTestSQLite(t, []model.List{
-					{
-						Name:     "L1 Normal",
-						Modified: baseTime,
-						Position: 0,
-					},
-					{
-						Name:     model.ListProjects,
-						Modified: baseTime,
-						Position: 1,
-					},
-					{
-						Name:     "Projects Archive",
-						Modified: baseTime,
-						Position: 2,
-					},
-				})
-
-				return sqlite
-			},
-			setupGoogleTasks: func(t *testing.T) *errorProvider {
-				tasks := setupTestGoogleTasks(t, []model.List{})
-				return tasks
-			},
-			wantSqliteLists: []model.List{
-				{
-					ID:         "store-list-1",
-					Name:       "L1 Normal",
-					Status:     model.StatusOpen,
-					Position:   0,
-					ExternalID: new("external-list-3"),
-					Items:      []*model.Item{},
-				},
-				{
-					ID:         "store-list-2",
-					Name:       model.ListProjects,
-					Status:     model.StatusOpen,
-					Position:   1,
-					ExternalID: new("external-list-1"),
-					Items:      []*model.Item{},
-				},
-				{
-					ID:         "store-list-3",
-					Name:       "Projects Archive",
-					Status:     model.StatusOpen,
-					Position:   2,
-					ExternalID: new("external-list-2"),
-					Items:      []*model.Item{},
-				},
-			},
-			wantGoogleTasksLists: []model.List{
-				{
-					Name:       model.ListProjects,
-					Status:     model.StatusOpen,
-					Position:   0,
-					ExternalID: new("external-list-1"),
-					Items:      []*model.Item{},
-				},
-				{
-					Name:       "Projects Archive",
-					Status:     model.StatusOpen,
-					Position:   1,
-					ExternalID: new("external-list-2"),
-					Items:      []*model.Item{},
-				},
-				{
-					Name:       "L1 Normal",
-					Status:     model.StatusOpen,
-					Position:   2,
-					ExternalID: new("external-list-3"),
-					Items:      []*model.Item{},
-				},
-			},
-		},
-		{
-			name: "maintains Projects list priority when followed by normal list",
-			setupSqlite: func(t *testing.T) *errorProvider {
-				sqlite := setupTestSQLite(t, []model.List{
-					{
-						Name:     model.ListProjects,
-						Modified: baseTime,
-						Position: 0,
-					},
-					{
-						Name:     "L1 Normal",
-						Modified: baseTime,
-						Position: 1,
-					},
-				})
-
-				return sqlite
-			},
-			setupGoogleTasks: func(t *testing.T) *errorProvider {
-				tasks := setupTestGoogleTasks(t, []model.List{})
-				return tasks
-			},
-			wantSqliteLists: []model.List{
-				{
-					ID:         "store-list-1",
-					Name:       model.ListProjects,
-					Status:     model.StatusOpen,
-					Position:   0,
-					ExternalID: new("external-list-1"),
-					Items:      []*model.Item{},
-				},
-				{
-					ID:         "store-list-2",
-					Name:       "L1 Normal",
-					Status:     model.StatusOpen,
-					Position:   1,
-					ExternalID: new("external-list-2"),
-					Items:      []*model.Item{},
-				},
-			},
-			wantGoogleTasksLists: []model.List{
-				{
-					Name:       model.ListProjects,
-					Status:     model.StatusOpen,
-					Position:   0,
-					ExternalID: new("external-list-1"),
-					Items:      []*model.Item{},
-				},
-				{
-					Name:       "L1 Normal",
-					Status:     model.StatusOpen,
-					Position:   1,
-					ExternalID: new("external-list-2"),
-					Items:      []*model.Item{},
-				},
-			},
-		},
-		{
 			name: "fails to build source state",
 			setupSqlite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{})
@@ -1277,6 +1340,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						Modified: baseTime,
 					},
 				})
+
 				sqlite.errUpdateList = errors.New("boom")
 
 				return sqlite
@@ -1312,6 +1376,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						Modified: baseTime,
 					},
 				})
+
 				tasks.errCreateItem = errors.New("boom")
 
 				return tasks
@@ -1334,6 +1399,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						},
 					},
 				})
+
 				sqlite.errUpdateItem = errors.New("boom")
 
 				return sqlite
@@ -1341,7 +1407,6 @@ func TestPushGoogleTasks(t *testing.T) {
 			setupGoogleTasks: func(t *testing.T) *errorProvider {
 				tasks := setupTestGoogleTasks(t, []model.List{
 					{
-						ID:       "store-list-1",
 						Name:     "L1",
 						Modified: baseTime,
 					},
@@ -1371,6 +1436,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						Modified: baseTime,
 					},
 				})
+
 				tasks.errUpdateList = errors.New("boom")
 
 				return tasks
@@ -1411,6 +1477,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						},
 					},
 				})
+
 				tasks.errUpdateItem = errors.New("boom")
 
 				return tasks
@@ -1438,6 +1505,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						Modified: baseTime,
 					},
 				})
+
 				tasks.errDeleteList = errors.New("boom")
 
 				return tasks
@@ -1455,6 +1523,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						ExternalID: new("external-list-1"),
 					},
 				})
+
 				sqlite.errDeleteList = errors.New("boom")
 
 				return sqlite
@@ -1506,6 +1575,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						},
 					},
 				})
+
 				tasks.errDeleteItem = errors.New("boom")
 
 				return tasks
@@ -1531,6 +1601,7 @@ func TestPushGoogleTasks(t *testing.T) {
 						},
 					},
 				})
+
 				sqlite.errDeleteItem = errors.New("boom")
 
 				return sqlite
@@ -1750,10 +1821,6 @@ func TestPullGoogleTasks(t *testing.T) {
 						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
-								Title:    "I3",
-								Modified: baseTime,
-							},
-							{
 								Title:      "I1",
 								Modified:   baseTime,
 								ExternalID: new("external-task-1"),
@@ -1796,13 +1863,6 @@ func TestPullGoogleTasks(t *testing.T) {
 					Items: []*model.Item{
 						{
 							ID:             "store-item-1",
-							Title:          "I3",
-							Status:         model.StatusNotStarted,
-							ListID:         "store-list-1",
-							ExternalListID: new("external-list-1"),
-						},
-						{
-							ID:             "store-item-2",
 							Title:          "I1",
 							Position:       0,
 							Status:         model.StatusNotStarted,
@@ -1811,7 +1871,7 @@ func TestPullGoogleTasks(t *testing.T) {
 							ExternalListID: new("external-list-1"),
 						},
 						{
-							ID:             "store-item-3",
+							ID:             "store-item-2",
 							Title:          "I2",
 							Position:       1,
 							Status:         model.StatusNotStarted,
@@ -2028,7 +2088,7 @@ func TestPullGoogleTasks(t *testing.T) {
 			setupGoogleTasks: func(t *testing.T) *errorProvider {
 				tasks := setupTestGoogleTasks(t, []model.List{
 					{
-						Name:     "L1 Updated",
+						Name:     "L2 Updated",
 						Modified: baseTime.Add(1),
 						Items: []*model.Item{
 							{
@@ -2044,15 +2104,12 @@ func TestPullGoogleTasks(t *testing.T) {
 			setupSqlite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{
 					{
-						ID:       "store-list-2",
-						Name:     "L2",
+						Name:     "L1",
 						Modified: baseTime,
-						Position: 0,
 					},
 					{
-						Name:       "L1 Original",
+						Name:       "L2 Original",
 						Modified:   baseTime,
-						Position:   1,
 						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
@@ -2069,15 +2126,13 @@ func TestPullGoogleTasks(t *testing.T) {
 			},
 			wantGoogleTasksLists: []model.List{
 				{
-					Name:       "L1 Updated",
+					Name:       "L2 Updated",
 					Status:     model.StatusOpen,
-					Position:   0,
 					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
 							Title:          "I1 Original",
 							Status:         model.StatusOpen,
-							Position:       0,
 							ExternalID:     new("external-task-1"),
 							ExternalListID: new("external-list-1"),
 						},
@@ -2086,15 +2141,15 @@ func TestPullGoogleTasks(t *testing.T) {
 			},
 			wantSqliteLists: []model.List{
 				{
-					ID:       "store-list-2",
-					Name:     "L2",
+					ID:       "store-list-1",
+					Name:     "L1",
 					Status:   model.StatusOpen,
 					Position: 0,
 					Items:    []*model.Item{},
 				},
 				{
-					ID:         "store-list-1",
-					Name:       "L1 Updated",
+					ID:         "store-list-2",
+					Name:       "L2 Updated",
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: new("external-list-1"),
@@ -2103,8 +2158,7 @@ func TestPullGoogleTasks(t *testing.T) {
 							ID:             "store-item-1",
 							Title:          "I1 Original",
 							Status:         model.StatusNotStarted,
-							Position:       0,
-							ListID:         "store-list-1",
+							ListID:         "store-list-2",
 							ExternalID:     new("external-task-1"),
 							ExternalListID: new("external-list-1"),
 						},
@@ -2118,11 +2172,11 @@ func TestPullGoogleTasks(t *testing.T) {
 			setupGoogleTasks: func(t *testing.T) *errorProvider {
 				tasks := setupTestGoogleTasks(t, []model.List{
 					{
-						Name:     "L1",
+						Name:     "L2",
 						Modified: baseTime,
 					},
 					{
-						Name:     "L2",
+						Name:     "L1",
 						Modified: baseTime,
 					},
 				})
@@ -2132,17 +2186,13 @@ func TestPullGoogleTasks(t *testing.T) {
 			setupSqlite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{
 					{
-						ID:         "store-list-2",
-						Name:       "L2",
+						Name:       "L1",
 						Modified:   baseTime,
-						Position:   0,
 						ExternalID: new("external-list-2"),
 					},
 					{
-						ID:         "store-list-1",
-						Name:       "L1",
+						Name:       "L2",
 						Modified:   baseTime,
-						Position:   1,
 						ExternalID: new("external-list-1"),
 					},
 				})
@@ -2151,14 +2201,14 @@ func TestPullGoogleTasks(t *testing.T) {
 			},
 			wantGoogleTasksLists: []model.List{
 				{
-					Name:       "L1",
+					Name:       "L2",
 					Status:     model.StatusOpen,
 					Position:   0,
 					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 				{
-					Name:       "L2",
+					Name:       "L1",
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: new("external-list-2"),
@@ -2167,16 +2217,16 @@ func TestPullGoogleTasks(t *testing.T) {
 			},
 			wantSqliteLists: []model.List{
 				{
-					ID:         "store-list-1",
-					Name:       "L1",
+					ID:         "store-list-2",
+					Name:       "L2",
 					Status:     model.StatusOpen,
 					Position:   0,
 					ExternalID: new("external-list-1"),
 					Items:      []*model.Item{},
 				},
 				{
-					ID:         "store-list-2",
-					Name:       "L2",
+					ID:         "store-list-1",
+					Name:       "L1",
 					Status:     model.StatusOpen,
 					Position:   1,
 					ExternalID: new("external-list-2"),
@@ -2194,11 +2244,11 @@ func TestPullGoogleTasks(t *testing.T) {
 						Modified: baseTime.Add(1),
 						Items: []*model.Item{
 							{
-								Title:    "I1",
+								Title:    "I2",
 								Modified: baseTime,
 							},
 							{
-								Title:    "I2",
+								Title:    "I1",
 								Modified: baseTime,
 							},
 						},
@@ -2215,16 +2265,14 @@ func TestPullGoogleTasks(t *testing.T) {
 						ExternalID: new("external-list-1"),
 						Items: []*model.Item{
 							{
-								ID:             "store-item-2",
-								Title:          "I2",
+								Title:          "I1",
 								Status:         model.StatusInProgress,
 								Modified:       baseTime,
 								ExternalID:     new("external-task-2"),
 								ExternalListID: new("external-list-1"),
 							},
 							{
-								ID:             "store-item-1",
-								Title:          "I1",
+								Title:          "I2",
 								Status:         model.StatusNotStarted,
 								Modified:       baseTime,
 								ExternalID:     new("external-task-1"),
@@ -2243,14 +2291,14 @@ func TestPullGoogleTasks(t *testing.T) {
 					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
-							Title:          "I1",
+							Title:          "I2",
 							Status:         model.StatusOpen,
 							Position:       0,
 							ExternalID:     new("external-task-1"),
 							ExternalListID: new("external-list-1"),
 						},
 						{
-							Title:          "I2",
+							Title:          "I1",
 							Status:         model.StatusOpen,
 							Position:       1,
 							ExternalID:     new("external-task-2"),
@@ -2267,8 +2315,8 @@ func TestPullGoogleTasks(t *testing.T) {
 					ExternalID: new("external-list-1"),
 					Items: []*model.Item{
 						{
-							ID:             "store-item-2",
-							Title:          "I2",
+							ID:             "store-item-1",
+							Title:          "I1",
 							Position:       0,
 							Status:         model.StatusInProgress,
 							ListID:         "store-list-1",
@@ -2276,8 +2324,8 @@ func TestPullGoogleTasks(t *testing.T) {
 							ExternalListID: new("external-list-1"),
 						},
 						{
-							ID:             "store-item-1",
-							Title:          "I1",
+							ID:             "store-item-2",
+							Title:          "I2",
 							Position:       1,
 							Status:         model.StatusNotStarted,
 							ListID:         "store-list-1",
@@ -2288,6 +2336,65 @@ func TestPullGoogleTasks(t *testing.T) {
 				},
 			},
 			wantUpdated: true,
+		},
+		{
+			name: "preserves tombstoned items in destination during pull",
+			setupGoogleTasks: func(t *testing.T) *errorProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+				})
+
+				return tasks
+			},
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: new("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:      "Already Deleted Task",
+								Status:     model.StatusDeleted,
+								Modified:   baseTime,
+								ExternalID: new("external-task-1"),
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			wantGoogleTasksLists: []model.List{
+				{
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-1"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-1"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-1",
+							Title:          "Already Deleted Task",
+							Status:         model.StatusDeleted,
+							ListID:         "store-list-1",
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
+						},
+					},
+				},
+			},
+			wantUpdated: false,
 		},
 		{
 			name: "updates item content",
@@ -2428,6 +2535,530 @@ func TestPullGoogleTasks(t *testing.T) {
 							ListID:         "store-list-1",
 							ExternalID:     new("external-task-1"),
 							ExternalListID: new("external-list-1"),
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "skips project backfill entirely when all projects are linked",
+			setupGoogleTasks: func(t *testing.T) *errorProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Trap: Already Has ProjectID",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+				})
+
+				return tasks
+			},
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:       model.ListProjects,
+						Modified:   baseTime,
+						ExternalID: new("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+								ExternalID: new("external-task-1"),
+							},
+						},
+					},
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: new("external-list-2"),
+						Items: []*model.Item{
+							{
+								Title:      "Trap: Already Has ProjectID",
+								Modified:   baseTime,
+								ProjectID:  new("store-item-1"),
+								ProjectTag: new("project-a"),
+								ExternalID: new("external-task-2"),
+							},
+						},
+					},
+				})
+
+				sqlite.errUpdateItem = errors.New("boom")
+
+				return sqlite
+			},
+			wantGoogleTasksLists: []model.List{
+				{
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: new("external-list-1"),
+					Items: []*model.Item{
+						{
+							Title:          "Project A",
+							Status:         model.StatusOpen,
+							ProjectTag:     new("project-a"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
+						},
+					},
+				},
+				{
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items: []*model.Item{
+						{
+							Title:          "Trap: Already Has ProjectID",
+							Status:         model.StatusOpen,
+							Position:       0,
+							ProjectTag:     new("project-a"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-2"),
+						},
+					},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: new("external-list-1"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-1",
+							Title:          "Project A",
+							Status:         model.StatusNotStarted,
+							ListID:         "store-list-1",
+							ProjectTag:     new("project-a"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
+						},
+					},
+				},
+				{
+					ID:         "store-list-2",
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items: []*model.Item{
+						{
+							ID:                "store-item-2",
+							Title:             "Trap: Already Has ProjectID",
+							Status:            model.StatusNotStarted,
+							Position:          0,
+							ListID:            "store-list-2",
+							ProjectID:         new("store-item-1"),
+							ProjectTag:        new("project-a"),
+							ExternalID:        new("external-task-2"),
+							ExternalListID:    new("external-list-2"),
+							ExternalProjectID: new("external-task-1"),
+						},
+					},
+				},
+			},
+			wantUpdated: false,
+		},
+		{
+			name: "skips project backfill for projects list",
+			setupGoogleTasks: func(t *testing.T) *errorProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:       model.ListProjects,
+						Modified:   baseTime,
+						ExternalID: new("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:          "Project A",
+								Modified:       baseTime,
+								ProjectTag:     new("project-a"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
+							},
+						},
+					},
+				})
+
+				return tasks
+			},
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:       model.ListProjects,
+						Modified:   baseTime,
+						ExternalID: new("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:          "Project A",
+								Modified:       baseTime,
+								ProjectTag:     new("project-a"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			wantGoogleTasksLists: []model.List{
+				{
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-1"),
+					Items: []*model.Item{
+						{
+							Title:          "Project A",
+							Status:         model.StatusOpen,
+							ProjectTag:     new("project-a"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
+						},
+					},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-1"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-1",
+							Title:          "Project A",
+							Status:         model.StatusNotStarted,
+							ListID:         "store-list-1",
+							ProjectTag:     new("project-a"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "continues backfill loop after optimized item",
+			setupGoogleTasks: func(t *testing.T) *errorProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Item 1",
+								Modified:   baseTime,
+								ProjectTag: new("project-old"),
+							},
+							{
+								Title:      "Item 2",
+								Modified:   baseTime,
+								ProjectTag: new("project-new"),
+							},
+						},
+					},
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Project New",
+								Modified:   baseTime,
+								ProjectTag: new("project-new"),
+							},
+							{
+								Title:      "Project Old",
+								Modified:   baseTime,
+								ProjectTag: new("project-old"),
+							},
+						},
+					},
+				})
+
+				return tasks
+			},
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:       model.ListProjects,
+						Modified:   baseTime,
+						ExternalID: new("external-list-2"),
+						Items: []*model.Item{
+							{
+								Title:      "Project Old",
+								Modified:   baseTime,
+								ProjectTag: new("project-old"),
+								ExternalID: new("external-task-4"),
+							},
+						},
+					},
+				})
+
+				return sqlite
+			},
+			wantGoogleTasksLists: []model.List{
+				{
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: new("external-list-1"),
+					Items: []*model.Item{
+						{
+							Title:          "Item 1",
+							Status:         model.StatusOpen,
+							Position:       0,
+							ProjectTag:     new("project-old"),
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
+						},
+						{
+							Title:          "Item 2",
+							Status:         model.StatusOpen,
+							Position:       1,
+							ProjectTag:     new("project-new"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-1"),
+						},
+					},
+				},
+				{
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items: []*model.Item{
+						{
+							Title:          "Project New",
+							Status:         model.StatusOpen,
+							Position:       0,
+							ProjectTag:     new("project-new"),
+							ExternalID:     new("external-task-3"),
+							ExternalListID: new("external-list-2"),
+						},
+						{
+							Title:          "Project Old",
+							Status:         model.StatusOpen,
+							Position:       1,
+							ProjectTag:     new("project-old"),
+							ExternalID:     new("external-task-4"),
+							ExternalListID: new("external-list-2"),
+						},
+					},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:         "store-list-2",
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: new("external-list-1"),
+					Items: []*model.Item{
+						{
+							ID:                "store-item-2",
+							Title:             "Item 1",
+							Status:            model.StatusNotStarted,
+							Position:          0,
+							ListID:            "store-list-2",
+							ProjectID:         new("store-item-1"),
+							ProjectTag:        new("project-old"),
+							ExternalID:        new("external-task-1"),
+							ExternalListID:    new("external-list-1"),
+							ExternalProjectID: new("external-task-4"),
+						},
+						{
+							ID:                "store-item-3",
+							Title:             "Item 2",
+							Status:            model.StatusNotStarted,
+							Position:          1,
+							ListID:            "store-list-2",
+							ProjectID:         new("store-item-4"),
+							ProjectTag:        new("project-new"),
+							ExternalID:        new("external-task-2"),
+							ExternalListID:    new("external-list-1"),
+							ExternalProjectID: new("external-task-3"),
+						},
+					},
+				},
+				{
+					ID:         "store-list-1",
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-4",
+							Title:          "Project New",
+							Status:         model.StatusNotStarted,
+							Position:       0,
+							ListID:         "store-list-1",
+							ProjectTag:     new("project-new"),
+							ExternalID:     new("external-task-3"),
+							ExternalListID: new("external-list-2"),
+						},
+						{
+							ID:             "store-item-1",
+							Title:          "Project Old",
+							Status:         model.StatusNotStarted,
+							Position:       1,
+							ListID:         "store-list-1",
+							ProjectTag:     new("project-old"),
+							ExternalID:     new("external-task-4"),
+							ExternalListID: new("external-list-2"),
+						},
+					},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "backfills project id when projects list is created last",
+			setupGoogleTasks: func(t *testing.T) *errorProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "Normal Item",
+								Modified: baseTime,
+							},
+							{
+								Title:      "Item with Project",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+				})
+
+				return tasks
+			},
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{})
+				return sqlite
+			},
+			wantGoogleTasksLists: []model.List{
+				{
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: new("external-list-1"),
+					Items: []*model.Item{
+						{
+							Title:          "Normal Item",
+							Status:         model.StatusOpen,
+							Position:       0,
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
+						},
+						{
+							Title:          "Item with Project",
+							Status:         model.StatusOpen,
+							Position:       1,
+							ProjectTag:     new("project-a"),
+							ExternalID:     new("external-task-2"),
+							ExternalListID: new("external-list-1"),
+						},
+					},
+				},
+				{
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items: []*model.Item{
+						{
+							Title:          "Project A",
+							Status:         model.StatusOpen,
+							ProjectTag:     new("project-a"),
+							ExternalID:     new("external-task-3"),
+							ExternalListID: new("external-list-2"),
+						},
+					},
+				},
+			},
+			wantSqliteLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "L1",
+					Status:     model.StatusOpen,
+					Position:   0,
+					ExternalID: new("external-list-1"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-1",
+							Title:          "Normal Item",
+							Position:       0,
+							Status:         model.StatusNotStarted,
+							ListID:         "store-list-1",
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
+						},
+						{
+							ID:                "store-item-2",
+							Title:             "Item with Project",
+							Status:            model.StatusNotStarted,
+							Position:          1,
+							ListID:            "store-list-1",
+							ProjectID:         new("store-item-3"),
+							ProjectTag:        new("project-a"),
+							ExternalID:        new("external-task-2"),
+							ExternalListID:    new("external-list-1"),
+							ExternalProjectID: new("external-task-3"),
+						},
+					},
+				},
+				{
+					ID:         "store-list-2",
+					Name:       model.ListProjects,
+					Status:     model.StatusOpen,
+					Position:   1,
+					ExternalID: new("external-list-2"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-3",
+							Title:          "Project A",
+							Status:         model.StatusNotStarted,
+							ListID:         "store-list-2",
+							ProjectTag:     new("project-a"),
+							ExternalID:     new("external-task-3"),
+							ExternalListID: new("external-list-2"),
 						},
 					},
 				},
@@ -2601,7 +3232,6 @@ func TestPullGoogleTasks(t *testing.T) {
 					{
 						Name:     "L1",
 						Modified: baseTime,
-						Items:    []*model.Item{},
 					},
 				})
 
@@ -2674,7 +3304,6 @@ func TestPullGoogleTasks(t *testing.T) {
 					{
 						Name:     "L1",
 						Modified: baseTime,
-						Items:    []*model.Item{},
 					},
 				})
 
@@ -2723,137 +3352,6 @@ func TestPullGoogleTasks(t *testing.T) {
 							ExternalListID: new("external-list-1"),
 						},
 					},
-				},
-			},
-			wantUpdated: true,
-		},
-		{
-			name: "prioritizes Projects list when preceded by normal list",
-			setupGoogleTasks: func(t *testing.T) *errorProvider {
-				tasks := setupTestGoogleTasks(t, []model.List{
-					{
-						Name:     "L1 Normal",
-						Modified: baseTime,
-					},
-					{
-						Name:     model.ListProjects,
-						Modified: baseTime,
-					},
-					{
-						Name:     "Projects Archive",
-						Modified: baseTime,
-					},
-				})
-
-				return tasks
-			},
-			setupSqlite: func(t *testing.T) *errorProvider {
-				sqlite := setupTestSQLite(t, []model.List{})
-				return sqlite
-			},
-			wantGoogleTasksLists: []model.List{
-				{
-					Name:       "L1 Normal",
-					Status:     model.StatusOpen,
-					Position:   0,
-					ExternalID: new("external-list-1"),
-					Items:      []*model.Item{},
-				},
-				{
-					Name:       model.ListProjects,
-					Status:     model.StatusOpen,
-					Position:   1,
-					ExternalID: new("external-list-2"),
-					Items:      []*model.Item{},
-				},
-				{
-					Name:       "Projects Archive",
-					Status:     model.StatusOpen,
-					Position:   2,
-					ExternalID: new("external-list-3"),
-					Items:      []*model.Item{},
-				},
-			},
-			wantSqliteLists: []model.List{
-				{
-					ID:         "store-list-3",
-					Name:       "L1 Normal",
-					Status:     model.StatusOpen,
-					Position:   0,
-					ExternalID: new("external-list-1"),
-					Items:      []*model.Item{},
-				},
-				{
-					ID:         "store-list-1",
-					Name:       model.ListProjects,
-					Status:     model.StatusOpen,
-					Position:   1,
-					ExternalID: new("external-list-2"),
-					Items:      []*model.Item{},
-				},
-				{
-					ID:         "store-list-2",
-					Name:       "Projects Archive",
-					Status:     model.StatusOpen,
-					Position:   2,
-					ExternalID: new("external-list-3"),
-					Items:      []*model.Item{},
-				},
-			},
-			wantUpdated: true,
-		},
-		{
-			name: "maintains Projects list priority when followed by normal list",
-			setupGoogleTasks: func(t *testing.T) *errorProvider {
-				tasks := setupTestGoogleTasks(t, []model.List{
-					{
-						Name:     model.ListProjects,
-						Modified: baseTime,
-					},
-					{
-						Name:     "L1 Normal",
-						Modified: baseTime,
-					},
-				})
-
-				return tasks
-			},
-			setupSqlite: func(t *testing.T) *errorProvider {
-				sqlite := setupTestSQLite(t, []model.List{})
-				return sqlite
-			},
-			wantGoogleTasksLists: []model.List{
-				{
-					Name:       model.ListProjects,
-					Status:     model.StatusOpen,
-					Position:   0,
-					ExternalID: new("external-list-1"),
-					Items:      []*model.Item{},
-				},
-				{
-					Name:       "L1 Normal",
-					Status:     model.StatusOpen,
-					Position:   1,
-					ExternalID: new("external-list-2"),
-					Items:      []*model.Item{},
-				},
-			},
-			wantSqliteLists: []model.List{
-				{
-					ID:         "store-list-1",
-					Name:       model.ListProjects,
-					Status:     model.StatusOpen,
-					Position:   0,
-					ExternalID: new("external-list-1"),
-					Items:      []*model.Item{},
-				},
-				{
-					ID:         "store-list-2",
-					Name:       "L1 Normal",
-					Status:     model.StatusOpen,
-					Position:   1,
-					ExternalID: new("external-list-2"),
-					Items:      []*model.Item{},
 				},
 			},
 			wantUpdated: true,
@@ -2931,6 +3429,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						Modified: baseTime,
 					},
 				})
+
 				sqlite.errCreateItem = errors.New("boom")
 
 				return sqlite
@@ -2957,6 +3456,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						ExternalID: new("external-list-1"),
 					},
 				})
+
 				sqlite.errUpdateList = errors.New("boom")
 
 				return sqlite
@@ -2997,6 +3497,45 @@ func TestPullGoogleTasks(t *testing.T) {
 						},
 					},
 				})
+
+				sqlite.errUpdateItem = errors.New("boom")
+
+				return sqlite
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to backfill project id in destination",
+			setupGoogleTasks: func(t *testing.T) *errorProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Item with Project",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+					{
+						Name:     model.ListProjects,
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+				})
+
+				return tasks
+			},
+			setupSqlite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{})
 				sqlite.errUpdateItem = errors.New("boom")
 
 				return sqlite
@@ -3017,6 +3556,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						ExternalID: new("external-list-1"),
 					},
 				})
+
 				sqlite.errUpdateList = errors.New("boom")
 
 				return sqlite
@@ -3030,7 +3570,6 @@ func TestPullGoogleTasks(t *testing.T) {
 					{
 						Name:     "L1",
 						Modified: baseTime,
-						Items:    []*model.Item{},
 					},
 				})
 
@@ -3052,6 +3591,7 @@ func TestPullGoogleTasks(t *testing.T) {
 						},
 					},
 				})
+
 				sqlite.errUpdateItem = errors.New("boom")
 
 				return sqlite
