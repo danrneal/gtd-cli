@@ -6,8 +6,6 @@ import (
 	"testing"
 	"testing/synctest"
 	"time"
-
-	"go.uber.org/goleak"
 )
 
 func TestClient_Watch(t *testing.T) {
@@ -93,8 +91,4 @@ func TestClient_Watch(t *testing.T) {
 			})
 		})
 	}
-}
-
-func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(m)
 }

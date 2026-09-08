@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"go.uber.org/goleak"
 	"google.golang.org/api/option"
 	"google.golang.org/api/tasks/v1"
 
@@ -2035,6 +2036,10 @@ func TestDeleteItem(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
 }
 
 func iso8601ToDate(s string) *time.Time {

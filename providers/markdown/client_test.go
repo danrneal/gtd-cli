@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"go.uber.org/goleak"
 
 	"github.com/danrneal/gtd-cli/model"
 )
@@ -2349,4 +2350,8 @@ func TestClient_Concurrency(t *testing.T) {
 			t.Fatalf("mutation failed during concurrency test: %v", err)
 		}
 	}
+}
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
 }

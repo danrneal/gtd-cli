@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"go.uber.org/goleak"
 )
 
 func TestClient_Watch(t *testing.T) {
@@ -455,10 +454,6 @@ func TestClient_watchLoop(t *testing.T) {
 			})
 		})
 	}
-}
-
-func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(m)
 }
 
 func assertEventEmitted(t *testing.T, events <-chan error) {

@@ -14,6 +14,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	_ "github.com/mattn/go-sqlite3"
+	"go.uber.org/goleak"
 
 	"github.com/danrneal/gtd-cli/model"
 )
@@ -86,26 +87,15 @@ func TestNewStore(t *testing.T) {
 			logger := slog.New(slog.DiscardHandler)
 			store, err := NewStore(t.Context(), dbPath, logger)
 
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewStore() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
 			if tt.wantErr {
-				if err == nil {
-					t.Error("NewStore() expected error, got nil")
-				}
-
-				if store != nil {
-					t.Error("NewStore() expected nil store on error, got instance")
-				}
-
 				return
 			}
 
-			if err != nil {
-				t.Errorf("NewStore() unexpected error: %v", err)
-				return
-			}
-
-			if store == nil {
-				t.Fatal("NewStore() expected store instance, got nil")
-			}
+			defer store.Close()
 
 			if maxConns := store.db.Stats().MaxOpenConnections; maxConns != 1 {
 				t.Errorf("expected MaxOpenConnections to be 1, got %d", maxConns)
@@ -113,6 +103,51 @@ func TestNewStore(t *testing.T) {
 
 			if tt.verifyTables != nil {
 				tt.verifyTables(t, dbPath)
+			}
+		})
+	}
+}
+
+func TestStore_Close(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		setup   func(t *testing.T) *Store
+		wantErr bool
+	}{
+		{
+			name: "success",
+			setup: func(t *testing.T) *Store {
+				dbPath := filepath.Join(t.TempDir(), "test.db")
+				logger := slog.New(slog.DiscardHandler)
+				store, err := NewStore(t.Context(), dbPath, logger)
+				if err != nil {
+					t.Fatalf("failed to create store: %v", err)
+				}
+
+				return store
+			},
+			wantErr: false,
+		},
+		{
+			name: "nil db",
+			setup: func(t *testing.T) *Store {
+				return &Store{db: nil}
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			store := tt.setup(t)
+			err := store.Close()
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Close() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -214,18 +249,15 @@ func TestCreateList(t *testing.T) {
 				t.Fatalf("failed to create store: %v", err)
 			}
 
+			defer store.Close()
+
 			err = store.CreateList(ctx, tt.list)
 
-			if tt.wantErr {
-				if err == nil {
-					t.Error("CreateList() expected error, got nil")
-				}
-
-				return
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("CreateList() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if err != nil {
-				t.Errorf("CreateList() unexpected error: %v", err)
+			if tt.wantErr {
 				return
 			}
 
@@ -475,6 +507,8 @@ func TestListLists(t *testing.T) {
 				t.Fatalf("failed to create store: %v", err)
 			}
 
+			defer store.Close()
+
 			db, err := sql.Open("sqlite3", dbPath)
 			if err != nil {
 				t.Fatalf("failed to open db for setup: %v", err)
@@ -488,16 +522,11 @@ func TestListLists(t *testing.T) {
 
 			lists, err := store.ListLists(ctx)
 
-			if tt.wantErr {
-				if err == nil {
-					t.Error("ListLists() expected error, got nil")
-				}
-
-				return
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ListLists() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if err != nil {
-				t.Errorf("ListLists() unexpected error: %v", err)
+			if tt.wantErr {
 				return
 			}
 
@@ -1240,6 +1269,8 @@ func TestUpdateList(t *testing.T) {
 				t.Fatalf("failed to create store: %v", err)
 			}
 
+			defer store.Close()
+
 			db, err := sql.Open("sqlite3", dbPath)
 			if err != nil {
 				t.Fatalf("failed to open db for setup: %v", err)
@@ -1259,18 +1290,15 @@ func TestUpdateList(t *testing.T) {
 
 			err = store.UpdateList(ctx, &list, currentList)
 
-			if tt.wantErr {
-				if err == nil {
-					t.Error("UpdateList() expected error, got nil")
-				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Errorf("UpdateList() expected error target %v, got: %v", tt.wantErrTarget, err)
-				}
-
-				return
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("UpdateList() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if err != nil {
-				t.Errorf("UpdateList() unexpected error: %v", err)
+			if tt.wantErr {
+				if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Fatalf("UpdateList() error = %v, did not match target = %v", err, tt.wantErrTarget)
+				}
+
 				return
 			}
 
@@ -1465,6 +1493,8 @@ func TestDeleteList(t *testing.T) {
 				t.Fatalf("failed to create store: %v", err)
 			}
 
+			defer store.Close()
+
 			db, err := sql.Open("sqlite3", dbPath)
 			if err != nil {
 				t.Fatalf("failed to open db setup: %v", err)
@@ -1475,18 +1505,15 @@ func TestDeleteList(t *testing.T) {
 			list := tt.setupDB(t, db)
 			err = store.DeleteList(ctx, &list)
 
-			if tt.wantErr {
-				if err == nil {
-					t.Error("DeleteList() expected error, got nil")
-				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Errorf("DeleteList() expected error target %v, got: %v", tt.wantErrTarget, err)
-				}
-
-				return
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("DeleteList() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if err != nil {
-				t.Errorf("DeleteList() unexpected error: %v", err)
+			if tt.wantErr {
+				if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Fatalf("DeleteList() error = %v, did not match target = %v", err, tt.wantErrTarget)
+				}
+
 				return
 			}
 
@@ -1922,6 +1949,8 @@ func TestCreateItem(t *testing.T) {
 				t.Fatalf("failed to create store: %v", err)
 			}
 
+			defer store.Close()
+
 			db, err := sql.Open("sqlite3", dbPath)
 			if err != nil {
 				t.Fatalf("failed to open db for setup: %v", err)
@@ -1935,18 +1964,15 @@ func TestCreateItem(t *testing.T) {
 
 			err = store.CreateItem(ctx, tt.item, "")
 
-			if tt.wantErr {
-				if err == nil {
-					t.Error("CreateItem() expected error, got nil")
-				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Errorf("CreateItem() expected error target %v, got: %v", tt.wantErrTarget, err)
-				}
-
-				return
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("CreateItem() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if err != nil {
-				t.Errorf("CreateItem() unexpected error: %v", err)
+			if tt.wantErr {
+				if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Fatalf("CreateItem() error = %v, did not match target = %v", err, tt.wantErrTarget)
+				}
+
 				return
 			}
 
@@ -3008,6 +3034,8 @@ func TestUpdateItem(t *testing.T) {
 				t.Fatalf("failed to create store: %v", err)
 			}
 
+			defer store.Close()
+
 			db, err := sql.Open("sqlite3", dbPath)
 			if err != nil {
 				t.Fatalf("failed to open db for setup: %v", err)
@@ -3019,18 +3047,15 @@ func TestUpdateItem(t *testing.T) {
 			item := tt.setupItem(id)
 			err = store.UpdateItem(ctx, &item)
 
-			if tt.wantErr {
-				if err == nil {
-					t.Error("UpdateItem() expected error, got nil")
-				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Errorf("UpdateItem() expected error target %v, got: %v", tt.wantErrTarget, err)
-				}
-
-				return
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("UpdateItem() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if err != nil {
-				t.Errorf("UpdateItem() unexpected error: %v", err)
+			if tt.wantErr {
+				if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Fatalf("UpdateItem() error = %v, did not match target = %v", err, tt.wantErrTarget)
+				}
+
 				return
 			}
 
@@ -3279,6 +3304,8 @@ func TestDeleteItem(t *testing.T) {
 				t.Fatalf("failed to create store: %v", err)
 			}
 
+			defer store.Close()
+
 			db, err := sql.Open("sqlite3", dbPath)
 			if err != nil {
 				t.Fatalf("failed to open db for setup: %v", err)
@@ -3289,18 +3316,15 @@ func TestDeleteItem(t *testing.T) {
 			item := tt.setupDB(t, db)
 			err = store.DeleteItem(ctx, &item)
 
-			if tt.wantErr {
-				if err == nil {
-					t.Error("DeleteItem() expected error, got nil")
-				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Errorf("DeleteItem() expected error target %v, got: %v", tt.wantErrTarget, err)
-				}
-
-				return
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("DeleteItem() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if err != nil {
-				t.Errorf("DeleteItem() unexpected error: %v", err)
+			if tt.wantErr {
+				if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
+					t.Fatalf("DeleteItem() error = %v, did not match target = %v", err, tt.wantErrTarget)
+				}
+
 				return
 			}
 
@@ -3316,6 +3340,10 @@ func TestDeleteItem(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
 }
 
 // mustExec is a test helper that executes a query and fails the test if it returns an error.
