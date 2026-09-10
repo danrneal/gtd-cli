@@ -384,13 +384,6 @@ func (ss *syncSession) updateList(ctx context.Context, list, dstList *model.List
 		listItem.ListID = dstItem.ListID
 		listItem.ExternalListID = dstItem.ExternalListID
 
-		if listItem.Status == model.StatusOpen {
-			listItem.Status = model.StatusNotStarted
-			if dstItem.Status == model.StatusInProgress {
-				listItem.Status = model.StatusInProgress
-			}
-		}
-
 		listItems = append(listItems, &listItem)
 	}
 

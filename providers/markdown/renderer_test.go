@@ -116,8 +116,8 @@ func TestRender(t *testing.T) {
 			},
 			want: trimIndent(`
 				# Statuses (3)
-				* [-] In progress
 				* [ ] Not started
+				* [-] In progress
 				* [ ] Empty status
 				* [x] ~~Done~~
 

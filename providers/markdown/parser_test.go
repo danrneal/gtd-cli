@@ -260,23 +260,23 @@ func TestParse(t *testing.T) {
 					Modified: modified,
 					Items: []*model.Item{
 						{
-							Title:    "In progress",
+							Title:    "Not started",
 							Position: 0,
-							Status:   model.StatusInProgress,
+							Status:   model.StatusNotStarted,
 							Modified: modified,
 							Created:  created,
 						},
 						{
-							Title:    "In progress custom",
+							Title:    "In progress",
 							Position: 1,
 							Status:   model.StatusInProgress,
 							Modified: modified,
 							Created:  created,
 						},
 						{
-							Title:    "Not started",
+							Title:    "In progress custom",
 							Position: 2,
-							Status:   model.StatusNotStarted,
+							Status:   model.StatusInProgress,
 							Modified: modified,
 							Created:  created,
 						},

@@ -136,78 +136,16 @@ func (l *List) Contains(item *Item) bool {
 	return false
 }
 
-// sortItems dynamically orders the list's items according to domain rules.
-// Default lists sort by Status (InProgress -> NotStarted -> Done).
-// "Waiting For" lists sort by Created date, and "Snoozed" lists sort by Snoozed date.
 func (l *List) sortItems() {
-	sortFunc := compareItems
-	if strings.HasPrefix(l.Name, ListWaitingFor) {
-		sortFunc = compareWaitingForItems
-	} else if strings.HasPrefix(l.Name, ListSnoozed) {
-		sortFunc = compareSnoozedItems
-	}
-
 	slices.SortStableFunc(l.Items, func(a, b *Item) int {
-		return sortFunc(a, b)
+		if a.Status != StatusDone && b.Status == StatusDone {
+			return -1
+		}
+
+		return 0
 	})
 
 	for i, item := range l.Items {
 		item.Position = i
 	}
-}
-
-// compareItems determines the sorting order of items based primarily on their Status.
-// InProgress items appear first, followed by NotStarted items, and finally Done items.
-func compareItems(a, b *Item) int {
-	return statusRank(a.Status) - statusRank(b.Status)
-}
-
-// statusRank returns a numeric ranking for sorting by Status, prioritizing active work.
-func statusRank(s Status) int {
-	switch s {
-	case StatusInProgress:
-		return -1
-	case StatusDone:
-		return 1
-	default:
-		return 0
-	}
-}
-
-// compareWaitingForItems determines the sorting order for items in a "Waiting For" list.
-// It primarily groups items by their status, and secondarily sorts them by Creation date (newest first)
-// so that the most recent waiting items are shown at the top.
-func compareWaitingForItems(a, b *Item) int {
-	if c := compareItems(a, b); c != 0 {
-		return c
-	}
-
-	if a.WaitingOn == "" {
-		return 0
-	}
-
-	if b.WaitingOn == "" {
-		return -1
-	}
-
-	return b.Created.Compare(a.Created)
-}
-
-// compareSnoozedItems determines the sorting order for items in a "Snoozed" list.
-// It primarily groups items by their status, and secondarily sorts them by Snoozed date
-// so that items waking up soonest are shown at the top.
-func compareSnoozedItems(a, b *Item) int {
-	if c := compareItems(a, b); c != 0 {
-		return c
-	}
-
-	if a.Snoozed == nil {
-		return 0
-	}
-
-	if b.Snoozed == nil {
-		return -1
-	}
-
-	return a.Snoozed.Compare(*b.Snoozed)
 }
