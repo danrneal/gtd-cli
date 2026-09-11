@@ -926,7 +926,7 @@ func (s *Store) execUpdateItem(ctx context.Context, tx *sql.Tx, list *model.List
             status = ?,
             title = ?,
             description = ?,
-            project_tag = ?,
+            project_tag = COALESCE(?, project_tag),
             waiting_on = ?,
             snoozed = ?,
             due = ?,
