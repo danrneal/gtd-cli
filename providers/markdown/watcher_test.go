@@ -149,6 +149,50 @@ func TestClient_watchLoop(t *testing.T) {
 			},
 		},
 		{
+			name: "processes create event (atomic rename)",
+			verify: func(
+				t *testing.T,
+				client *Client,
+				fakeWatcher *fsnotify.Watcher,
+				events <-chan error,
+				cancel context.CancelFunc,
+			) {
+				client.mu.Lock()
+				client.lastModTime = time.Now()
+				client.mu.Unlock()
+
+				client.mu.RLock()
+				initialModTime := client.lastModTime
+				client.mu.RUnlock()
+
+				modTime := client.lastModTime.Add(1)
+				if err := os.Chtimes(client.filepath, modTime, modTime); err != nil {
+					t.Fatalf("failed to advance file time: %v", err)
+				}
+
+				event := fsnotify.Event{
+					Name: client.filepath,
+					Op:   fsnotify.Create,
+				}
+
+				fakeWatcher.Events <- event
+
+				assertEventEmitted(t, events)
+
+				client.mu.RLock()
+				lastModTime := client.lastModTime
+				client.mu.RUnlock()
+
+				if !lastModTime.After(initialModTime) {
+					t.Errorf(
+						"expected lastModTime to advance, but it did not. Initial: %v, Final: %v",
+						initialModTime,
+						lastModTime,
+					)
+				}
+			},
+		},
+		{
 			name: "drops duplicate burst events (backpressure)",
 			verify: func(
 				t *testing.T,

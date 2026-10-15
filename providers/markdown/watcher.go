@@ -118,7 +118,7 @@ func (c *Client) hasFileChanged(event fsnotify.Event) bool {
 		return false
 	}
 
-	if !event.Has(fsnotify.Write) && !event.Has(fsnotify.Rename) {
+	if !event.Has(fsnotify.Write) && !event.Has(fsnotify.Rename) && !event.Has(fsnotify.Create) {
 		return false
 	}
 
