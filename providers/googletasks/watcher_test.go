@@ -50,15 +50,17 @@ func TestClient_Watch(t *testing.T) {
 				synctest.Wait()
 
 				select {
-				case <-events:
-					// Success! It read the first event
+				case err := <-events:
+					if err != nil {
+						t.Errorf("expected nil error, got: %v", err)
+					}
 				default:
 					t.Fatal("expected 1 event in the channel")
 				}
 
 				select {
-				case <-events:
-					t.Fatal("expected second event to be dropped, but channel had 2")
+				case err := <-events:
+					t.Fatalf("expected second event to be dropped, but got: %v", err)
 				default:
 					// Success! The channel is empty.
 				}

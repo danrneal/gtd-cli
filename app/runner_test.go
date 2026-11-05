@@ -591,7 +591,11 @@ func TestRun(t *testing.T) {
 
 				if tt.wantErr {
 					select {
-					case <-errChan:
+					case err := <-errChan:
+						if err == nil {
+							t.Fatal("expected runner to return an error, got nil")
+						}
+
 						return
 					default:
 						t.Fatal("expected runner to fail, but it did not")

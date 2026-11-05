@@ -240,8 +240,8 @@ func TestClient_watchLoop(t *testing.T) {
 				}
 
 				select {
-				case <-events:
-					t.Fatal("expected second event to be dropped, but it was in the channel")
+				case err := <-events:
+					t.Fatalf("expected second event to be dropped, but got: %v", err)
 				default:
 					// Success: The second event was dropped.
 				}
@@ -444,7 +444,9 @@ func TestClient_watchLoop(t *testing.T) {
 
 				cancel()
 
-				<-events
+				if err := <-events; err == nil {
+					t.Fatal("expected an error, got nil")
+				}
 
 				assertChannelClosed(t, events)
 			},
@@ -516,8 +518,8 @@ func assertEventIgnored(t *testing.T, events <-chan error) {
 	synctest.Wait()
 
 	select {
-	case <-events:
-		t.Fatal("expected event to be ignored, but it was emitted")
+	case err := <-events:
+		t.Fatalf("expected event to be ignored, but got: %v", err)
 	default:
 		// Success: The event was successfully ignored.
 	}
