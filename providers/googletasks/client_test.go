@@ -83,6 +83,16 @@ func TestCreateList(t *testing.T) {
 			wantErr:   true,
 		},
 		{
+			name: "cannot create list with existing external id",
+			list: &model.List{
+				Name:       "New List",
+				ExternalID: new("existing-list-1"),
+				Modified:   time.Now(),
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
+			wantErr:   true,
+		},
+		{
 			name: "invalid list (validation failed)",
 			list: &model.List{
 				Name: "",
@@ -1566,6 +1576,21 @@ func TestCreateItem(t *testing.T) {
 				ListID:         "list-1",
 				Title:          "Deleted Task",
 				Status:         model.StatusDeleted,
+				ExternalListID: new("L1"),
+				Modified:       time.Now(),
+			},
+			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+				fake.Tasks["L1"] = []*tasks.Task{}
+			},
+			wantErr: true,
+		},
+		{
+			name:   "cannot create item with existing external id",
+			listID: "L1",
+			item: &model.Item{
+				ListID:         "list-1",
+				Title:          "Existing Task",
+				ExternalID:     new("existing-task-1"),
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},

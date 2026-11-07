@@ -62,6 +62,10 @@ func (c *Client) CreateList(ctx context.Context, list *model.List) error {
 		return errors.New("cannot create a list with status 'deleted'")
 	}
 
+	if list.ExternalID != nil {
+		return errors.New("cannot create list with existing external ID")
+	}
+
 	tasklist := &tasks.TaskList{
 		Title: list.Name,
 	}
@@ -192,6 +196,10 @@ func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemI
 
 	if item.Status == model.StatusDeleted {
 		return errors.New("cannot create an item with status 'deleted'")
+	}
+
+	if item.ExternalID != nil {
+		return errors.New("cannot create item with existing external ID")
 	}
 
 	if item.ExternalListID == nil {

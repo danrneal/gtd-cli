@@ -133,9 +133,8 @@ func TestPushGoogleTasks(t *testing.T) {
 			setupSqlite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{
 					{
-						Name:       "L1",
-						Modified:   baseTime,
-						ExternalID: new("external-list-1"),
+						Name:     "L1",
+						Modified: baseTime,
 					},
 				})
 
@@ -2585,16 +2584,13 @@ func TestPullGoogleTasks(t *testing.T) {
 			setupGoogleTasks: func(t *testing.T) *errorProvider {
 				tasks := setupTestGoogleTasks(t, []model.List{
 					{
-						Name:       model.ListProjects,
-						Modified:   baseTime,
-						ExternalID: new("external-list-1"),
+						Name:     model.ListProjects,
+						Modified: baseTime,
 						Items: []*model.Item{
 							{
-								Title:          "Project A",
-								Modified:       baseTime,
-								ProjectTag:     new("project-a"),
-								ExternalID:     new("external-task-1"),
-								ExternalListID: new("external-list-1"),
+								Title:      "Project A",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
 							},
 						},
 					},

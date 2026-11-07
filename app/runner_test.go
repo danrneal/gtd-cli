@@ -173,11 +173,10 @@ func TestRun(t *testing.T) {
 				})
 				tasks = setupTestGoogleTasks(t, []model.List{
 					{
-						Name:       "Inbox",
-						Status:     model.StatusOpen,
-						ExternalID: new("external-list-1"),
-						Modified:   modified,
-						Items:      []*model.Item{},
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: modified,
+						Items:    []*model.Item{},
 					},
 					{
 						Name:     "New List",
@@ -254,12 +253,11 @@ func TestRun(t *testing.T) {
 			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (store, md, tasks *errorProvider) {
 				store = setupTestSQLite(t, []model.List{
 					{
-						ID:         "custom-list-1",
-						Name:       "Inbox",
-						Status:     model.StatusOpen,
-						ExternalID: new("external-list-1"),
-						Modified:   modified,
-						Items:      []*model.Item{},
+						ID:       "custom-list-1",
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: modified,
+						Items:    []*model.Item{},
 					},
 				})
 
@@ -347,10 +345,9 @@ func TestRun(t *testing.T) {
 
 				tasks = setupTestGoogleTasks(t, []model.List{
 					{
-						Name:       "Inbox",
-						Status:     model.StatusOpen,
-						ExternalID: new("external-list-1"),
-						Modified:   modified,
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: modified,
 					},
 				})
 
@@ -442,10 +439,9 @@ func TestRun(t *testing.T) {
 
 				tasks = setupTestGoogleTasks(t, []model.List{
 					{
-						Name:       "Inbox",
-						Status:     model.StatusOpen,
-						ExternalID: new("external-list-1"),
-						Modified:   modified,
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: modified,
 					},
 					{
 						Name:     "New List",
