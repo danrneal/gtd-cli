@@ -129,6 +129,7 @@ func (s *Syncer) buildProviderState(ctx context.Context, p Provider) (*providerS
 			continue
 		}
 
+		list.Items = slices.Clone(list.Items)
 		listsMap[listKey] = &list
 	}
 
