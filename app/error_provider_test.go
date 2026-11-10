@@ -19,13 +19,13 @@ type errorProvider struct {
 	errDeleteItem error
 }
 
-func (e *errorProvider) GetKey(resource model.Resource) string {
+func (e *errorProvider) Key(resource model.Resource) string {
 	rp, ok := e.Provider.(RemoteProvider)
 	if !ok {
 		return ""
 	}
 
-	return rp.GetKey(resource)
+	return rp.Key(resource)
 }
 
 func (e *errorProvider) CreateList(ctx context.Context, list *model.List) error {

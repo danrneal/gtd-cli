@@ -38,8 +38,8 @@ func NewClient(filepath string, logger *slog.Logger) *Client {
 	return client
 }
 
-// GetKey extracts the ID from the resource.
-func (*Client) GetKey(resource model.Resource) string {
+// Key extracts the ID from the resource.
+func (*Client) Key(resource model.Resource) string {
 	if id := resource.GetID(); id != "" {
 		return id
 	}

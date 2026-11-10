@@ -285,8 +285,8 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 	return lists, nil
 }
 
-// getList retrieves a list and its associated items from the database by its internal ID.
-func getList(ctx context.Context, tx *sql.Tx, listID string) (*model.List, error) {
+// queryList retrieves a list and its associated items from the database by its internal ID.
+func queryList(ctx context.Context, tx *sql.Tx, listID string) (*model.List, error) {
 	var list model.List
 	query := `
 		SELECT
@@ -326,8 +326,8 @@ func getList(ctx context.Context, tx *sql.Tx, listID string) (*model.List, error
 	return &list, nil
 }
 
-// getListID resolves the internal list ID using the provided external ID.
-func getListID(ctx context.Context, tx *sql.Tx, externalID *string) (string, error) {
+// queryListID resolves the internal list ID using the provided external ID.
+func queryListID(ctx context.Context, tx *sql.Tx, externalID *string) (string, error) {
 	if externalID == nil {
 		return "", errors.New("externalID is nil")
 	}
@@ -370,7 +370,7 @@ func (s *Store) UpdateList(ctx context.Context, list, currentList *model.List) e
 
 	if list.ID == "" {
 		var listID string
-		listID, err = getListID(ctx, tx, list.ExternalID)
+		listID, err = queryListID(ctx, tx, list.ExternalID)
 		if err != nil {
 			return err
 		}
@@ -475,7 +475,7 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 
 	if item.ListID == "" {
 		var listID string
-		listID, err = getListID(ctx, tx, item.ExternalListID)
+		listID, err = queryListID(ctx, tx, item.ExternalListID)
 		if err != nil {
 			return err
 		}
@@ -483,7 +483,7 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 		item.ListID = listID
 	}
 
-	list, err := getList(ctx, tx, item.ListID)
+	list, err := queryList(ctx, tx, item.ListID)
 	if err != nil {
 		return err
 	}
@@ -517,7 +517,7 @@ func (s *Store) execInsertItem(ctx context.Context, tx *sql.Tx, list *model.List
 		projectTag = item.ProjectTag
 	} else if item.ProjectID == nil && (item.ExternalProjectID != nil || item.ProjectTag != nil) {
 		var projectID *string
-		if projectID, err = getProjectID(ctx, tx, item); err == nil {
+		if projectID, err = queryProjectID(ctx, tx, item); err == nil {
 			item.ProjectID = projectID
 		} else if !errors.Is(err, ErrNotFound) {
 			return err
@@ -737,8 +737,8 @@ func listItems(ctx context.Context, tx *sql.Tx, listID string) ([]*model.Item, e
 	return items, nil
 }
 
-// getItemID resolves the internal item ID using the provided external ID.
-func getItemID(ctx context.Context, tx *sql.Tx, externalID *string) (string, error) {
+// queryItemID resolves the internal item ID using the provided external ID.
+func queryItemID(ctx context.Context, tx *sql.Tx, externalID *string) (string, error) {
 	if externalID == nil {
 		return "", errors.New("externalID is nil")
 	}
@@ -757,12 +757,12 @@ func getItemID(ctx context.Context, tx *sql.Tx, externalID *string) (string, err
 	return id, nil
 }
 
-// getProjectID attempts to resolve the internal database ID for a project.
+// queryProjectID attempts to resolve the internal database ID for a project.
 // It searches first by the item's ExternalProjectID, and falls back to looking up the item's ProjectTag
 // among items in the "Projects" list. It returns ErrNotFound if the project cannot be located.
-func getProjectID(ctx context.Context, tx *sql.Tx, item *model.Item) (*string, error) {
+func queryProjectID(ctx context.Context, tx *sql.Tx, item *model.Item) (*string, error) {
 	if item.ExternalProjectID != nil {
-		projectID, err := getItemID(ctx, tx, item.ExternalProjectID)
+		projectID, err := queryItemID(ctx, tx, item.ExternalProjectID)
 		if err != nil {
 			return nil, err
 		}
@@ -845,7 +845,7 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 
 	if item.ID == "" {
 		var itemID string
-		itemID, err = getItemID(ctx, tx, item.ExternalID)
+		itemID, err = queryItemID(ctx, tx, item.ExternalID)
 		if err != nil {
 			return err
 		}
@@ -855,7 +855,7 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 
 	if item.ListID == "" {
 		var listID string
-		listID, err = getListID(ctx, tx, item.ExternalListID)
+		listID, err = queryListID(ctx, tx, item.ExternalListID)
 		if err != nil {
 			return err
 		}
@@ -863,7 +863,7 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 		item.ListID = listID
 	}
 
-	list, err := getList(ctx, tx, item.ListID)
+	list, err := queryList(ctx, tx, item.ListID)
 	if err != nil {
 		return err
 	}
@@ -913,7 +913,7 @@ func (s *Store) execUpdateItem(ctx context.Context, tx *sql.Tx, list *model.List
 	} else if item.ProjectID == nil &&
 		(item.ExternalProjectID != nil || item.ProjectTag != nil || item.ExternalID == nil) {
 		var projectID *string
-		if projectID, err = getProjectID(ctx, tx, item); err == nil {
+		if projectID, err = queryProjectID(ctx, tx, item); err == nil {
 			item.ProjectID = projectID
 		} else if !errors.Is(err, ErrNotFound) {
 			return err
@@ -997,7 +997,7 @@ func batchMoveItems(ctx context.Context, tx *sql.Tx, items []*model.Item) error 
 		}
 
 		if item.ID == "" {
-			itemID, err := getItemID(ctx, tx, item.ExternalID)
+			itemID, err := queryItemID(ctx, tx, item.ExternalID)
 			if err != nil {
 				return err
 			}
@@ -1062,24 +1062,24 @@ func (s *Store) deleteResource(ctx context.Context, resource model.Resource) err
 	defer tx.Rollback()
 
 	var (
-		query         string
-		getResourceID func(context.Context, *sql.Tx, *string) (string, error)
+		query           string
+		queryResourceID func(context.Context, *sql.Tx, *string) (string, error)
 	)
 
 	switch resource.(type) {
 	case *model.List:
 		query = `DELETE FROM lists WHERE id = ?;`
-		getResourceID = getListID
+		queryResourceID = queryListID
 	case *model.Item:
 		query = `DELETE FROM items WHERE id = ?;`
-		getResourceID = getItemID
+		queryResourceID = queryItemID
 	default:
 		return fmt.Errorf("unsupported resource type: %T", resource)
 	}
 
 	resourceID := resource.GetID()
 	if resourceID == "" {
-		resourceID, err = getResourceID(ctx, tx, resource.GetExternalID())
+		resourceID, err = queryResourceID(ctx, tx, resource.GetExternalID())
 		if err != nil {
 			return err
 		}

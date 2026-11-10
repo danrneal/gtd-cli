@@ -18,7 +18,7 @@ import (
 	"github.com/danrneal/gtd-cli/model"
 )
 
-func TestClient_GetKey(t *testing.T) {
+func TestClient_Key(t *testing.T) {
 	t.Parallel()
 	client := &Client{}
 
@@ -45,9 +45,9 @@ func TestClient_GetKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := client.GetKey(tt.resource)
+			got := client.Key(tt.resource)
 			if got != tt.wantKey {
-				t.Errorf("GetKey() = %v, want %v", got, tt.wantKey)
+				t.Errorf("Key() = %v, want %v", got, tt.wantKey)
 			}
 		})
 	}

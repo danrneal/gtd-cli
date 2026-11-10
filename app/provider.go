@@ -25,5 +25,5 @@ type Provider interface {
 // typically required for synchronizing with external services.
 type RemoteProvider interface {
 	Provider
-	GetKey(resource model.Resource) string
+	Key(resource model.Resource) string
 }

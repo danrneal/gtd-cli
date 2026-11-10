@@ -16,7 +16,7 @@ import (
 type Syncer struct {
 	local  Provider
 	remote RemoteProvider
-	getKey func(model.Resource) string
+	key    func(model.Resource) string
 }
 
 // NewSyncer creates a new Syncer instance with the given local and remote providers.
@@ -24,7 +24,7 @@ func NewSyncer(local Provider, remote RemoteProvider) *Syncer {
 	syncer := &Syncer{
 		local:  local,
 		remote: remote,
-		getKey: remote.GetKey,
+		key:    remote.Key,
 	}
 
 	return syncer
@@ -67,7 +67,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider, syncStart ti
 	}
 
 	ss := &syncSession{
-		getKey:    s.getKey,
+		key:       s.key,
 		srcState:  srcState,
 		dstState:  dstState,
 		syncStart: syncStart,
@@ -116,7 +116,7 @@ func (s *Syncer) buildProviderState(ctx context.Context, p Provider) (*providerS
 	itemsMap := make(map[string]*model.Item)
 	for _, list := range lists {
 		for _, item := range list.Items {
-			itemKey := s.getKey(item)
+			itemKey := s.key(item)
 			if itemKey == "" {
 				continue
 			}
@@ -124,7 +124,7 @@ func (s *Syncer) buildProviderState(ctx context.Context, p Provider) (*providerS
 			itemsMap[itemKey] = item
 		}
 
-		listKey := s.getKey(&list)
+		listKey := s.key(&list)
 		if listKey == "" {
 			continue
 		}
@@ -153,7 +153,7 @@ type providerState struct {
 
 // syncSession encapsulates the state required for a single one-way synchronization pass.
 type syncSession struct {
-	getKey    func(model.Resource) string
+	key       func(model.Resource) string
 	srcState  *providerState
 	dstState  *providerState
 	syncStart time.Time
@@ -167,7 +167,7 @@ func (ss *syncSession) syncListCreation(ctx context.Context, srcList *model.List
 	}
 
 	created := false
-	listKey := ss.getKey(srcList)
+	listKey := ss.key(srcList)
 	dstList, ok := ss.dstState.listsMap[listKey]
 	if !ok {
 		if err := ss.createList(ctx, srcList); err != nil {
@@ -177,7 +177,7 @@ func (ss *syncSession) syncListCreation(ctx context.Context, srcList *model.List
 		createdList := *srcList
 		createdList.Items = make([]*model.Item, 0, len(srcList.Items))
 		dstList = &createdList
-		listKey = ss.getKey(dstList)
+		listKey = ss.key(dstList)
 		ss.dstState.listsMap[listKey] = dstList
 
 		created = true
@@ -192,7 +192,7 @@ func (ss *syncSession) syncListCreation(ctx context.Context, srcList *model.List
 		srcItem.ListID = srcList.ID
 		srcItem.ExternalListID = srcList.ExternalID
 
-		itemKey := ss.getKey(srcItem)
+		itemKey := ss.key(srcItem)
 		dstItem, ok := ss.dstState.itemsMap[itemKey]
 		if !ok {
 			if err := ss.createItem(ctx, srcItem, prevItemID); err != nil {
@@ -200,20 +200,20 @@ func (ss *syncSession) syncListCreation(ctx context.Context, srcList *model.List
 			}
 
 			idx := slices.IndexFunc(dstList.Items, func(i *model.Item) bool {
-				return ss.getKey(i) == prevItemID
+				return ss.key(i) == prevItemID
 			})
 
 			dstItem = srcItem
 			dstList.Items = slices.Insert(dstList.Items, idx+1, dstItem)
 
-			itemKey = ss.getKey(srcItem)
+			itemKey = ss.key(srcItem)
 			ss.dstState.itemsMap[itemKey] = dstItem
 
 			created = true
 		}
 
 		if srcList.Contains(dstItem) {
-			prevItemID = ss.getKey(srcItem)
+			prevItemID = ss.key(srcItem)
 		}
 	}
 
@@ -228,7 +228,7 @@ func (ss *syncSession) syncListUpdate(ctx context.Context, srcList *model.List) 
 	}
 
 	updated := false
-	listKey := ss.getKey(srcList)
+	listKey := ss.key(srcList)
 	dstList := ss.dstState.listsMap[listKey]
 	if (!srcList.Modified.Before(dstList.Modified) && !srcList.Equivalent(dstList)) ||
 		srcList.Position != dstList.Position {
@@ -244,7 +244,7 @@ func (ss *syncSession) syncListUpdate(ctx context.Context, srcList *model.List) 
 			continue
 		}
 
-		itemKey := ss.getKey(srcItem)
+		itemKey := ss.key(srcItem)
 		dstItem := ss.dstState.itemsMap[itemKey]
 		if !srcItem.Modified.Before(dstItem.Modified) && !srcItem.Equivalent(dstItem) {
 			if err := ss.updateItem(ctx, srcItem, dstItem); err != nil {
@@ -274,7 +274,7 @@ func (ss *syncSession) syncNextActionProjectUpdate(ctx context.Context, srcList 
 			continue
 		}
 
-		itemKey := ss.getKey(srcItem)
+		itemKey := ss.key(srcItem)
 		dstItem := ss.dstState.itemsMap[itemKey]
 		if err := ss.updateItem(ctx, srcItem, dstItem); err != nil {
 			return err
@@ -292,7 +292,7 @@ func (ss *syncSession) syncListDeletion(ctx context.Context, dstList *model.List
 		return false, nil
 	}
 
-	listKey := ss.getKey(dstList)
+	listKey := ss.key(dstList)
 	if listKey == "" {
 		return false, nil
 	}
@@ -313,7 +313,7 @@ func (ss *syncSession) syncListDeletion(ctx context.Context, dstList *model.List
 			continue
 		}
 
-		itemKey := ss.getKey(dstItem)
+		itemKey := ss.key(dstItem)
 		if itemKey == "" {
 			continue
 		}
@@ -334,7 +334,7 @@ func (ss *syncSession) syncListDeletion(ctx context.Context, dstList *model.List
 // createList creates a new list in the destination provider and backfills the external ID
 // into the source provider if necessary.
 func (ss *syncSession) createList(ctx context.Context, list *model.List) error {
-	listKey := ss.getKey(list)
+	listKey := ss.key(list)
 	if err := ss.dstState.provider.CreateList(ctx, list); err != nil {
 		return fmt.Errorf("failed to create list %q in destination: %w", list.Name, err)
 	}
@@ -355,7 +355,7 @@ func (ss *syncSession) createItem(ctx context.Context, item *model.Item, prevIte
 		item.Status = model.StatusNotStarted
 	}
 
-	itemKey := ss.getKey(item)
+	itemKey := ss.key(item)
 	if err := ss.dstState.provider.CreateItem(ctx, item, prevItemID); err != nil {
 		return fmt.Errorf("failed to create item %q in destination: %w", item.Title, err)
 	}
@@ -380,7 +380,7 @@ func (ss *syncSession) updateList(ctx context.Context, list, dstList *model.List
 
 		listItem := *item
 
-		itemKey := ss.getKey(item)
+		itemKey := ss.key(item)
 		dstItem := ss.dstState.itemsMap[itemKey]
 		listItem.ListID = dstItem.ListID
 		listItem.ExternalListID = dstItem.ExternalListID

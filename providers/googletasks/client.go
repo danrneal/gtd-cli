@@ -42,8 +42,8 @@ func NewClient(service *tasks.Service, pollInterval time.Duration, logger *slog.
 	return client
 }
 
-// GetKey extracts the external ID from the resource.
-func (*Client) GetKey(resource model.Resource) string {
+// Key extracts the external ID from the resource.
+func (*Client) Key(resource model.Resource) string {
 	if extID := resource.GetExternalID(); extID != nil {
 		return *extID
 	}

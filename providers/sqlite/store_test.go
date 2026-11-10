@@ -1991,7 +1991,7 @@ func TestCreateItem(t *testing.T) {
 
 			defer tx.Rollback()
 
-			gotList, err := getList(ctx, tx, tt.item.ListID)
+			gotList, err := queryList(ctx, tx, tt.item.ListID)
 			if err != nil {
 				t.Fatalf("failed to get list after create: %v", err)
 			}
@@ -3074,7 +3074,7 @@ func TestUpdateItem(t *testing.T) {
 
 			defer tx.Rollback()
 
-			gotList, err := getList(ctx, tx, item.ListID)
+			gotList, err := queryList(ctx, tx, item.ListID)
 			if err != nil {
 				t.Fatalf("failed to get list after update: %v", err)
 			}
