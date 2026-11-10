@@ -1325,7 +1325,11 @@ func TestUpdateList(t *testing.T) {
 				t.Errorf("UpdateList() mismatch (-want +got):\n%s", diff)
 			}
 
-			tx, _ := store.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+			tx, err := store.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+			if err != nil {
+				t.Fatalf("failed to begin transaction: %v", err)
+			}
+
 			items, err := listAllItems(ctx, tx)
 			tx.Rollback()
 			if err != nil {
@@ -1526,7 +1530,11 @@ func TestDeleteList(t *testing.T) {
 				t.Errorf("DeleteList() lists mismatch (-want +got):\n%s", diff)
 			}
 
-			tx, _ := store.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+			tx, err := store.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+			if err != nil {
+				t.Fatalf("failed to begin transaction: %v", err)
+			}
+
 			items, err := listAllItems(ctx, tx)
 			tx.Rollback()
 			if err != nil {
@@ -3328,7 +3336,11 @@ func TestDeleteItem(t *testing.T) {
 				return
 			}
 
-			tx, _ := store.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+			tx, err := store.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+			if err != nil {
+				t.Fatalf("failed to begin transaction: %v", err)
+			}
+
 			items, err := listAllItems(ctx, tx)
 			tx.Rollback()
 			if err != nil {

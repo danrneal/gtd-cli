@@ -530,9 +530,9 @@ func assertChannelClosed(t *testing.T, events <-chan error) {
 	synctest.Wait()
 
 	select {
-	case _, ok := <-events:
+	case err, ok := <-events:
 		if ok {
-			t.Fatal("expected events channel to be closed, but it was open")
+			t.Fatalf("expected events channel to be closed, got %v", err)
 		}
 	default:
 		t.Fatal("expected events channel to be closed, but it was empty and open")

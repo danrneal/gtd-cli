@@ -321,8 +321,8 @@ func TestParse(t *testing.T) {
 							Modified:   modified,
 							Created:    created,
 							ProjectTag: new("P"),
-							Due:        iso8601ToDate("2024-01-02"),
-							Snoozed:    iso8601ToDate("2024-01-01"),
+							Due:        iso8601ToDate(t, "2024-01-02"),
+							Snoozed:    iso8601ToDate(t, "2024-01-01"),
 							Tags:       []string{"t", "tag2"},
 						},
 					},
@@ -570,9 +570,15 @@ func (errReader) Read(p []byte) (n int, err error) {
 	return 0, errors.New("simulated I/O error")
 }
 
-func iso8601ToDate(s string) *time.Time {
-	t, _ := time.Parse("2006-01-02", s)
-	return &t
+func iso8601ToDate(t *testing.T, s string) *time.Time {
+	t.Helper()
+
+	parsed, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		t.Fatalf("iso8601ToDate(%q) unexpected error: %v", s, err)
+	}
+
+	return &parsed
 }
 
 func trimIndent(s string) string {

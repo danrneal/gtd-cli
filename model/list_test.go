@@ -584,7 +584,13 @@ func TestList_Contains(t *testing.T) {
 	}
 }
 
-func iso8601ToDate(s string) *time.Time {
-	t, _ := time.Parse("2006-01-02", s)
-	return &t
+func iso8601ToDate(t *testing.T, s string) *time.Time {
+	t.Helper()
+
+	parsed, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		t.Fatalf("iso8601ToDate(%q) unexpected error: %v", s, err)
+	}
+
+	return &parsed
 }

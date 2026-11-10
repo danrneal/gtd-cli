@@ -123,12 +123,16 @@ func TestCreateList(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, _ := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			tasksService, err := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			if err != nil {
+				t.Fatalf("tasks.NewService() unexpected error: %v", err)
+			}
+
 			pollInterval := 30 * time.Second
 			logger := slog.New(slog.DiscardHandler)
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
-			err := tasksClient.CreateList(t.Context(), tt.list)
+			err = tasksClient.CreateList(t.Context(), tt.list)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateList() error = %v, wantErr %v", err, tt.wantErr)
@@ -177,7 +181,7 @@ func TestListLists(t *testing.T) {
 				{
 					Name:       "Inbox",
 					ExternalID: new("L1"),
-					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Modified:   rfc3339ToDate(t, "2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
@@ -226,7 +230,7 @@ func TestListLists(t *testing.T) {
 				{
 					Name:       "Inbox",
 					ExternalID: new("L1"),
-					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Modified:   rfc3339ToDate(t, "2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
@@ -275,7 +279,7 @@ func TestListLists(t *testing.T) {
 				{
 					Name:       "Waiting For",
 					ExternalID: new("L1"),
-					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Modified:   rfc3339ToDate(t, "2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
@@ -310,7 +314,7 @@ func TestListLists(t *testing.T) {
 				{
 					Name:       "Waiting For",
 					ExternalID: new("L1"),
-					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Modified:   rfc3339ToDate(t, "2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
@@ -345,7 +349,7 @@ func TestListLists(t *testing.T) {
 				{
 					Name:       "Waiting For",
 					ExternalID: new("L1"),
-					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Modified:   rfc3339ToDate(t, "2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
@@ -354,7 +358,7 @@ func TestListLists(t *testing.T) {
 							Status:         model.StatusOpen,
 							ExternalID:     new("t1"),
 							ExternalListID: new("L1"),
-							Created:        rfc3339ToDate("2026-01-23T00:00:00Z"),
+							Created:        rfc3339ToDate(t, "2026-01-23T00:00:00Z"),
 						},
 					},
 				},
@@ -381,7 +385,7 @@ func TestListLists(t *testing.T) {
 				{
 					Name:       "Waiting For",
 					ExternalID: new("L1"),
-					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Modified:   rfc3339ToDate(t, "2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
@@ -416,7 +420,7 @@ func TestListLists(t *testing.T) {
 				{
 					Name:       "Inbox",
 					ExternalID: new("L1"),
-					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Modified:   rfc3339ToDate(t, "2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
@@ -451,7 +455,7 @@ func TestListLists(t *testing.T) {
 				{
 					Name:       "Inbox",
 					ExternalID: new("L1"),
-					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Modified:   rfc3339ToDate(t, "2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
@@ -486,12 +490,12 @@ func TestListLists(t *testing.T) {
 				{
 					Name:       "Inbox",
 					ExternalID: new("L1"),
-					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Modified:   rfc3339ToDate(t, "2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
 							Title:          "Task",
-							Due:            iso8601ToDate("2024-01-01"),
+							Due:            iso8601ToDate(t, "2024-01-01"),
 							Status:         model.StatusOpen,
 							ExternalID:     new("t1"),
 							ExternalListID: new("L1"),
@@ -521,7 +525,7 @@ func TestListLists(t *testing.T) {
 				{
 					Name:       "Inbox",
 					ExternalID: new("L1"),
-					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Modified:   rfc3339ToDate(t, "2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
@@ -556,7 +560,7 @@ func TestListLists(t *testing.T) {
 				{
 					Name:       "Inbox",
 					ExternalID: new("L1"),
-					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Modified:   rfc3339ToDate(t, "2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
@@ -591,7 +595,7 @@ func TestListLists(t *testing.T) {
 				{
 					Name:       "Inbox",
 					ExternalID: new("L1"),
-					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Modified:   rfc3339ToDate(t, "2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
@@ -626,7 +630,7 @@ func TestListLists(t *testing.T) {
 				{
 					Name:       "Inbox",
 					ExternalID: new("L1"),
-					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Modified:   rfc3339ToDate(t, "2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
@@ -662,12 +666,12 @@ func TestListLists(t *testing.T) {
 				{
 					Name:       "Inbox",
 					ExternalID: new("L1"),
-					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Modified:   rfc3339ToDate(t, "2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
 							Title:          "Task",
-							Snoozed:        iso8601ToDate("2024-01-01"),
+							Snoozed:        iso8601ToDate(t, "2024-01-01"),
 							Status:         model.StatusOpen,
 							ExternalID:     new("t1"),
 							ExternalListID: new("L1"),
@@ -698,12 +702,12 @@ func TestListLists(t *testing.T) {
 				{
 					Name:       "Inbox",
 					ExternalID: new("L1"),
-					Modified:   rfc3339ToDate("2024-01-01T12:00:00Z"),
+					Modified:   rfc3339ToDate(t, "2024-01-01T12:00:00Z"),
 					Status:     model.StatusOpen,
 					Items: []*model.Item{
 						{
 							Title:          "Task",
-							Modified:       rfc3339ToDate("2024-01-01T12:00:00Z"),
+							Modified:       rfc3339ToDate(t, "2024-01-01T12:00:00Z"),
 							Status:         model.StatusOpen,
 							ExternalID:     new("t1"),
 							ExternalListID: new("L1"),
@@ -747,7 +751,11 @@ func TestListLists(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, _ := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			tasksService, err := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			if err != nil {
+				t.Fatalf("tasks.NewService() unexpected error: %v", err)
+			}
+
 			pollInterval := 30 * time.Second
 			logger := slog.New(slog.DiscardHandler)
 			tasksClient := NewClient(tasksService, pollInterval, logger)
@@ -1272,12 +1280,16 @@ func TestUpdateList(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, _ := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			tasksService, err := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			if err != nil {
+				t.Fatalf("tasks.NewService() unexpected error: %v", err)
+			}
+
 			pollInterval := 30 * time.Second
 			logger := slog.New(slog.DiscardHandler)
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
-			err := tasksClient.UpdateList(t.Context(), tt.list, tt.currentList)
+			err = tasksClient.UpdateList(t.Context(), tt.list, tt.currentList)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateList() error = %v, wantErr %v", err, tt.wantErr)
@@ -1363,12 +1375,16 @@ func TestDeleteList(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, _ := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			tasksService, err := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			if err != nil {
+				t.Fatalf("tasks.NewService() unexpected error: %v", err)
+			}
+
 			pollInterval := 30 * time.Second
 			logger := slog.New(slog.DiscardHandler)
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
-			err := tasksClient.DeleteList(t.Context(), tt.list)
+			err = tasksClient.DeleteList(t.Context(), tt.list)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DeleteList() error = %v, wantErr %v", err, tt.wantErr)
@@ -1434,7 +1450,7 @@ func TestCreateItem(t *testing.T) {
 			listID: "L1",
 			item: &model.Item{
 				Title:          "Task",
-				Due:            iso8601ToDate("2024-12-31"),
+				Due:            iso8601ToDate(t, "2024-12-31"),
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
@@ -1475,7 +1491,7 @@ func TestCreateItem(t *testing.T) {
 			item: &model.Item{
 				Title:          "Task",
 				WaitingOn:      "Alice",
-				Created:        rfc3339ToDate("2024-01-02T10:00:00Z"),
+				Created:        rfc3339ToDate(t, "2024-01-02T10:00:00Z"),
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
@@ -1529,7 +1545,7 @@ func TestCreateItem(t *testing.T) {
 			listID: "L1",
 			item: &model.Item{
 				Title:          "Snoozed",
-				Snoozed:        iso8601ToDate("2024-01-01"),
+				Snoozed:        iso8601ToDate(t, "2024-01-01"),
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
@@ -1636,12 +1652,16 @@ func TestCreateItem(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, _ := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			tasksService, err := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			if err != nil {
+				t.Fatalf("tasks.NewService() unexpected error: %v", err)
+			}
+
 			pollInterval := 30 * time.Second
 			logger := slog.New(slog.DiscardHandler)
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
-			err := tasksClient.CreateItem(t.Context(), tt.item, tt.previousItemID)
+			err = tasksClient.CreateItem(t.Context(), tt.item, tt.previousItemID)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateItem() error = %v, wantErr %v", err, tt.wantErr)
@@ -1692,7 +1712,7 @@ func TestUpdateItem(t *testing.T) {
 			item: &model.Item{
 				Title:          "  Updated Task  \n",
 				Description:    "Has desc",
-				Snoozed:        iso8601ToDate("2024-01-01"),
+				Snoozed:        iso8601ToDate(t, "2024-01-01"),
 				ExternalID:     new("T1"),
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
@@ -1741,7 +1761,7 @@ func TestUpdateItem(t *testing.T) {
 			listID: "L1",
 			item: &model.Item{
 				Title:          "Task",
-				Due:            iso8601ToDate("2024-12-31"),
+				Due:            iso8601ToDate(t, "2024-12-31"),
 				ExternalID:     new("T1"),
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
@@ -1786,7 +1806,7 @@ func TestUpdateItem(t *testing.T) {
 			item: &model.Item{
 				Title:          "Task",
 				WaitingOn:      "Alice",
-				Created:        rfc3339ToDate("2024-01-02T10:00:00Z"),
+				Created:        rfc3339ToDate(t, "2024-01-02T10:00:00Z"),
 				ExternalID:     new("T1"),
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
@@ -1809,7 +1829,7 @@ func TestUpdateItem(t *testing.T) {
 			item: &model.Item{
 				Title:          "Task",
 				Description:    "Has desc",
-				Snoozed:        iso8601ToDate("2024-01-01"),
+				Snoozed:        iso8601ToDate(t, "2024-01-01"),
 				Status:         model.StatusDone,
 				ExternalID:     new("T1"),
 				ExternalListID: new("L1"),
@@ -1838,7 +1858,7 @@ func TestUpdateItem(t *testing.T) {
 			item: &model.Item{
 				Title:          "Task",
 				Description:    "Has desc",
-				Snoozed:        iso8601ToDate("2024-01-01"),
+				Snoozed:        iso8601ToDate(t, "2024-01-01"),
 				ExternalID:     new("T1"),
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
@@ -1929,7 +1949,7 @@ func TestUpdateItem(t *testing.T) {
 				ListID:         "L1",
 				Title:          "Fail",
 				Description:    "Has desc",
-				Snoozed:        iso8601ToDate("2024-01-01"),
+				Snoozed:        iso8601ToDate(t, "2024-01-01"),
 				ExternalID:     new("T1"),
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
@@ -1951,12 +1971,16 @@ func TestUpdateItem(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, _ := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			tasksService, err := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			if err != nil {
+				t.Fatalf("tasks.NewService() unexpected error: %v", err)
+			}
+
 			pollInterval := 30 * time.Second
 			logger := slog.New(slog.DiscardHandler)
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
-			err := tasksClient.UpdateItem(t.Context(), tt.item)
+			err = tasksClient.UpdateItem(t.Context(), tt.item)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateItem() error = %v, wantErr %v", err, tt.wantErr)
@@ -2049,12 +2073,16 @@ func TestDeleteItem(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, _ := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			tasksService, err := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			if err != nil {
+				t.Fatalf("tasks.NewService() unexpected error: %v", err)
+			}
+
 			pollInterval := 30 * time.Second
 			logger := slog.New(slog.DiscardHandler)
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
-			err := tasksClient.DeleteItem(t.Context(), tt.item)
+			err = tasksClient.DeleteItem(t.Context(), tt.item)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DeleteItem() error = %v, wantErr %v", err, tt.wantErr)
@@ -2067,14 +2095,24 @@ func TestMain(m *testing.M) {
 	goleak.VerifyTestMain(m)
 }
 
-func iso8601ToDate(s string) *time.Time {
-	t, _ := time.Parse("2006-01-02", s)
+func iso8601ToDate(t *testing.T, s string) *time.Time {
+	t.Helper()
 
-	return &t
+	parsed, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		t.Fatalf("iso8601ToDate(%q) unexpected error: %v", s, err)
+	}
+
+	return &parsed
 }
 
-func rfc3339ToDate(s string) time.Time {
-	t, _ := time.Parse(time.RFC3339, s)
+func rfc3339ToDate(t *testing.T, s string) time.Time {
+	t.Helper()
 
-	return t
+	parsed, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		t.Fatalf("rfc3339ToDate(%q) unexpected error: %v", s, err)
+	}
+
+	return parsed
 }

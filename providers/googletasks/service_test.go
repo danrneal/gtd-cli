@@ -329,10 +329,6 @@ func TestFileTokenSource_Token(t *testing.T) {
 				t.Errorf("Internal cache mismatch (-want +got):\n%s", diff)
 			}
 
-			var savedToken oauth2.Token
-			content, _ := os.ReadFile(tokenFile)
-			_ = json.Unmarshal(content, &savedToken)
-
 			var wantToken *oauth2.Token
 			if tt.wantSave {
 				wantToken = tt.wantToken
@@ -348,6 +344,16 @@ func TestFileTokenSource_Token(t *testing.T) {
 
 			if !tt.wantSave && tt.token == nil {
 				return
+			}
+
+			content, err := os.ReadFile(tokenFile)
+			if err != nil {
+				t.Fatalf("os.ReadFile(%q) unexpected error: %v", tokenFile, err)
+			}
+
+			var savedToken oauth2.Token
+			if err := json.Unmarshal(content, &savedToken); err != nil {
+				t.Fatalf("json.Unmarshal() unexpected error: %v", err)
 			}
 
 			if diff := cmp.Diff(*wantToken, savedToken, opts...); diff != "" {

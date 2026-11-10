@@ -32,9 +32,9 @@ func TestClient_Watch(t *testing.T) {
 				synctest.Wait()
 
 				select {
-				case _, ok := <-events:
+				case err, ok := <-events:
 					if ok {
-						t.Fatal("expected events channel to be closed")
+						t.Fatalf("expected events channel to be closed, got %v", err)
 					}
 				default:
 					t.Fatal("expected events channel to be closed, but it was open and empty")
