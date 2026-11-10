@@ -1,3 +1,4 @@
+// Package googletaskstest provides an in-memory HTTP fake for the Google Tasks API.
 package googletaskstest
 
 import (

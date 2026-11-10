@@ -299,16 +299,20 @@ linters:
       rules:
         - name: argument-limit
           arguments: [5]
+        - name: blank-imports
         - name: call-to-gc
         - name: comment-spacings
         - name: confusing-naming
         - name: confusing-results
+        - name: context-as-argument
         - name: deep-exit
         - name: defer
+        - name: dot-imports
         - name: early-return
           arguments: ["allow-jump"]
         - name: enforce-repeated-arg-type-style
           arguments: ["short"]
+        - name: exported
         - name: filename-format
         - name: flag-parameter
         - name: function-result-limit
@@ -335,7 +339,6 @@ linters:
     staticcheck:
       checks:
         - all
-        - -ST1000
 
     tagalign:
       order:

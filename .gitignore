@@ -20,6 +20,7 @@ luac.out
 *.elf
 
 # Project Specific
+.gomutants-cache.json
 bin/
 *credentials.json
 *token.json
