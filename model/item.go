@@ -2,7 +2,6 @@
 package model
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -57,22 +56,22 @@ func (i *Item) Clean() {
 // Validate checks if the current state of the item satisfies domain invariants.
 func (i *Item) Validate() error {
 	if i.Title == "" {
-		return errors.New("item title cannot be empty")
+		return fmt.Errorf("%w: item title cannot be empty", ErrInvalidResource)
 	}
 
 	if i.ListID == "" && i.ExternalListID == nil {
-		return errors.New("item must have an internal or external list ID")
+		return fmt.Errorf("%w: item must have an internal or external list ID", ErrInvalidResource)
 	}
 
 	switch i.Status {
 	case StatusNotStarted, StatusInProgress, StatusDone, StatusDeleted:
 		// Valid status
 	default:
-		return fmt.Errorf("invalid item status: %q", i.Status)
+		return fmt.Errorf("%w: invalid item status: %q", ErrInvalidResource, i.Status)
 	}
 
 	if i.Modified.IsZero() {
-		return errors.New("item modified timestamp cannot be zero")
+		return fmt.Errorf("%w: item modified timestamp cannot be zero", ErrInvalidResource)
 	}
 
 	return nil

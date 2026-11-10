@@ -1,5 +1,10 @@
 package model
 
+import "errors"
+
+// ErrInvalidResource indicates a Resource failed domain validation.
+var ErrInvalidResource = errors.New("invalid resource")
+
 // Status represents the lifecycle state of a resource.
 type Status string
 

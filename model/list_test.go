@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestList_Clean(t *testing.T) {
@@ -133,7 +134,7 @@ func TestList_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
 		list    *List
-		wantErr bool
+		wantErr error
 	}{
 		{
 			name: "valid list",
@@ -142,7 +143,6 @@ func TestList_Validate(t *testing.T) {
 				Status:   StatusOpen,
 				Modified: time.Now(),
 			},
-			wantErr: false,
 		},
 		{
 			name: "invalid name",
@@ -151,7 +151,7 @@ func TestList_Validate(t *testing.T) {
 				Status:   StatusOpen,
 				Modified: time.Now(),
 			},
-			wantErr: true,
+			wantErr: ErrInvalidResource,
 		},
 		{
 			name: "invalid status",
@@ -160,7 +160,7 @@ func TestList_Validate(t *testing.T) {
 				Status:   "unknown_status",
 				Modified: time.Now(),
 			},
-			wantErr: true,
+			wantErr: ErrInvalidResource,
 		},
 		{
 			name: "missing modified timestamp",
@@ -168,7 +168,7 @@ func TestList_Validate(t *testing.T) {
 				Name:   "Inbox",
 				Status: StatusOpen,
 			},
-			wantErr: true,
+			wantErr: ErrInvalidResource,
 		},
 	}
 
@@ -177,9 +177,8 @@ func TestList_Validate(t *testing.T) {
 			t.Parallel()
 
 			err := tt.list.Validate()
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("Validate() error mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

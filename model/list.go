@@ -1,7 +1,6 @@
 package model
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -53,18 +52,18 @@ func (l *List) Clean() {
 // Validate checks if the current state of the list satisfies domain invariants.
 func (l *List) Validate() error {
 	if l.Name == "" {
-		return errors.New("list name cannot be empty")
+		return fmt.Errorf("%w: list name cannot be empty", ErrInvalidResource)
 	}
 
 	switch l.Status {
 	case StatusOpen, StatusDeleted:
 		// Valid status
 	default:
-		return fmt.Errorf("invalid list status: %q", l.Status)
+		return fmt.Errorf("%w: invalid list status: %q", ErrInvalidResource, l.Status)
 	}
 
 	if l.Modified.IsZero() {
-		return errors.New("list modified timestamp cannot be zero")
+		return fmt.Errorf("%w: list modified timestamp cannot be zero", ErrInvalidResource)
 	}
 
 	return nil
