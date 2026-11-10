@@ -222,7 +222,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 
 	defer tx.Rollback()
 
-	items, err := s.listAllItems(ctx, tx)
+	items, err := listAllItems(ctx, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +286,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 }
 
 // getList retrieves a list and its associated items from the database by its internal ID.
-func (s *Store) getList(ctx context.Context, tx *sql.Tx, listID string) (*model.List, error) {
+func getList(ctx context.Context, tx *sql.Tx, listID string) (*model.List, error) {
 	var list model.List
 	query := `
 		SELECT
@@ -316,7 +316,7 @@ func (s *Store) getList(ctx context.Context, tx *sql.Tx, listID string) (*model.
 		return nil, fmt.Errorf("failed to scan list: %w", err)
 	}
 
-	items, err := s.listItems(ctx, tx, listID)
+	items, err := listItems(ctx, tx, listID)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +327,7 @@ func (s *Store) getList(ctx context.Context, tx *sql.Tx, listID string) (*model.
 }
 
 // getListID resolves the internal list ID using the provided external ID.
-func (s *Store) getListID(ctx context.Context, tx *sql.Tx, externalID *string) (string, error) {
+func getListID(ctx context.Context, tx *sql.Tx, externalID *string) (string, error) {
 	if externalID == nil {
 		return "", errors.New("externalID is nil")
 	}
@@ -370,7 +370,7 @@ func (s *Store) UpdateList(ctx context.Context, list, currentList *model.List) e
 
 	if list.ID == "" {
 		var listID string
-		listID, err = s.getListID(ctx, tx, list.ExternalID)
+		listID, err = getListID(ctx, tx, list.ExternalID)
 		if err != nil {
 			return err
 		}
@@ -383,13 +383,13 @@ func (s *Store) UpdateList(ctx context.Context, list, currentList *model.List) e
 	}
 
 	if list.Status == model.StatusDeleted {
-		if err := s.deleteListItems(ctx, tx, list); err != nil {
+		if err := deleteListItems(ctx, tx, list); err != nil {
 			return err
 		}
 	}
 
 	itemsToMove := calculateItemsToMove(list, currentList.Items)
-	if err := s.batchMoveItems(ctx, tx, itemsToMove); err != nil {
+	if err := batchMoveItems(ctx, tx, itemsToMove); err != nil {
 		return err
 	}
 
@@ -475,7 +475,7 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 
 	if item.ListID == "" {
 		var listID string
-		listID, err = s.getListID(ctx, tx, item.ExternalListID)
+		listID, err = getListID(ctx, tx, item.ExternalListID)
 		if err != nil {
 			return err
 		}
@@ -483,7 +483,7 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 		item.ListID = listID
 	}
 
-	list, err := s.getList(ctx, tx, item.ListID)
+	list, err := getList(ctx, tx, item.ListID)
 	if err != nil {
 		return err
 	}
@@ -517,7 +517,7 @@ func (s *Store) execInsertItem(ctx context.Context, tx *sql.Tx, list *model.List
 		projectTag = item.ProjectTag
 	} else if item.ProjectID == nil && (item.ExternalProjectID != nil || item.ProjectTag != nil) {
 		var projectID *string
-		if projectID, err = s.getProjectID(ctx, tx, item); err == nil {
+		if projectID, err = getProjectID(ctx, tx, item); err == nil {
 			item.ProjectID = projectID
 		} else if !errors.Is(err, ErrNotFound) {
 			return err
@@ -581,7 +581,7 @@ func (s *Store) execInsertItem(ctx context.Context, tx *sql.Tx, list *model.List
 }
 
 // listAllItems returns all items from the database using the provided transaction.
-func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, error) {
+func listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, error) {
 	query := `
 		SELECT
 			i.id,
@@ -659,7 +659,7 @@ func (s *Store) listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, er
 }
 
 // listItems retrieves all items belonging to a specific list ID, ordered by position.
-func (s *Store) listItems(ctx context.Context, tx *sql.Tx, listID string) ([]*model.Item, error) {
+func listItems(ctx context.Context, tx *sql.Tx, listID string) ([]*model.Item, error) {
 	query := `
 		SELECT
 			i.id,
@@ -738,7 +738,7 @@ func (s *Store) listItems(ctx context.Context, tx *sql.Tx, listID string) ([]*mo
 }
 
 // getItemID resolves the internal item ID using the provided external ID.
-func (s *Store) getItemID(ctx context.Context, tx *sql.Tx, externalID *string) (string, error) {
+func getItemID(ctx context.Context, tx *sql.Tx, externalID *string) (string, error) {
 	if externalID == nil {
 		return "", errors.New("externalID is nil")
 	}
@@ -760,9 +760,9 @@ func (s *Store) getItemID(ctx context.Context, tx *sql.Tx, externalID *string) (
 // getProjectID attempts to resolve the internal database ID for a project.
 // It searches first by the item's ExternalProjectID, and falls back to looking up the item's ProjectTag
 // among items in the "Projects" list. It returns ErrNotFound if the project cannot be located.
-func (s *Store) getProjectID(ctx context.Context, tx *sql.Tx, item *model.Item) (*string, error) {
+func getProjectID(ctx context.Context, tx *sql.Tx, item *model.Item) (*string, error) {
 	if item.ExternalProjectID != nil {
-		projectID, err := s.getItemID(ctx, tx, item.ExternalProjectID)
+		projectID, err := getItemID(ctx, tx, item.ExternalProjectID)
 		if err != nil {
 			return nil, err
 		}
@@ -845,7 +845,7 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 
 	if item.ID == "" {
 		var itemID string
-		itemID, err = s.getItemID(ctx, tx, item.ExternalID)
+		itemID, err = getItemID(ctx, tx, item.ExternalID)
 		if err != nil {
 			return err
 		}
@@ -855,7 +855,7 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 
 	if item.ListID == "" {
 		var listID string
-		listID, err = s.getListID(ctx, tx, item.ExternalListID)
+		listID, err = getListID(ctx, tx, item.ExternalListID)
 		if err != nil {
 			return err
 		}
@@ -863,7 +863,7 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 		item.ListID = listID
 	}
 
-	list, err := s.getList(ctx, tx, item.ListID)
+	list, err := getList(ctx, tx, item.ListID)
 	if err != nil {
 		return err
 	}
@@ -913,7 +913,7 @@ func (s *Store) execUpdateItem(ctx context.Context, tx *sql.Tx, list *model.List
 	} else if item.ProjectID == nil &&
 		(item.ExternalProjectID != nil || item.ProjectTag != nil || item.ExternalID == nil) {
 		var projectID *string
-		if projectID, err = s.getProjectID(ctx, tx, item); err == nil {
+		if projectID, err = getProjectID(ctx, tx, item); err == nil {
 			item.ProjectID = projectID
 		} else if !errors.Is(err, ErrNotFound) {
 			return err
@@ -972,7 +972,7 @@ func (s *Store) execUpdateItem(ctx context.Context, tx *sql.Tx, list *model.List
 
 // batchMoveItems updates the list_id and position for a batch of items.
 // It uses a single prepared statement for efficiency.
-func (s *Store) batchMoveItems(ctx context.Context, tx *sql.Tx, items []*model.Item) error {
+func batchMoveItems(ctx context.Context, tx *sql.Tx, items []*model.Item) error {
 	if len(items) == 0 {
 		return nil
 	}
@@ -997,7 +997,7 @@ func (s *Store) batchMoveItems(ctx context.Context, tx *sql.Tx, items []*model.I
 		}
 
 		if item.ID == "" {
-			itemID, err := s.getItemID(ctx, tx, item.ExternalID)
+			itemID, err := getItemID(ctx, tx, item.ExternalID)
 			if err != nil {
 				return err
 			}
@@ -1039,7 +1039,7 @@ func (s *Store) DeleteItem(ctx context.Context, item *model.Item) error {
 
 // deleteListItems hard-deletes all items associated with the given list.
 // It is used to clean up orphaned items when a list is soft-deleted (tombstoned).
-func (s *Store) deleteListItems(ctx context.Context, tx *sql.Tx, list *model.List) error {
+func deleteListItems(ctx context.Context, tx *sql.Tx, list *model.List) error {
 	query := `DELETE FROM items WHERE list_id = ?`
 	if _, err := tx.ExecContext(ctx, query, list.ID); err != nil {
 		return fmt.Errorf("failed to delete items from list %q (ID: %s): %w", list.Name, list.ID, err)
@@ -1069,10 +1069,10 @@ func (s *Store) deleteResource(ctx context.Context, resource model.Resource) err
 	switch resource.(type) {
 	case *model.List:
 		query = `DELETE FROM lists WHERE id = ?;`
-		getResourceID = s.getListID
+		getResourceID = getListID
 	case *model.Item:
 		query = `DELETE FROM items WHERE id = ?;`
-		getResourceID = s.getItemID
+		getResourceID = getItemID
 	default:
 		return fmt.Errorf("unsupported resource type: %T", resource)
 	}

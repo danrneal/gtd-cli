@@ -1326,7 +1326,7 @@ func TestUpdateList(t *testing.T) {
 			}
 
 			tx, _ := store.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-			items, err := store.listAllItems(ctx, tx)
+			items, err := listAllItems(ctx, tx)
 			tx.Rollback()
 			if err != nil {
 				t.Fatalf("failed to list all items: %v", err)
@@ -1527,7 +1527,7 @@ func TestDeleteList(t *testing.T) {
 			}
 
 			tx, _ := store.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-			items, err := store.listAllItems(ctx, tx)
+			items, err := listAllItems(ctx, tx)
 			tx.Rollback()
 			if err != nil {
 				t.Fatalf("failed to get all items: %v", err)
@@ -1983,7 +1983,7 @@ func TestCreateItem(t *testing.T) {
 
 			defer tx.Rollback()
 
-			gotList, err := store.getList(ctx, tx, tt.item.ListID)
+			gotList, err := getList(ctx, tx, tt.item.ListID)
 			if err != nil {
 				t.Fatalf("failed to get list after create: %v", err)
 			}
@@ -3066,7 +3066,7 @@ func TestUpdateItem(t *testing.T) {
 
 			defer tx.Rollback()
 
-			gotList, err := store.getList(ctx, tx, item.ListID)
+			gotList, err := getList(ctx, tx, item.ListID)
 			if err != nil {
 				t.Fatalf("failed to get list after update: %v", err)
 			}
@@ -3329,7 +3329,7 @@ func TestDeleteItem(t *testing.T) {
 			}
 
 			tx, _ := store.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-			items, err := store.listAllItems(ctx, tx)
+			items, err := listAllItems(ctx, tx)
 			tx.Rollback()
 			if err != nil {
 				t.Fatalf("failed to get all items: %v", err)

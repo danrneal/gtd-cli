@@ -39,7 +39,7 @@ func NewClient(filepath string, logger *slog.Logger) *Client {
 }
 
 // GetKey extracts the ID from the resource.
-func (c *Client) GetKey(resource model.Resource) string {
+func (*Client) GetKey(resource model.Resource) string {
 	if id := resource.GetID(); id != "" {
 		return id
 	}
@@ -123,7 +123,7 @@ func (c *Client) UpdateList(_ context.Context, list, currentList *model.List) er
 
 	itemsToMove := calculateItemsToMove(list, currentList.Items)
 	for _, item := range itemsToMove {
-		err = c.moveItem(lists, item, idx)
+		err = moveItem(lists, item, idx)
 		if err != nil {
 			return err
 		}
@@ -252,7 +252,7 @@ func (c *Client) UpdateItem(ctx context.Context, item *model.Item) error {
 
 // moveItem safely extracts an item from its source list (if it exists)
 // and inserts it into the specified destination list at the correct position.
-func (c *Client) moveItem(lists []model.List, item *model.Item, destinationListIdx int) error {
+func moveItem(lists []model.List, item *model.Item, destinationListIdx int) error {
 	sourceListIdx := slices.IndexFunc(lists, func(l model.List) bool {
 		return l.ID == item.ListID
 	})
