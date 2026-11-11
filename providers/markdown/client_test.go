@@ -162,9 +162,9 @@ func TestClient_CreateList(t *testing.T) {
 		{
 			name: "writeFile error",
 			setup: func(t *testing.T) string {
-				path := filepath.Join(t.TempDir(), "dir.md")
-				if err := os.Mkdir(path, 0o755); err != nil {
-					t.Fatalf("failed to create directory: %v", err)
+				path := filepath.Join(t.TempDir(), "readonly.md")
+				if err := os.WriteFile(path, []byte("# Inbox (0)\n\n"), 0o400); err != nil {
+					t.Fatalf("failed to create read-only file: %v", err)
 				}
 
 				return path
@@ -175,7 +175,7 @@ func TestClient_CreateList(t *testing.T) {
 				Modified: modified,
 			},
 			want:    nil,
-			wantErr: syscall.EISDIR,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "success (bootstraps missing file)",
@@ -838,9 +838,9 @@ func TestClient_UpdateList(t *testing.T) {
 		{
 			name: "write file error",
 			setup: func(t *testing.T) string {
-				path := filepath.Join(t.TempDir(), "dir.md")
-				if err := os.Mkdir(path, 0o755); err != nil {
-					t.Fatalf("failed to create directory: %v", err)
+				path := filepath.Join(t.TempDir(), "readonly.md")
+				if err := os.WriteFile(path, []byte("# Inbox (0) {{list-1}}\n\n"), 0o400); err != nil {
+					t.Fatalf("failed to create read-only file: %v", err)
 				}
 
 				return path
@@ -851,7 +851,10 @@ func TestClient_UpdateList(t *testing.T) {
 				Status:   model.StatusOpen,
 				Modified: modified,
 			},
-			wantErr: syscall.EISDIR,
+			currentList: &model.List{
+				Name: "Inbox",
+			},
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "error: source list not found for move",
@@ -1085,9 +1088,9 @@ func TestClient_DeleteList(t *testing.T) {
 		{
 			name: "write file error",
 			setup: func(t *testing.T) string {
-				path := filepath.Join(t.TempDir(), "dir.md")
-				if err := os.Mkdir(path, 0o755); err != nil {
-					t.Fatalf("failed to create directory: %v", err)
+				path := filepath.Join(t.TempDir(), "readonly.md")
+				if err := os.WriteFile(path, []byte("# Inbox (0) {{list-1}}\n\n"), 0o400); err != nil {
+					t.Fatalf("failed to create read-only file: %v", err)
 				}
 
 				return path
@@ -1097,7 +1100,7 @@ func TestClient_DeleteList(t *testing.T) {
 				Modified: modified,
 			},
 			want:    nil,
-			wantErr: syscall.EISDIR,
+			wantErr: fs.ErrPermission,
 		},
 	}
 
@@ -1366,9 +1369,9 @@ func TestClient_CreateItem(t *testing.T) {
 		{
 			name: "write file error",
 			setup: func(t *testing.T) string {
-				path := filepath.Join(t.TempDir(), "dir.md")
-				if err := os.Mkdir(path, 0o755); err != nil {
-					t.Fatalf("failed to create directory: %v", err)
+				path := filepath.Join(t.TempDir(), "readonly.md")
+				if err := os.WriteFile(path, []byte("# Inbox (0) {{list-1}}\n\n"), 0o400); err != nil {
+					t.Fatalf("failed to create read-only file: %v", err)
 				}
 
 				return path
@@ -1378,7 +1381,7 @@ func TestClient_CreateItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			wantErr: syscall.EISDIR,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "success (bootstraps missing file)",
@@ -1643,9 +1646,10 @@ func TestClient_UpdateItem(t *testing.T) {
 		{
 			name: "write file error",
 			setup: func(t *testing.T) string {
-				path := filepath.Join(t.TempDir(), "dir.md")
-				if err := os.Mkdir(path, 0o755); err != nil {
-					t.Fatalf("failed to create directory: %v", err)
+				path := filepath.Join(t.TempDir(), "readonly.md")
+				content := "# Inbox (1) {{list-1}}\n* [ ] Task 1 {{item-1}}\n\n"
+				if err := os.WriteFile(path, []byte(content), 0o400); err != nil {
+					t.Fatalf("failed to create read-only file: %v", err)
 				}
 
 				return path
@@ -1656,7 +1660,7 @@ func TestClient_UpdateItem(t *testing.T) {
 				ID:       "item-1",
 				Modified: modified,
 			},
-			wantErr: syscall.EISDIR,
+			wantErr: fs.ErrPermission,
 		},
 	}
 
@@ -1839,9 +1843,10 @@ func TestClient_DeleteItem(t *testing.T) {
 		{
 			name: "write file error",
 			setup: func(t *testing.T) string {
-				path := filepath.Join(t.TempDir(), "dir.md")
-				if err := os.Mkdir(path, 0o755); err != nil {
-					t.Fatalf("failed to create directory: %v", err)
+				path := filepath.Join(t.TempDir(), "readonly.md")
+				content := "# Inbox (1) {{list-1}}\n* [ ] Task 1 {{item-1}}\n\n"
+				if err := os.WriteFile(path, []byte(content), 0o400); err != nil {
+					t.Fatalf("failed to create read-only file: %v", err)
 				}
 
 				return path
@@ -1851,7 +1856,7 @@ func TestClient_DeleteItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			wantErr: syscall.EISDIR,
+			wantErr: fs.ErrPermission,
 		},
 	}
 

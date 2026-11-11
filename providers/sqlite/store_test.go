@@ -1065,9 +1065,10 @@ func TestUpdateList(t *testing.T) {
 			},
 			setupList: func(id string) model.List {
 				list := model.List{
-					ID:     id,
-					Name:   "Attempted Change",
-					Status: model.StatusOpen,
+					ID:       id,
+					Name:     "Attempted Change",
+					Status:   model.StatusOpen,
+					Modified: time.Now(),
 					Items: []*model.Item{
 						{
 							ID:       "non-existent-item",
@@ -1080,10 +1081,11 @@ func TestUpdateList(t *testing.T) {
 				return list
 			},
 			wantList: &model.List{
+				ID:     "list-rollback",
 				Name:   "Stable Name",
 				Status: model.StatusOpen,
 			},
-			wantErr: model.ErrInvalidResource,
+			wantErr: ErrNotFound,
 		},
 		{
 			name: "invalid list (validation failed)",
@@ -1296,7 +1298,7 @@ func TestUpdateList(t *testing.T) {
 				t.Fatalf("UpdateList() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr != nil {
+			if tt.wantErr != nil && tt.wantList == nil {
 				return
 			}
 
@@ -1321,6 +1323,10 @@ func TestUpdateList(t *testing.T) {
 
 			if diff := cmp.Diff(*tt.wantList, gotList); diff != "" {
 				t.Errorf("UpdateList() mismatch (-want +got):\n%s", diff)
+			}
+
+			if tt.wantErr != nil {
+				return
 			}
 
 			tx, err := store.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
