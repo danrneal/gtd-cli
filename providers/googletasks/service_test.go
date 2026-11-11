@@ -16,6 +16,20 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// syntaxError is a test sentinel that matches any [json.SyntaxError] via [errors.Is].
+type syntaxError struct{}
+
+// Error returns a static description for test failure output.
+func (syntaxError) Error() string {
+	return "json syntax error"
+}
+
+// Is reports whether target wraps a [json.SyntaxError].
+func (syntaxError) Is(target error) bool {
+	_, ok := errors.AsType[*json.SyntaxError](target)
+	return ok
+}
+
 func TestTokenFromFile(t *testing.T) {
 	t.Parallel()
 	validToken := &oauth2.Token{
@@ -25,11 +39,10 @@ func TestTokenFromFile(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		setupFile     func(t *testing.T, dir string) string
-		wantToken     *oauth2.Token
-		wantErr       bool
-		wantErrTarget error
+		name      string
+		setupFile func(t *testing.T, dir string) string
+		wantToken *oauth2.Token
+		wantErr   error
 	}{
 		{
 			name: "valid token file",
@@ -47,16 +60,14 @@ func TestTokenFromFile(t *testing.T) {
 				return path
 			},
 			wantToken: validToken,
-			wantErr:   false,
 		},
 		{
 			name: "file not found",
 			setupFile: func(_ *testing.T, dir string) string {
 				return filepath.Join(dir, "nonexistent.json")
 			},
-			wantToken:     nil,
-			wantErr:       true,
-			wantErrTarget: fs.ErrNotExist,
+			wantToken: nil,
+			wantErr:   fs.ErrNotExist,
 		},
 		{
 			name: "invalid json",
@@ -69,7 +80,7 @@ func TestTokenFromFile(t *testing.T) {
 				return path
 			},
 			wantToken: nil,
-			wantErr:   true,
+			wantErr:   syntaxError{},
 		},
 	}
 
@@ -79,20 +90,13 @@ func TestTokenFromFile(t *testing.T) {
 
 			tmpDir := t.TempDir()
 			tokenFile := tt.setupFile(t, tmpDir)
+
 			gotToken, err := tokenFromFile(tokenFile)
-
-			if tt.wantErr {
-				if err == nil {
-					t.Error("tokenFromFile() expected error, got nil")
-				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Errorf("tokenFromFile() expected error target %v, got: %v", tt.wantErrTarget, err)
-				}
-
-				return
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("tokenFromFile() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if err != nil {
-				t.Errorf("tokenFromFile() unexpected error: %v", err)
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -117,28 +121,25 @@ func TestSaveToken(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		setupFile     func(t *testing.T, dir string) string
-		token         *oauth2.Token
-		wantErr       bool
-		wantErrTarget error
+		name      string
+		setupFile func(t *testing.T, dir string) string
+		token     *oauth2.Token
+		wantErr   error
 	}{
 		{
 			name: "valid save",
 			setupFile: func(_ *testing.T, dir string) string {
 				return filepath.Join(dir, "token.json")
 			},
-			token:   validToken,
-			wantErr: false,
+			token: validToken,
 		},
 		{
 			name: "invalid path",
 			setupFile: func(t *testing.T, dir string) string {
 				return "/invalid/path/that/does/not/exist/token.json"
 			},
-			token:         validToken,
-			wantErr:       true,
-			wantErrTarget: fs.ErrNotExist,
+			token:   validToken,
+			wantErr: fs.ErrNotExist,
 		},
 	}
 
@@ -148,20 +149,13 @@ func TestSaveToken(t *testing.T) {
 
 			tmpDir := t.TempDir()
 			tokenFile := tt.setupFile(t, tmpDir)
+
 			err := saveToken(tokenFile, tt.token)
-
-			if tt.wantErr {
-				if err == nil {
-					t.Error("saveToken() expected error, got nil")
-				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Errorf("saveToken() expected error target %v, got: %v", tt.wantErrTarget, err)
-				}
-
-				return
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("saveToken() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if err != nil {
-				t.Errorf("saveToken() unexpected error: %v", err)
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -217,7 +211,7 @@ func TestFileTokenSource_Token(t *testing.T) {
 		wantToken   *oauth2.Token
 		wantSave    bool
 		wantLog     bool
-		wantErr     bool
+		wantErr     error
 	}{
 		{
 			name: "token unchanged",
@@ -232,7 +226,6 @@ func TestFileTokenSource_Token(t *testing.T) {
 			wantToken: oldToken,
 			wantSave:  false,
 			wantLog:   false,
-			wantErr:   false,
 		},
 		{
 			name: "token refreshed",
@@ -247,7 +240,6 @@ func TestFileTokenSource_Token(t *testing.T) {
 			wantToken: newToken,
 			wantSave:  true,
 			wantLog:   false,
-			wantErr:   false,
 		},
 		{
 			name: "source error",
@@ -262,7 +254,7 @@ func TestFileTokenSource_Token(t *testing.T) {
 			wantToken: nil,
 			wantSave:  false,
 			wantLog:   false,
-			wantErr:   true,
+			wantErr:   fs.ErrNotExist,
 		},
 		{
 			name: "token refreshed but save fails",
@@ -277,7 +269,6 @@ func TestFileTokenSource_Token(t *testing.T) {
 			wantToken: newToken,
 			wantSave:  false,
 			wantLog:   true,
-			wantErr:   false,
 		},
 	}
 
@@ -303,17 +294,11 @@ func TestFileTokenSource_Token(t *testing.T) {
 			}
 
 			got, err := fts.Token()
-
-			if tt.wantErr {
-				if err == nil {
-					t.Error("Token() expected error, got nil")
-				}
-
-				return
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("Token() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if err != nil {
-				t.Errorf("Token() unexpected error: %v", err)
+			if tt.wantErr != nil {
 				return
 			}
 

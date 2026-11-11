@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 
@@ -63,7 +64,7 @@ func TestClient_CreateList(t *testing.T) {
 		setup   func(t *testing.T) string
 		list    *model.List
 		want    []model.List
-		wantErr bool
+		wantErr error
 	}{
 		{
 			name: "list created successfully",
@@ -111,7 +112,6 @@ func TestClient_CreateList(t *testing.T) {
 					Items:    []*model.Item{},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "invalid list",
@@ -125,7 +125,7 @@ func TestClient_CreateList(t *testing.T) {
 				Modified: modified,
 			},
 			want:    nil,
-			wantErr: true,
+			wantErr: model.ErrInvalidResource,
 		},
 		{
 			name: "cannot create list with status deleted",
@@ -139,7 +139,7 @@ func TestClient_CreateList(t *testing.T) {
 				Modified: modified,
 			},
 			want:    nil,
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "readFile error",
@@ -157,7 +157,7 @@ func TestClient_CreateList(t *testing.T) {
 				Modified: modified,
 			},
 			want:    nil,
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "writeFile error",
@@ -175,7 +175,7 @@ func TestClient_CreateList(t *testing.T) {
 				Modified: modified,
 			},
 			want:    nil,
-			wantErr: true,
+			wantErr: syscall.EISDIR,
 		},
 		{
 			name: "success (bootstraps missing file)",
@@ -196,7 +196,6 @@ func TestClient_CreateList(t *testing.T) {
 					Items:    []*model.Item{},
 				},
 			},
-			wantErr: false,
 		},
 	}
 
@@ -209,12 +208,11 @@ func TestClient_CreateList(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			err := client.CreateList(t.Context(), tt.list)
-
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("CreateList() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("CreateList() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -244,7 +242,7 @@ func TestClient_ListLists(t *testing.T) {
 		name    string
 		setup   func(t *testing.T) string
 		want    []model.List
-		wantErr bool
+		wantErr error
 	}{
 		{
 			name: "success",
@@ -280,7 +278,6 @@ func TestClient_ListLists(t *testing.T) {
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "api error",
@@ -293,7 +290,7 @@ func TestClient_ListLists(t *testing.T) {
 				return path
 			},
 			want:    nil,
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 	}
 
@@ -306,9 +303,8 @@ func TestClient_ListLists(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			got, err := client.ListLists(t.Context())
-
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("ListLists() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("ListLists() error mismatch (-want +got):\n%s", diff)
 			}
 
 			if diff := cmp.Diff(tt.want, got); diff != "" {
@@ -325,13 +321,12 @@ func TestClient_UpdateList(t *testing.T) {
 	created := time.Date(modified.Year(), modified.Month(), modified.Day(), 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name          string
-		setup         func(t *testing.T) string
-		list          *model.List
-		currentList   *model.List
-		want          []model.List
-		wantErr       bool
-		wantErrTarget error
+		name        string
+		setup       func(t *testing.T) string
+		list        *model.List
+		currentList *model.List
+		want        []model.List
+		wantErr     error
 	}{
 		{
 			name: "success (reorder list)",
@@ -386,7 +381,6 @@ func TestClient_UpdateList(t *testing.T) {
 					Items:    []*model.Item{},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "success (reorder list out of bounds)",
@@ -433,7 +427,6 @@ func TestClient_UpdateList(t *testing.T) {
 					Items:    []*model.Item{},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "success (backfill fallback)",
@@ -490,7 +483,6 @@ func TestClient_UpdateList(t *testing.T) {
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "success (rename only)",
@@ -548,7 +540,6 @@ func TestClient_UpdateList(t *testing.T) {
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "success (some items already in position)",
@@ -669,7 +660,6 @@ func TestClient_UpdateList(t *testing.T) {
 					Items:    []*model.Item{},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "success (reorder and relocate items)",
@@ -772,7 +762,6 @@ func TestClient_UpdateList(t *testing.T) {
 					Items:    []*model.Item{},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "invalid list",
@@ -794,7 +783,7 @@ func TestClient_UpdateList(t *testing.T) {
 				Name:  "Inbox",
 				Items: []*model.Item{},
 			},
-			wantErr: true,
+			wantErr: model.ErrInvalidResource,
 		},
 		{
 			name: "missing list ID",
@@ -808,7 +797,7 @@ func TestClient_UpdateList(t *testing.T) {
 				Status:   model.StatusOpen,
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "read file error",
@@ -826,8 +815,7 @@ func TestClient_UpdateList(t *testing.T) {
 				Status:   model.StatusOpen,
 				Modified: modified,
 			},
-			wantErr:       true,
-			wantErrTarget: fs.ErrPermission,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "list not found",
@@ -845,7 +833,7 @@ func TestClient_UpdateList(t *testing.T) {
 				Status:   model.StatusOpen,
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "write file error",
@@ -863,7 +851,7 @@ func TestClient_UpdateList(t *testing.T) {
 				Status:   model.StatusOpen,
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: syscall.EISDIR,
 		},
 		{
 			name: "error: source list not found for move",
@@ -900,7 +888,7 @@ func TestClient_UpdateList(t *testing.T) {
 			currentList: &model.List{
 				Name: "Inbox",
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "error: item not found in source list",
@@ -956,7 +944,7 @@ func TestClient_UpdateList(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 	}
 
@@ -969,18 +957,11 @@ func TestClient_UpdateList(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			err := client.UpdateList(t.Context(), tt.list, tt.currentList)
-
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("UpdateList() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("UpdateList() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
-				if err == nil {
-					t.Error("UpdateList() expected error, got nil")
-				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Errorf("UpdateList() expected error target %v, got: %v", tt.wantErrTarget, err)
-				}
-
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -1008,12 +989,11 @@ func TestClient_DeleteList(t *testing.T) {
 	created := time.Date(modified.Year(), modified.Month(), modified.Day(), 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name          string
-		setup         func(t *testing.T) string
-		list          *model.List
-		want          []model.List
-		wantErr       bool
-		wantErrTarget error
+		name    string
+		setup   func(t *testing.T) string
+		list    *model.List
+		want    []model.List
+		wantErr error
 	}{
 		{
 			name: "success",
@@ -1055,7 +1035,6 @@ func TestClient_DeleteList(t *testing.T) {
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "empty list id",
@@ -1067,7 +1046,7 @@ func TestClient_DeleteList(t *testing.T) {
 				Modified: modified,
 			},
 			want:    nil,
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "read file error",
@@ -1083,9 +1062,8 @@ func TestClient_DeleteList(t *testing.T) {
 				ID:       "list-1",
 				Modified: modified,
 			},
-			want:          nil,
-			wantErr:       true,
-			wantErrTarget: fs.ErrPermission,
+			want:    nil,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "list not found",
@@ -1102,7 +1080,7 @@ func TestClient_DeleteList(t *testing.T) {
 				Modified: modified,
 			},
 			want:    nil,
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "write file error",
@@ -1119,7 +1097,7 @@ func TestClient_DeleteList(t *testing.T) {
 				Modified: modified,
 			},
 			want:    nil,
-			wantErr: true,
+			wantErr: syscall.EISDIR,
 		},
 	}
 
@@ -1132,18 +1110,11 @@ func TestClient_DeleteList(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			err := client.DeleteList(t.Context(), tt.list)
-
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("DeleteList() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("DeleteList() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
-				if err == nil {
-					t.Error("DeleteList() expected error, got nil")
-				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Errorf("DeleteList() expected error target %v, got: %v", tt.wantErrTarget, err)
-				}
-
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -1176,8 +1147,7 @@ func TestClient_CreateItem(t *testing.T) {
 		item           *model.Item
 		previousItemID string
 		want           []model.List
-		wantErr        bool
-		wantErrTarget  error
+		wantErr        error
 	}{
 		{
 			name: "success (insert at top - no previous item)",
@@ -1230,7 +1200,6 @@ func TestClient_CreateItem(t *testing.T) {
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "success (insert after previous item)",
@@ -1293,7 +1262,6 @@ func TestClient_CreateItem(t *testing.T) {
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "invalid item",
@@ -1310,7 +1278,7 @@ func TestClient_CreateItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: model.ErrInvalidResource,
 		},
 		{
 			name: "cannot create item with status deleted",
@@ -1328,7 +1296,7 @@ func TestClient_CreateItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "missing list ID",
@@ -1341,7 +1309,7 @@ func TestClient_CreateItem(t *testing.T) {
 				ExternalListID: new("ext-list-1"),
 				Modified:       modified,
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "read file error",
@@ -1358,8 +1326,7 @@ func TestClient_CreateItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			wantErr:       true,
-			wantErrTarget: fs.ErrPermission,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "list not found",
@@ -1376,7 +1343,7 @@ func TestClient_CreateItem(t *testing.T) {
 				ListID:   "nonexistent-list",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "prevItem not found",
@@ -1394,7 +1361,7 @@ func TestClient_CreateItem(t *testing.T) {
 				Modified: modified,
 			},
 			previousItemID: "ghost-item",
-			wantErr:        true,
+			wantErr:        cmpopts.AnyError,
 		},
 		{
 			name: "write file error",
@@ -1411,7 +1378,7 @@ func TestClient_CreateItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: syscall.EISDIR,
 		},
 		{
 			name: "success (bootstraps missing file)",
@@ -1423,7 +1390,7 @@ func TestClient_CreateItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 	}
 
@@ -1436,18 +1403,11 @@ func TestClient_CreateItem(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			err := client.CreateItem(t.Context(), tt.item, tt.previousItemID)
-
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("CreateItem() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("CreateItem() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
-				if err == nil {
-					t.Error("CreateItem() expected error, got nil")
-				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Errorf("CreateItem() expected error target %v, got: %v", tt.wantErrTarget, err)
-				}
-
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -1475,12 +1435,11 @@ func TestClient_UpdateItem(t *testing.T) {
 	created := time.Date(modified.Year(), modified.Month(), modified.Day(), 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name          string
-		setup         func(t *testing.T) string
-		item          *model.Item
-		want          []model.List
-		wantErr       bool
-		wantErrTarget error
+		name    string
+		setup   func(t *testing.T) string
+		item    *model.Item
+		want    []model.List
+		wantErr error
 	}{
 		{
 			name: "success (backfill fallback)",
@@ -1525,7 +1484,6 @@ func TestClient_UpdateItem(t *testing.T) {
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "success",
@@ -1570,7 +1528,6 @@ func TestClient_UpdateItem(t *testing.T) {
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "invalid item",
@@ -1589,7 +1546,7 @@ func TestClient_UpdateItem(t *testing.T) {
 				ID:       "item-1",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: model.ErrInvalidResource,
 		},
 		{
 			name: "missing item ID",
@@ -1608,7 +1565,7 @@ func TestClient_UpdateItem(t *testing.T) {
 				ID:       "",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "missing list ID",
@@ -1627,7 +1584,7 @@ func TestClient_UpdateItem(t *testing.T) {
 				ID:       "item-1",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "read file error",
@@ -1645,8 +1602,7 @@ func TestClient_UpdateItem(t *testing.T) {
 				ID:       "item-1",
 				Modified: modified,
 			},
-			wantErr:       true,
-			wantErrTarget: fs.ErrPermission,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "list not found",
@@ -1664,7 +1620,7 @@ func TestClient_UpdateItem(t *testing.T) {
 				ID:       "item-1",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "item not found",
@@ -1682,7 +1638,7 @@ func TestClient_UpdateItem(t *testing.T) {
 				ID:       "nonexistent-item",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "write file error",
@@ -1700,7 +1656,7 @@ func TestClient_UpdateItem(t *testing.T) {
 				ID:       "item-1",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: syscall.EISDIR,
 		},
 	}
 
@@ -1713,18 +1669,11 @@ func TestClient_UpdateItem(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			err := client.UpdateItem(t.Context(), tt.item)
-
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("UpdateItem() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("UpdateItem() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
-				if err == nil {
-					t.Error("UpdateItem() expected error, got nil")
-				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Errorf("UpdateItem() expected error target %v, got: %v", tt.wantErrTarget, err)
-				}
-
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -1752,12 +1701,11 @@ func TestClient_DeleteItem(t *testing.T) {
 	created := time.Date(modified.Year(), modified.Month(), modified.Day(), 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name          string
-		setup         func(t *testing.T) string
-		item          *model.Item
-		want          []model.List
-		wantErr       bool
-		wantErrTarget error
+		name    string
+		setup   func(t *testing.T) string
+		item    *model.Item
+		want    []model.List
+		wantErr error
 	}{
 		{
 			name: "success",
@@ -1800,7 +1748,6 @@ func TestClient_DeleteItem(t *testing.T) {
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "item id missing",
@@ -1818,7 +1765,7 @@ func TestClient_DeleteItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "list id missing",
@@ -1836,7 +1783,7 @@ func TestClient_DeleteItem(t *testing.T) {
 				ListID:   "",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "read file error",
@@ -1853,8 +1800,7 @@ func TestClient_DeleteItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			wantErr:       true,
-			wantErrTarget: fs.ErrPermission,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "list not found",
@@ -1871,7 +1817,7 @@ func TestClient_DeleteItem(t *testing.T) {
 				ListID:   "nonexistent-list",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "item not found",
@@ -1888,7 +1834,7 @@ func TestClient_DeleteItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "write file error",
@@ -1905,7 +1851,7 @@ func TestClient_DeleteItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			wantErr: true,
+			wantErr: syscall.EISDIR,
 		},
 	}
 
@@ -1918,18 +1864,11 @@ func TestClient_DeleteItem(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			err := client.DeleteItem(t.Context(), tt.item)
-
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("DeleteItem() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("DeleteItem() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
-				if err == nil {
-					t.Error("DeleteItem() expected error, got nil")
-				} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Errorf("DeleteItem() expected error target %v, got: %v", tt.wantErrTarget, err)
-				}
-
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -1957,12 +1896,11 @@ func TestClient_readFile(t *testing.T) {
 	created := time.Date(modified.Year(), modified.Month(), modified.Day(), 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name          string
-		setup         func(t *testing.T) string
-		wantLists     []model.List
-		wantContent   string
-		wantErr       bool
-		wantErrTarget error
+		name        string
+		setup       func(t *testing.T) string
+		wantLists   []model.List
+		wantContent string
+		wantErr     error
 	}{
 		{
 			name: "valid file",
@@ -2044,7 +1982,7 @@ func TestClient_readFile(t *testing.T) {
 				return path
 			},
 			wantLists: nil,
-			wantErr:   true,
+			wantErr:   fs.ErrNotExist,
 		},
 		{
 			name: "failed to open markdown file",
@@ -2057,7 +1995,7 @@ func TestClient_readFile(t *testing.T) {
 				return path
 			},
 			wantLists: nil,
-			wantErr:   true,
+			wantErr:   fs.ErrPermission,
 		},
 		{
 			name: "failed to self-heal markdown file",
@@ -2072,7 +2010,7 @@ func TestClient_readFile(t *testing.T) {
 				return path
 			},
 			wantLists: nil,
-			wantErr:   true,
+			wantErr:   fs.ErrPermission,
 		},
 		{
 			name: "returns ErrNotExist for 0-byte file",
@@ -2084,8 +2022,7 @@ func TestClient_readFile(t *testing.T) {
 
 				return path
 			},
-			wantErr:       true,
-			wantErrTarget: fs.ErrNotExist,
+			wantErr: fs.ErrNotExist,
 		},
 	}
 
@@ -2098,17 +2035,15 @@ func TestClient_readFile(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			gotLists, err := client.readFile()
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("readFile() error = %v, wantErr %v", err, tt.wantErr)
-			} else if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-				t.Fatalf("readFile() error = %v, wantErrTarget %v", err, tt.wantErrTarget)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("readFile() error mismatch (-want +got):\n%s", diff)
 			}
 
 			if diff := cmp.Diff(tt.wantLists, gotLists); diff != "" {
 				t.Errorf("readFile() mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -2131,14 +2066,13 @@ func TestClient_writeFile(t *testing.T) {
 	created := time.Date(modified.Year(), modified.Month(), modified.Day(), 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name          string
-		setup         func(t *testing.T) string
-		lists         []model.List
-		opts          []writeOption
-		want          string
-		wantModTime   *time.Time
-		wantErr       bool
-		wantErrTarget error
+		name        string
+		setup       func(t *testing.T) string
+		lists       []model.List
+		opts        []writeOption
+		want        string
+		wantModTime *time.Time
+		wantErr     error
 	}{
 		{
 			name: "successfully write file",
@@ -2216,7 +2150,7 @@ func TestClient_writeFile(t *testing.T) {
 				},
 			},
 			want:    "initial content",
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "failed to open markdown file for writing",
@@ -2228,10 +2162,9 @@ func TestClient_writeFile(t *testing.T) {
 
 				return path
 			},
-			lists:         nil,
-			want:          "# Inbox",
-			wantErr:       true,
-			wantErrTarget: fs.ErrPermission,
+			lists:   nil,
+			want:    "# Inbox",
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "failed to write to markdown file",
@@ -2255,7 +2188,7 @@ func TestClient_writeFile(t *testing.T) {
 				},
 			},
 			want:    "",
-			wantErr: true,
+			wantErr: syscall.ENOSPC,
 		},
 	}
 
@@ -2268,16 +2201,11 @@ func TestClient_writeFile(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			err := client.writeFile(tt.lists, tt.opts...)
-
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("writeFile() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("writeFile() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
-				if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Errorf("writeFile() expected error target %v, got: %v", tt.wantErrTarget, err)
-				}
-
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -2293,7 +2221,7 @@ func TestClient_writeFile(t *testing.T) {
 				}
 			}
 
-			if !tt.wantErr && client.lastModTime.IsZero() {
+			if client.lastModTime.IsZero() {
 				t.Fatal("expected lastModTime to be updated after successful mutation")
 			}
 

@@ -60,7 +60,7 @@ func TestCreateList(t *testing.T) {
 		list           *model.List
 		setupFake      func(fake *googletaskstest.FakeGoogleTasks)
 		wantExternalID string
-		wantErr        bool
+		wantErr        error
 	}{
 		{
 			name: "success",
@@ -70,7 +70,6 @@ func TestCreateList(t *testing.T) {
 			},
 			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
 			wantExternalID: "external-list-1",
-			wantErr:        false,
 		},
 		{
 			name: "invalid status for new list",
@@ -80,7 +79,7 @@ func TestCreateList(t *testing.T) {
 				Modified: time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
-			wantErr:   true,
+			wantErr:   cmpopts.AnyError,
 		},
 		{
 			name: "cannot create list with existing external id",
@@ -90,7 +89,7 @@ func TestCreateList(t *testing.T) {
 				Modified:   time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
-			wantErr:   true,
+			wantErr:   cmpopts.AnyError,
 		},
 		{
 			name: "invalid list (validation failed)",
@@ -98,7 +97,7 @@ func TestCreateList(t *testing.T) {
 				Name: "",
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
-			wantErr:   true,
+			wantErr:   model.ErrInvalidResource,
 		},
 		{
 			name: "api error",
@@ -109,7 +108,7 @@ func TestCreateList(t *testing.T) {
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.FailInsertTaskList = true
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 	}
 
@@ -133,12 +132,11 @@ func TestCreateList(t *testing.T) {
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			err = tasksClient.CreateList(t.Context(), tt.list)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CreateList() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("CreateList() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -761,17 +759,11 @@ func TestListLists(t *testing.T) {
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			got, err := tasksClient.ListLists(t.Context())
-
-			if tt.wantErr {
-				if err == nil {
-					t.Error("ListLists() expected error, got nil")
-				}
-
-				return
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ListLists() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if err != nil {
-				t.Errorf("ListLists() unexpected error: %v", err)
+			if tt.wantErr {
 				return
 			}
 
@@ -792,7 +784,7 @@ func TestUpdateList(t *testing.T) {
 		setupFake    func(fake *googletaskstest.FakeGoogleTasks)
 		wantTaskList *tasks.TaskList
 		wantTasks    []*tasks.Task
-		wantErr      bool
+		wantErr      error
 	}{
 		{
 			name: "success (no updates needed)",
@@ -867,7 +859,6 @@ func TestUpdateList(t *testing.T) {
 					Status: "completed",
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "success (rename only)",
@@ -889,7 +880,6 @@ func TestUpdateList(t *testing.T) {
 				Id:    "L1",
 				Title: "Updated List",
 			},
-			wantErr: false,
 		},
 		{
 			name: "success with reordering",
@@ -941,7 +931,6 @@ func TestUpdateList(t *testing.T) {
 				{Id: "B"},
 				{Id: "C"},
 			},
-			wantErr: false,
 		},
 		{
 			name: "success (completed items ignored during reorder)",
@@ -1028,7 +1017,6 @@ func TestUpdateList(t *testing.T) {
 				{Id: "C"},
 				{Id: "D"},
 			},
-			wantErr: false,
 		},
 		{
 			name: "success with relocation (change list)",
@@ -1072,7 +1060,6 @@ func TestUpdateList(t *testing.T) {
 			wantTasks: []*tasks.Task{
 				{Id: "A"},
 			},
-			wantErr: false,
 		},
 		{
 			name: "success with relocation and reorder",
@@ -1120,7 +1107,6 @@ func TestUpdateList(t *testing.T) {
 				{Id: "B"},
 				{Id: "A"},
 			},
-			wantErr: false,
 		},
 		{
 			name: "missing external id",
@@ -1129,7 +1115,7 @@ func TestUpdateList(t *testing.T) {
 				Modified: time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
-			wantErr:   true,
+			wantErr:   cmpopts.AnyError,
 		},
 		{
 			name: "invalid list (validation failed)",
@@ -1138,7 +1124,7 @@ func TestUpdateList(t *testing.T) {
 				Name:       "",
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
-			wantErr:   true,
+			wantErr:   model.ErrInvalidResource,
 		},
 		{
 			name: "update failure",
@@ -1153,7 +1139,7 @@ func TestUpdateList(t *testing.T) {
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.FailPatchTaskList = true
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "move failure",
@@ -1182,7 +1168,7 @@ func TestUpdateList(t *testing.T) {
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.FailMoveTask = true
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "success (skips done item with nil external list ID)",
@@ -1220,7 +1206,6 @@ func TestUpdateList(t *testing.T) {
 			wantTasks: []*tasks.Task{
 				{Id: "A"},
 			},
-			wantErr: false,
 		},
 		{
 			name: "success (moves done item to new list)",
@@ -1266,7 +1251,6 @@ func TestUpdateList(t *testing.T) {
 			wantTasks: []*tasks.Task{
 				{Id: "A"},
 			},
-			wantErr: false,
 		},
 	}
 
@@ -1290,12 +1274,11 @@ func TestUpdateList(t *testing.T) {
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			err = tasksClient.UpdateList(t.Context(), tt.list, tt.currentList)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UpdateList() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("UpdateList() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -1404,7 +1387,7 @@ func TestCreateItem(t *testing.T) {
 		setupFake      func(fake *googletaskstest.FakeGoogleTasks)
 		wantTask       *tasks.Task
 		wantExternalID string
-		wantErr        bool
+		wantErr        error
 	}{
 		{
 			name:   "simple item",
@@ -1423,7 +1406,6 @@ func TestCreateItem(t *testing.T) {
 				Status: "needsAction",
 			},
 			wantExternalID: "external-task-1",
-			wantErr:        false,
 		},
 		{
 			name:   "title with project tag",
@@ -1443,7 +1425,6 @@ func TestCreateItem(t *testing.T) {
 				Status: "needsAction",
 			},
 			wantExternalID: "external-task-1",
-			wantErr:        false,
 		},
 		{
 			name:   "title with due",
@@ -1463,7 +1444,6 @@ func TestCreateItem(t *testing.T) {
 				Status: "needsAction",
 			},
 			wantExternalID: "external-task-1",
-			wantErr:        false,
 		},
 		{
 			name:   "title with multiple tags",
@@ -1483,7 +1463,6 @@ func TestCreateItem(t *testing.T) {
 				Status: "needsAction",
 			},
 			wantExternalID: "external-task-1",
-			wantErr:        false,
 		},
 		{
 			name:   "title with waiting on",
@@ -1504,7 +1483,6 @@ func TestCreateItem(t *testing.T) {
 				Status: "needsAction",
 			},
 			wantExternalID: "external-task-1",
-			wantErr:        false,
 		},
 		{
 			name:   "invalid item (validation failed)",
@@ -1518,7 +1496,7 @@ func TestCreateItem(t *testing.T) {
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.Tasks["L1"] = []*tasks.Task{}
 			},
-			wantErr: true,
+			wantErr: model.ErrInvalidResource,
 		},
 		{
 			name:   "completed item",
@@ -1538,7 +1516,6 @@ func TestCreateItem(t *testing.T) {
 				Status: "completed",
 			},
 			wantExternalID: "external-task-1",
-			wantErr:        false,
 		},
 		{
 			name:   "snoozed item",
@@ -1559,7 +1536,6 @@ func TestCreateItem(t *testing.T) {
 				Due:    "2024-01-01T00:00:00Z",
 			},
 			wantExternalID: "external-task-1",
-			wantErr:        false,
 		},
 		{
 			name:   "item with previous",
@@ -1583,7 +1559,6 @@ func TestCreateItem(t *testing.T) {
 				Status: "needsAction",
 			},
 			wantExternalID: "external-task-1",
-			wantErr:        false,
 		},
 		{
 			name:   "cannot create deleted item",
@@ -1598,7 +1573,7 @@ func TestCreateItem(t *testing.T) {
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.Tasks["L1"] = []*tasks.Task{}
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name:   "cannot create item with existing external id",
@@ -1613,7 +1588,7 @@ func TestCreateItem(t *testing.T) {
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.Tasks["L1"] = []*tasks.Task{}
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name:   "missing external list id",
@@ -1624,7 +1599,7 @@ func TestCreateItem(t *testing.T) {
 				Modified: time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
-			wantErr:   true,
+			wantErr:   cmpopts.AnyError,
 		},
 		{
 			name:   "api error",
@@ -1638,7 +1613,7 @@ func TestCreateItem(t *testing.T) {
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.FailInsertTask = true
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 	}
 
@@ -1662,12 +1637,11 @@ func TestCreateItem(t *testing.T) {
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			err = tasksClient.CreateItem(t.Context(), tt.item, tt.previousItemID)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CreateItem() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("CreateItem() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -1704,7 +1678,7 @@ func TestUpdateItem(t *testing.T) {
 		item      *model.Item
 		setupFake func(fake *googletaskstest.FakeGoogleTasks)
 		wantTask  *tasks.Task
-		wantErr   bool
+		wantErr   error
 	}{
 		{
 			name:   "simple item",
@@ -1732,7 +1706,6 @@ func TestUpdateItem(t *testing.T) {
 				Due:    "2024-01-01T00:00:00Z",
 				Status: "needsAction",
 			},
-			wantErr: false,
 		},
 		{
 			name:   "title with project tag",
@@ -1754,7 +1727,6 @@ func TestUpdateItem(t *testing.T) {
 				Title:  "Task +P1",
 				Status: "needsAction",
 			},
-			wantErr: false,
 		},
 		{
 			name:   "title with due",
@@ -1776,7 +1748,6 @@ func TestUpdateItem(t *testing.T) {
 				Title:  "Task due:2024-12-31",
 				Status: "needsAction",
 			},
-			wantErr: false,
 		},
 		{
 			name:   "title with multiple tags",
@@ -1798,7 +1769,6 @@ func TestUpdateItem(t *testing.T) {
 				Title:  "Task #t1 #t2",
 				Status: "needsAction",
 			},
-			wantErr: false,
 		},
 		{
 			name:   "title with waiting on",
@@ -1821,7 +1791,6 @@ func TestUpdateItem(t *testing.T) {
 				Title:  "Alice - Task - 2024-01-02",
 				Status: "needsAction",
 			},
-			wantErr: false,
 		},
 		{
 			name:   "completed item",
@@ -1850,7 +1819,6 @@ func TestUpdateItem(t *testing.T) {
 				Due:    "2024-01-01T00:00:00Z",
 				Status: "completed",
 			},
-			wantErr: false,
 		},
 		{
 			name:   "snoozed item",
@@ -1875,7 +1843,6 @@ func TestUpdateItem(t *testing.T) {
 				Due:    "2024-01-01T00:00:00Z",
 				Status: "needsAction",
 			},
-			wantErr: false,
 		},
 		{
 			name:   "clear description and snoozed date",
@@ -1904,7 +1871,6 @@ func TestUpdateItem(t *testing.T) {
 				Notes:  "",
 				Status: "needsAction",
 			},
-			wantErr: false,
 		},
 		{
 			name: "invalid item (validation failed)",
@@ -1920,7 +1886,7 @@ func TestUpdateItem(t *testing.T) {
 					{Id: "T1"},
 				}
 			},
-			wantErr: true,
+			wantErr: model.ErrInvalidResource,
 		},
 		{
 			name: "missing external identifiers",
@@ -1930,7 +1896,7 @@ func TestUpdateItem(t *testing.T) {
 				Modified: time.Now(),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
-			wantErr:   true,
+			wantErr:   cmpopts.AnyError,
 		},
 		{
 			name: "missing external list ID (one nil)",
@@ -1941,7 +1907,7 @@ func TestUpdateItem(t *testing.T) {
 				ExternalID: new("T1"),
 			},
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
-			wantErr:   true,
+			wantErr:   cmpopts.AnyError,
 		},
 		{
 			name: "api error",
@@ -1957,7 +1923,7 @@ func TestUpdateItem(t *testing.T) {
 			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
 				fake.FailPatchTask = true
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 	}
 
@@ -1981,12 +1947,11 @@ func TestUpdateItem(t *testing.T) {
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			err = tasksClient.UpdateItem(t.Context(), tt.item)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UpdateItem() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("UpdateItem() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
+			if tt.wantErr != nil {
 				return
 			}
 

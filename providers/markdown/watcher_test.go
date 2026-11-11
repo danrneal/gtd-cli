@@ -2,6 +2,7 @@ package markdown
 
 import (
 	"context"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -10,6 +11,8 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestClient_Watch(t *testing.T) {
@@ -18,7 +21,7 @@ func TestClient_Watch(t *testing.T) {
 	tests := []struct {
 		name    string
 		setup   func(t *testing.T) string
-		wantErr bool
+		wantErr error
 		verify  func(t *testing.T, client *Client, events <-chan error, cancel context.CancelFunc)
 	}{
 		{
@@ -32,7 +35,6 @@ func TestClient_Watch(t *testing.T) {
 
 				return path
 			},
-			wantErr: false,
 			verify: func(t *testing.T, client *Client, events <-chan error, cancel context.CancelFunc) {
 				if err := os.WriteFile(client.filepath, []byte("valid edit"), 0o600); err != nil {
 					t.Fatalf("failed to trigger fsnotify: %v", err)
@@ -57,7 +59,7 @@ func TestClient_Watch(t *testing.T) {
 			setup: func(t *testing.T) string {
 				return "/does/not/exist/gtd.md"
 			},
-			wantErr: true,
+			wantErr: fs.ErrNotExist,
 		},
 	}
 
@@ -73,12 +75,11 @@ func TestClient_Watch(t *testing.T) {
 			defer cancel()
 
 			events, err := client.Watch(ctx)
-
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("Watch() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("Watch() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
+			if tt.wantErr != nil {
 				return
 			}
 

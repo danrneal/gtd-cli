@@ -19,6 +19,20 @@ import (
 	"github.com/danrneal/gtd-cli/model"
 )
 
+// syntaxError is a test sentinel that matches any [json.SyntaxError] via [errors.Is].
+type syntaxError struct{}
+
+// Error returns a static description for test failure output.
+func (syntaxError) Error() string {
+	return "json syntax error"
+}
+
+// Is reports whether target wraps a [json.SyntaxError].
+func (syntaxError) Is(target error) bool {
+	_, ok := errors.AsType[*json.SyntaxError](target)
+	return ok
+}
+
 func TestNewStore(t *testing.T) {
 	t.Parallel()
 
@@ -112,9 +126,8 @@ func TestStore_Close(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		setup   func(t *testing.T) *Store
-		wantErr bool
+		name  string
+		setup func(t *testing.T) *Store
 	}{
 		{
 			name: "success",
@@ -128,14 +141,12 @@ func TestStore_Close(t *testing.T) {
 
 				return store
 			},
-			wantErr: false,
 		},
 		{
 			name: "nil db",
 			setup: func(t *testing.T) *Store {
 				return &Store{db: nil}
 			},
-			wantErr: false,
 		},
 	}
 
@@ -144,10 +155,8 @@ func TestStore_Close(t *testing.T) {
 			t.Parallel()
 
 			store := tt.setup(t)
-			err := store.Close()
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Close() error = %v, wantErr %v", err, tt.wantErr)
+			if err := store.Close(); err != nil {
+				t.Errorf("Close() unexpected error: %v", err)
 			}
 		})
 	}
@@ -161,7 +170,7 @@ func TestCreateList(t *testing.T) {
 		list     *model.List
 		setupCtx func() (context.Context, context.CancelFunc)
 		wantList *model.List
-		wantErr  bool
+		wantErr  error
 	}{
 		{
 			name: "honor provided list id",
@@ -199,7 +208,7 @@ func TestCreateList(t *testing.T) {
 				Status:   model.StatusDeleted,
 				Modified: time.Now(),
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "invalid list (validation failed)",
@@ -207,7 +216,7 @@ func TestCreateList(t *testing.T) {
 				Name:     "",
 				Modified: time.Now(),
 			},
-			wantErr: true,
+			wantErr: model.ErrInvalidResource,
 		},
 		{
 			name: "canceled context",
@@ -221,7 +230,7 @@ func TestCreateList(t *testing.T) {
 
 				return ctx, cancel
 			},
-			wantErr: true,
+			wantErr: context.Canceled,
 		},
 	}
 
@@ -252,12 +261,11 @@ func TestCreateList(t *testing.T) {
 			defer store.Close()
 
 			err = store.CreateList(ctx, tt.list)
-
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("CreateList() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("CreateList() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -312,7 +320,7 @@ func TestListLists(t *testing.T) {
 		setupDB   func(t *testing.T, db *sql.DB)
 		setupCtx  func() (context.Context, context.CancelFunc)
 		wantLists []model.List
-		wantErr   bool
+		wantErr   error
 	}{
 		{
 			name:    "empty db",
@@ -461,7 +469,7 @@ func TestListLists(t *testing.T) {
 					`, "item-3", "Task 3", "", "list-4", "", `{badjson`, time.Now(), time.Now(),
 				)
 			},
-			wantErr: true,
+			wantErr: syntaxError{},
 		},
 		{
 			name: "context cancellation",
@@ -479,7 +487,7 @@ func TestListLists(t *testing.T) {
 
 				return ctx, cancel
 			},
-			wantErr: true,
+			wantErr: context.Canceled,
 		},
 	}
 
@@ -521,12 +529,11 @@ func TestListLists(t *testing.T) {
 			}
 
 			lists, err := store.ListLists(ctx)
-
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("ListLists() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("ListLists() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -546,15 +553,14 @@ func TestUpdateList(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name          string
-		setupDB       func(t *testing.T, db *sql.DB) string
-		setupList     func(id string) model.List
-		setupCurrent  func() *model.List
-		setupCtx      func() (context.Context, context.CancelFunc)
-		wantList      *model.List
-		wantItems     []*model.Item
-		wantErr       bool
-		wantErrTarget error
+		name         string
+		setupDB      func(t *testing.T, db *sql.DB) string
+		setupList    func(id string) model.List
+		setupCurrent func() *model.List
+		setupCtx     func() (context.Context, context.CancelFunc)
+		wantList     *model.List
+		wantItems    []*model.Item
+		wantErr      error
 	}{
 		{
 			name: "valid update (rename and reorder)",
@@ -1022,7 +1028,7 @@ func TestUpdateList(t *testing.T) {
 
 				return list
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "update list with nonexistent external id",
@@ -1038,8 +1044,7 @@ func TestUpdateList(t *testing.T) {
 
 				return list
 			},
-			wantErr:       true,
-			wantErrTarget: ErrNotFound,
+			wantErr: ErrNotFound,
 		},
 		{
 			name: "transaction rollback on item failure",
@@ -1078,7 +1083,7 @@ func TestUpdateList(t *testing.T) {
 				Name:   "Stable Name",
 				Status: model.StatusOpen,
 			},
-			wantErr: true,
+			wantErr: model.ErrInvalidResource,
 		},
 		{
 			name: "invalid list (validation failed)",
@@ -1101,7 +1106,7 @@ func TestUpdateList(t *testing.T) {
 
 				return list
 			},
-			wantErr: true,
+			wantErr: model.ErrInvalidResource,
 		},
 		{
 			name: "nonexistent id",
@@ -1117,8 +1122,7 @@ func TestUpdateList(t *testing.T) {
 
 				return list
 			},
-			wantErr:       true,
-			wantErrTarget: ErrNotFound,
+			wantErr: ErrNotFound,
 		},
 		{
 			name: "missing item identifiers",
@@ -1147,7 +1151,7 @@ func TestUpdateList(t *testing.T) {
 
 				return list
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "nonexistent item id",
@@ -1179,7 +1183,7 @@ func TestUpdateList(t *testing.T) {
 
 				return list
 			},
-			wantErr: true,
+			wantErr: ErrNotFound,
 		},
 		{
 			name: "nonexistent item external id",
@@ -1211,8 +1215,7 @@ func TestUpdateList(t *testing.T) {
 
 				return list
 			},
-			wantErr:       true,
-			wantErrTarget: ErrNotFound,
+			wantErr: ErrNotFound,
 		},
 		{
 			name: "context cancellation",
@@ -1241,7 +1244,7 @@ func TestUpdateList(t *testing.T) {
 
 				return ctx, cancel
 			},
-			wantErr: true,
+			wantErr: context.Canceled,
 		},
 	}
 
@@ -1289,16 +1292,11 @@ func TestUpdateList(t *testing.T) {
 			}
 
 			err = store.UpdateList(ctx, &list, currentList)
-
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("UpdateList() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("UpdateList() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
-				if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Fatalf("UpdateList() error = %v, did not match target = %v", err, tt.wantErrTarget)
-				}
-
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -1351,13 +1349,12 @@ func TestDeleteList(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name          string
-		setupDB       func(t *testing.T, db *sql.DB) model.List
-		setupCtx      func() (context.Context, context.CancelFunc)
-		wantLists     []model.List
-		wantItems     []*model.Item
-		wantErr       bool
-		wantErrTarget error
+		name      string
+		setupDB   func(t *testing.T, db *sql.DB) model.List
+		setupCtx  func() (context.Context, context.CancelFunc)
+		wantLists []model.List
+		wantItems []*model.Item
+		wantErr   error
 	}{
 		{
 			name: "valid delete with cascade",
@@ -1421,7 +1418,7 @@ func TestDeleteList(t *testing.T) {
 
 				return list
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "delete list with nonexistent external id",
@@ -1432,8 +1429,7 @@ func TestDeleteList(t *testing.T) {
 
 				return list
 			},
-			wantErr:       true,
-			wantErrTarget: ErrNotFound,
+			wantErr: ErrNotFound,
 		},
 		{
 			name: "nonexistent id",
@@ -1444,8 +1440,7 @@ func TestDeleteList(t *testing.T) {
 
 				return list
 			},
-			wantErr:       true,
-			wantErrTarget: ErrNotFound,
+			wantErr: ErrNotFound,
 		},
 		{
 			name: "context cancellation",
@@ -1469,7 +1464,7 @@ func TestDeleteList(t *testing.T) {
 
 				return ctx, cancel
 			},
-			wantErr: true,
+			wantErr: context.Canceled,
 		},
 	}
 
@@ -1507,17 +1502,13 @@ func TestDeleteList(t *testing.T) {
 			defer db.Close()
 
 			list := tt.setupDB(t, db)
-			err = store.DeleteList(ctx, &list)
 
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("DeleteList() error = %v, wantErr %v", err, tt.wantErr)
+			err = store.DeleteList(ctx, &list)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("DeleteList() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
-				if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Fatalf("DeleteList() error = %v, did not match target = %v", err, tt.wantErrTarget)
-				}
-
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -1554,13 +1545,12 @@ func TestCreateItem(t *testing.T) {
 	listModified := time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name          string
-		setupDB       func(t *testing.T, db *sql.DB)
-		item          *model.Item
-		setupCtx      func() (context.Context, context.CancelFunc)
-		wantItem      *model.Item
-		wantErr       bool
-		wantErrTarget error
+		name     string
+		setupDB  func(t *testing.T, db *sql.DB)
+		item     *model.Item
+		setupCtx func() (context.Context, context.CancelFunc)
+		wantItem *model.Item
+		wantErr  error
 	}{
 		{
 			name: "honor provided identifiers",
@@ -1846,8 +1836,7 @@ func TestCreateItem(t *testing.T) {
 				Title:          "Orphan Item",
 				Modified:       time.Now(),
 			},
-			wantErr:       true,
-			wantErrTarget: ErrNotFound,
+			wantErr: ErrNotFound,
 		},
 		{
 			name: "empty title",
@@ -1863,7 +1852,7 @@ func TestCreateItem(t *testing.T) {
 				ListID: "list-1",
 				Title:  "",
 			},
-			wantErr: true,
+			wantErr: model.ErrInvalidResource,
 		},
 		{
 			name: "cannot create deleted item",
@@ -1881,7 +1870,7 @@ func TestCreateItem(t *testing.T) {
 				Status:   model.StatusDeleted,
 				Modified: time.Now(),
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name:    "canceled context",
@@ -1897,7 +1886,7 @@ func TestCreateItem(t *testing.T) {
 
 				return ctx, cancel
 			},
-			wantErr: true,
+			wantErr: context.Canceled,
 		},
 		{
 			name: "list iteration fails due to corrupted sibling item tags",
@@ -1929,7 +1918,7 @@ func TestCreateItem(t *testing.T) {
 				Title:    "Valid New Item",
 				Modified: time.Now(),
 			},
-			wantErr: true,
+			wantErr: syntaxError{},
 		},
 	}
 
@@ -1971,16 +1960,11 @@ func TestCreateItem(t *testing.T) {
 			}
 
 			err = store.CreateItem(ctx, tt.item, "")
-
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("CreateItem() error = %v, wantErr %v", err, tt.wantErr)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("CreateItem() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
-				if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Fatalf("CreateItem() error = %v, did not match target = %v", err, tt.wantErrTarget)
-				}
-
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -2078,13 +2062,12 @@ func TestUpdateItem(t *testing.T) {
 	listModified := time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name          string
-		setupDB       func(t *testing.T, db *sql.DB) string
-		setupItem     func(id string) model.Item
-		setupCtx      func() (context.Context, context.CancelFunc)
-		wantItem      *model.Item
-		wantErr       bool
-		wantErrTarget error
+		name      string
+		setupDB   func(t *testing.T, db *sql.DB) string
+		setupItem func(id string) model.Item
+		setupCtx  func() (context.Context, context.CancelFunc)
+		wantItem  *model.Item
+		wantErr   error
 	}{
 		{
 			name: "valid update (complex fields)",
@@ -2526,8 +2509,7 @@ func TestUpdateItem(t *testing.T) {
 
 				return item
 			},
-			wantErr:       true,
-			wantErrTarget: ErrNotFound,
+			wantErr: ErrNotFound,
 		},
 		{
 			name: "do not coalesce project id when parent has a tag",
@@ -2780,7 +2762,7 @@ func TestUpdateItem(t *testing.T) {
 
 				return item
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "update item with nonexistent external id",
@@ -2804,8 +2786,7 @@ func TestUpdateItem(t *testing.T) {
 
 				return item
 			},
-			wantErr:       true,
-			wantErrTarget: ErrNotFound,
+			wantErr: ErrNotFound,
 		},
 		{
 			name: "invalid item (validation failed)",
@@ -2845,7 +2826,7 @@ func TestUpdateItem(t *testing.T) {
 
 				return item
 			},
-			wantErr: true,
+			wantErr: model.ErrInvalidResource,
 		},
 		{
 			name: "nonexistent id",
@@ -2870,8 +2851,7 @@ func TestUpdateItem(t *testing.T) {
 
 				return item
 			},
-			wantErr:       true,
-			wantErrTarget: ErrNotFound,
+			wantErr: ErrNotFound,
 		},
 		{
 			name: "update item fails when resolving non-existent external list id",
@@ -2912,8 +2892,7 @@ func TestUpdateItem(t *testing.T) {
 
 				return item
 			},
-			wantErr:       true,
-			wantErrTarget: ErrNotFound,
+			wantErr: ErrNotFound,
 		},
 		{
 			name: "context cancellation",
@@ -2959,7 +2938,7 @@ func TestUpdateItem(t *testing.T) {
 
 				return ctx, cancel
 			},
-			wantErr: true,
+			wantErr: context.Canceled,
 		},
 		{
 			name: "list iteration fails due to corrupted sibling item tags",
@@ -3014,7 +2993,7 @@ func TestUpdateItem(t *testing.T) {
 
 				return item
 			},
-			wantErr: true,
+			wantErr: syntaxError{},
 		},
 	}
 
@@ -3053,17 +3032,13 @@ func TestUpdateItem(t *testing.T) {
 
 			id := tt.setupDB(t, db)
 			item := tt.setupItem(id)
-			err = store.UpdateItem(ctx, &item)
 
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("UpdateItem() error = %v, wantErr %v", err, tt.wantErr)
+			err = store.UpdateItem(ctx, &item)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("UpdateItem() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
-				if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Fatalf("UpdateItem() error = %v, did not match target = %v", err, tt.wantErrTarget)
-				}
-
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -3141,11 +3116,10 @@ func TestDeleteItem(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name          string
-		setupDB       func(t *testing.T, db *sql.DB) model.Item
-		setupCtx      func() (context.Context, context.CancelFunc)
-		wantErr       bool
-		wantErrTarget error
+		name     string
+		setupDB  func(t *testing.T, db *sql.DB) model.Item
+		setupCtx func() (context.Context, context.CancelFunc)
+		wantErr  error
 	}{
 		{
 			name: "valid delete",
@@ -3221,7 +3195,7 @@ func TestDeleteItem(t *testing.T) {
 
 				return item
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "delete item with nonexistent external id",
@@ -3232,8 +3206,7 @@ func TestDeleteItem(t *testing.T) {
 
 				return item
 			},
-			wantErr:       true,
-			wantErrTarget: ErrNotFound,
+			wantErr: ErrNotFound,
 		},
 		{
 			name: "nonexistent id",
@@ -3244,8 +3217,7 @@ func TestDeleteItem(t *testing.T) {
 
 				return item
 			},
-			wantErr:       true,
-			wantErrTarget: ErrNotFound,
+			wantErr: ErrNotFound,
 		},
 		{
 			name: "context cancellation",
@@ -3284,7 +3256,7 @@ func TestDeleteItem(t *testing.T) {
 
 				return ctx, cancel
 			},
-			wantErr: true,
+			wantErr: context.Canceled,
 		},
 	}
 
@@ -3322,17 +3294,13 @@ func TestDeleteItem(t *testing.T) {
 			defer db.Close()
 
 			item := tt.setupDB(t, db)
-			err = store.DeleteItem(ctx, &item)
 
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("DeleteItem() error = %v, wantErr %v", err, tt.wantErr)
+			err = store.DeleteItem(ctx, &item)
+			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+				t.Fatalf("DeleteItem() error mismatch (-want +got):\n%s", diff)
 			}
 
-			if tt.wantErr {
-				if tt.wantErrTarget != nil && !errors.Is(err, tt.wantErrTarget) {
-					t.Fatalf("DeleteItem() error = %v, did not match target = %v", err, tt.wantErrTarget)
-				}
-
+			if tt.wantErr != nil {
 				return
 			}
 
