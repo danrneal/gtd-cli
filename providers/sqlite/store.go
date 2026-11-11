@@ -507,17 +507,13 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 // It resolves the internal project ID if necessary, sanitizes the item's relationships based on the target list,
 // and maps the fields to the SQL parameters.
 func (s *Store) execInsertItem(ctx context.Context, tx *sql.Tx, list *model.List, item *model.Item) error {
-	tagsJSON, err := json.Marshal(item.Tags)
-	if err != nil {
-		return fmt.Errorf("failed to marshal tags: %w", err)
-	}
+	tagsJSON, _ := json.Marshal(item.Tags)
 
 	var projectTag *string
 	if strings.HasPrefix(list.Name, model.ListProjects) {
 		projectTag = item.ProjectTag
 	} else if item.ProjectID == nil && (item.ExternalProjectID != nil || item.ProjectTag != nil) {
-		var projectID *string
-		if projectID, err = queryProjectID(ctx, tx, item); err == nil {
+		if projectID, err := queryProjectID(ctx, tx, item); err == nil {
 			item.ProjectID = projectID
 		} else if !errors.Is(err, ErrNotFound) {
 			return err
@@ -530,7 +526,7 @@ func (s *Store) execInsertItem(ctx context.Context, tx *sql.Tx, list *model.List
 		WHERE list_id = ? AND position >= ?
 	`
 
-	if _, err = tx.ExecContext(ctx, query, item.ListID, item.Position); err != nil {
+	if _, err := tx.ExecContext(ctx, query, item.ListID, item.Position); err != nil {
 		return fmt.Errorf("failed to shift item positions: %w", err)
 	}
 
@@ -556,7 +552,7 @@ func (s *Store) execInsertItem(ctx context.Context, tx *sql.Tx, list *model.List
 
 	s.logger.InfoContext(ctx, "SQLite: Inserting item", "id", item.ID, "title", item.Title, "listId", item.ListID)
 	item.Modified = time.Now()
-	_, err = tx.ExecContext(ctx, query,
+	_, err := tx.ExecContext(ctx, query,
 		item.ID,
 		item.ListID,
 		item.ProjectID,
@@ -887,10 +883,7 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 // It resolves the internal project ID if necessary, enforces relationship constraints based on the target list,
 // and maps the fields to the SQL parameters for the UPDATE statement.
 func (s *Store) execUpdateItem(ctx context.Context, tx *sql.Tx, list *model.List, item *model.Item) error {
-	tagsJSON, err := json.Marshal(item.Tags)
-	if err != nil {
-		return fmt.Errorf("failed to marshal tags: %w", err)
-	}
+	tagsJSON, _ := json.Marshal(item.Tags)
 
 	var projectTag *string
 	if strings.HasPrefix(list.Name, model.ListProjects) {
@@ -907,13 +900,12 @@ func (s *Store) execUpdateItem(ctx context.Context, tx *sql.Tx, list *model.List
   				);
 		`
 
-		if _, err = tx.ExecContext(ctx, query, item.Modified, item.ID, projectTag, item.ID); err != nil {
+		if _, err := tx.ExecContext(ctx, query, item.Modified, item.ID, projectTag, item.ID); err != nil {
 			return fmt.Errorf("failed to update project next action modified timestamps: %w", err)
 		}
 	} else if item.ProjectID == nil &&
 		(item.ExternalProjectID != nil || item.ProjectTag != nil || item.ExternalID == nil) {
-		var projectID *string
-		if projectID, err = queryProjectID(ctx, tx, item); err == nil {
+		if projectID, err := queryProjectID(ctx, tx, item); err == nil {
 			item.ProjectID = projectID
 		} else if !errors.Is(err, ErrNotFound) {
 			return err
