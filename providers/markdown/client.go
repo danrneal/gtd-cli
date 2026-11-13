@@ -347,7 +347,11 @@ func (c *Client) readFile() ([]model.List, error) {
 	}
 
 	if !bytes.Equal(fileBytes, renderedBuf.Bytes()) {
-		if err := c.writeFile(lists, withModTime(stat.ModTime())); err != nil {
+		opts := []writeOption{
+			withModTime(stat.ModTime()),
+		}
+
+		if err := c.writeFile(lists, opts...); err != nil {
 			return nil, err
 		}
 	}

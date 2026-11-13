@@ -2,12 +2,12 @@ package markdown
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/danrneal/gtd-cli/model"
 )
@@ -22,14 +22,13 @@ func TestRender(t *testing.T) {
 		writer  io.Writer
 		lists   []model.List
 		want    string
-		wantErr bool
+		wantErr error
 	}{
 		{
-			name:    "empty input",
-			writer:  &bytes.Buffer{},
-			lists:   nil,
-			want:    "",
-			wantErr: false,
+			name:   "empty input",
+			writer: &bytes.Buffer{},
+			lists:  nil,
+			want:   "",
 		},
 		{
 			name:   "basic list with no items",
@@ -47,7 +46,6 @@ func TestRender(t *testing.T) {
 				# Inbox (0)
 
 			`),
-			wantErr: false,
 		},
 		{
 			name:   "multiple lists with mixed headers",
@@ -75,7 +73,6 @@ func TestRender(t *testing.T) {
 				# List Two (0) {{list-123}}
 
 			`),
-			wantErr: false,
 		},
 		{
 			name:   "item statuses",
@@ -122,7 +119,6 @@ func TestRender(t *testing.T) {
 				* [x] ~~Done~~
 
 			`),
-			wantErr: false,
 		},
 		{
 			name:   "active item count excludes done items",
@@ -155,7 +151,6 @@ func TestRender(t *testing.T) {
 				* [x] ~~Done 2~~
 
 			`),
-			wantErr: false,
 		},
 		{
 			name:   "item with project",
@@ -182,7 +177,6 @@ func TestRender(t *testing.T) {
 				* [ ] Task +proj-123
 
 			`),
-			wantErr: false,
 		},
 		{
 			name:   "item with due date",
@@ -209,7 +203,6 @@ func TestRender(t *testing.T) {
 				* [ ] Task due:2024-01-02
 
 			`),
-			wantErr: false,
 		},
 		{
 			name:   "item with snoozed date",
@@ -236,7 +229,6 @@ func TestRender(t *testing.T) {
 				* [ ] Task snoozed:2024-01-01
 
 			`),
-			wantErr: false,
 		},
 		{
 			name:   "item with tags",
@@ -263,7 +255,6 @@ func TestRender(t *testing.T) {
 				* [ ] Task #tag1 #tag2
 
 			`),
-			wantErr: false,
 		},
 		{
 			name:   "waiting for item formatting",
@@ -291,7 +282,6 @@ func TestRender(t *testing.T) {
 				* [ ] Alice - Send report - 2024-01-02
 
 			`),
-			wantErr: false,
 		},
 		{
 			name:   "item with ID",
@@ -318,7 +308,6 @@ func TestRender(t *testing.T) {
 				* [ ] Task {{item-456}}
 
 			`),
-			wantErr: false,
 		},
 		{
 			name:   "multiline descriptions",
@@ -347,7 +336,6 @@ func TestRender(t *testing.T) {
 				    Second line.
 
 			`),
-			wantErr: false,
 		},
 		{
 			name:   "invalid item status",
@@ -361,14 +349,14 @@ func TestRender(t *testing.T) {
 				},
 			},
 			want:    "",
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name:    "writer error",
 			writer:  errWriter{},
 			lists:   []model.List{{Name: "Test List"}},
 			want:    "",
-			wantErr: true,
+			wantErr: io.ErrShortWrite,
 		},
 	}
 
@@ -378,8 +366,12 @@ func TestRender(t *testing.T) {
 
 			err := render(tt.writer, tt.lists)
 
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("render() error = %v, wantErr %v", err, tt.wantErr)
+			opts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, opts...); diff != "" {
+				t.Fatalf("render() error mismatch (-want +got):\n%s", diff)
 			}
 
 			buf, ok := tt.writer.(*bytes.Buffer)
@@ -397,6 +389,7 @@ func TestRender(t *testing.T) {
 // errWriter implements [io.Writer] and always returns an error for testing write failures.
 type errWriter struct{}
 
-func (errWriter) Write(p []byte) (n int, err error) {
-	return 0, errors.New("simulated I/O error")
+// Write always returns [io.ErrShortWrite] to simulate a write failure.
+func (errWriter) Write(_ []byte) (int, error) {
+	return 0, io.ErrShortWrite
 }

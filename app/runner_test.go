@@ -54,7 +54,7 @@ func TestRun(t *testing.T) {
 		wantStore  []model.List
 		wantMd     []model.List
 		wantTasks  []model.List
-		wantErr    bool
+		wantErr    error
 	}{
 		{
 			name: "bootstrap sync processes initial state without events",
@@ -505,11 +505,11 @@ func TestRun(t *testing.T) {
 				md = setupTestMarkdown(t, []model.List{})
 				tasks = setupTestGoogleTasks(t, []model.List{})
 
-				mdWatcher.watchErr = errors.New("simulated startup failure")
+				mdWatcher.watchErr = fs.ErrPermission
 
 				return store, md, tasks
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fatal watcher error aborts sync loop",
@@ -524,7 +524,23 @@ func TestRun(t *testing.T) {
 				close(mdWatcher.Events)
 				synctest.Wait()
 			},
-			wantErr: true,
+			wantErr: cmpopts.AnyError,
+		},
+		{
+			name: "watcher error event aborts sync loop",
+			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (store, md, tasks *errorProvider) {
+				store = setupTestSQLite(t, []model.List{})
+				md = setupTestMarkdown(t, []model.List{})
+				tasks = setupTestGoogleTasks(t, []model.List{})
+
+				return store, md, tasks
+			},
+			sendEvents: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher, store, md, tasks *errorProvider) {
+				mdWatcher.Events <- fs.ErrClosed
+
+				synctest.Wait()
+			},
+			wantErr: fs.ErrClosed,
 		},
 	}
 
@@ -571,11 +587,19 @@ func TestRun(t *testing.T) {
 
 				select {
 				case err := <-errChan:
-					if tt.wantErr {
-						return
+					errOpts := []cmp.Option{
+						cmpopts.EquateErrors(),
 					}
 
-					t.Fatalf("Runner failed unexpectedly during startup: %v", err)
+					if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
+						t.Fatalf("Run() error mismatch (-want +got):\n%s", diff)
+					}
+
+					if tt.wantErr == nil {
+						t.Fatal("Run() exited unexpectedly during startup")
+					}
+
+					return
 				default:
 					// Non-blocking read: proceed to test logic if the runner booted successfully
 				}
@@ -585,11 +609,15 @@ func TestRun(t *testing.T) {
 					synctest.Wait()
 				}
 
-				if tt.wantErr {
+				if tt.wantErr != nil {
 					select {
 					case err := <-errChan:
-						if err == nil {
-							t.Fatal("expected runner to return an error, got nil")
+						errOpts := []cmp.Option{
+							cmpopts.EquateErrors(),
+						}
+
+						if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
+							t.Fatalf("Run() error mismatch (-want +got):\n%s", diff)
 						}
 
 						return
@@ -635,8 +663,12 @@ func TestRun(t *testing.T) {
 
 				select {
 				case err := <-errChan:
-					if err != nil && !errors.Is(err, context.Canceled) {
-						t.Fatalf("Run() returned unexpected error: %v", err)
+					errOpts := []cmp.Option{
+						cmpopts.EquateErrors(),
+					}
+
+					if diff := cmp.Diff(context.Canceled, err, errOpts...); diff != "" {
+						t.Fatalf("Run() error mismatch (-want +got):\n%s", diff)
 					}
 				default:
 					t.Fatal("Run() failed to return an error after context cancellation")

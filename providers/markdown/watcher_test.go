@@ -75,7 +75,12 @@ func TestClient_Watch(t *testing.T) {
 			defer cancel()
 
 			events, err := client.Watch(ctx)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			opts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, opts...); diff != "" {
 				t.Fatalf("Watch() error mismatch (-want +got):\n%s", diff)
 			}
 

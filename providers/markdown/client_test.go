@@ -208,7 +208,12 @@ func TestClient_CreateList(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			err := client.CreateList(t.Context(), tt.list)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("CreateList() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -303,7 +308,12 @@ func TestClient_ListLists(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			got, err := client.ListLists(t.Context())
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			opts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, opts...); diff != "" {
 				t.Fatalf("ListLists() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -960,7 +970,12 @@ func TestClient_UpdateList(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			err := client.UpdateList(t.Context(), tt.list, tt.currentList)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("UpdateList() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -1113,7 +1128,12 @@ func TestClient_DeleteList(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			err := client.DeleteList(t.Context(), tt.list)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("DeleteList() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -1406,7 +1426,12 @@ func TestClient_CreateItem(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			err := client.CreateItem(t.Context(), tt.item, tt.previousItemID)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("CreateItem() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -1673,7 +1698,12 @@ func TestClient_UpdateItem(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			err := client.UpdateItem(t.Context(), tt.item)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("UpdateItem() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -1869,7 +1899,12 @@ func TestClient_DeleteItem(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			err := client.DeleteItem(t.Context(), tt.item)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("DeleteItem() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -2040,7 +2075,12 @@ func TestClient_readFile(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			gotLists, err := client.readFile()
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			opts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, opts...); diff != "" {
 				t.Fatalf("readFile() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -2206,7 +2246,12 @@ func TestClient_writeFile(t *testing.T) {
 			client := NewClient(testPath, logger)
 
 			err := client.writeFile(tt.lists, tt.opts...)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			opts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, opts...); diff != "" {
 				t.Fatalf("writeFile() error mismatch (-want +got):\n%s", diff)
 			}
 

@@ -1232,17 +1232,17 @@ func TestRoundTrip(t *testing.T) {
 				t.Errorf("RoundTrip() status = %v, want %v", resp.StatusCode, tt.wantStatus)
 			}
 
-			cmpOpts := []cmp.Option{
+			opts := []cmp.Option{
 				cmpopts.IgnoreFields(tasks.TaskList{}, "Updated"),
 				cmpopts.IgnoreFields(tasks.Task{}, "Updated"),
 				cmpopts.EquateEmpty(),
 			}
 
-			if diff := cmp.Diff(tt.wantTaskLists, fake.TaskLists, cmpOpts...); diff != "" {
+			if diff := cmp.Diff(tt.wantTaskLists, fake.TaskLists, opts...); diff != "" {
 				t.Errorf("TaskLists mismatch (-want +got):\n%s", diff)
 			}
 
-			if diff := cmp.Diff(tt.wantTasks, fake.Tasks, cmpOpts...); diff != "" {
+			if diff := cmp.Diff(tt.wantTasks, fake.Tasks, opts...); diff != "" {
 				t.Errorf("Tasks mismatch (-want +got):\n%s", diff)
 			}
 

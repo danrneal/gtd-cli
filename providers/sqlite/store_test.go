@@ -261,7 +261,12 @@ func TestCreateList(t *testing.T) {
 			defer store.Close()
 
 			err = store.CreateList(ctx, tt.list)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("CreateList() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -529,7 +534,12 @@ func TestListLists(t *testing.T) {
 			}
 
 			lists, err := store.ListLists(ctx)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("ListLists() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -1294,7 +1304,12 @@ func TestUpdateList(t *testing.T) {
 			}
 
 			err = store.UpdateList(ctx, &list, currentList)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("UpdateList() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -1510,7 +1525,12 @@ func TestDeleteList(t *testing.T) {
 			list := tt.setupDB(t, db)
 
 			err = store.DeleteList(ctx, &list)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			opts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, opts...); diff != "" {
 				t.Fatalf("DeleteList() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -1966,7 +1986,12 @@ func TestCreateItem(t *testing.T) {
 			}
 
 			err = store.CreateItem(ctx, tt.item, "")
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("CreateItem() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -3040,7 +3065,12 @@ func TestUpdateItem(t *testing.T) {
 			item := tt.setupItem(id)
 
 			err = store.UpdateItem(ctx, &item)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			opts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, opts...); diff != "" {
 				t.Fatalf("UpdateItem() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -3302,7 +3332,12 @@ func TestDeleteItem(t *testing.T) {
 			item := tt.setupDB(t, db)
 
 			err = store.DeleteItem(ctx, &item)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			opts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, opts...); diff != "" {
 				t.Fatalf("DeleteItem() error mismatch (-want +got):\n%s", diff)
 			}
 

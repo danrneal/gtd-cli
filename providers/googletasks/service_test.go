@@ -92,7 +92,12 @@ func TestTokenFromFile(t *testing.T) {
 			tokenFile := tt.setupFile(t, tmpDir)
 
 			gotToken, err := tokenFromFile(tokenFile)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("tokenFromFile() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -151,7 +156,12 @@ func TestSaveToken(t *testing.T) {
 			tokenFile := tt.setupFile(t, tmpDir)
 
 			err := saveToken(tokenFile, tt.token)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("saveToken() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -205,7 +215,7 @@ func TestFileTokenSource_Token(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		setupFile   func(t *testing.T) string
+		setupFile   func(t *testing.T, tokenFile string)
 		tokenSource oauth2.TokenSource
 		token       *oauth2.Token
 		wantToken   *oauth2.Token
@@ -214,11 +224,8 @@ func TestFileTokenSource_Token(t *testing.T) {
 		wantErr     error
 	}{
 		{
-			name: "token unchanged",
-			setupFile: func(t *testing.T) string {
-				tokenFile := filepath.Join(t.TempDir(), "token.json")
-				return tokenFile
-			},
+			name:      "token unchanged",
+			setupFile: func(_ *testing.T, _ string) {},
 			tokenSource: &mockTokenSource{
 				token: oldToken,
 			},
@@ -228,11 +235,8 @@ func TestFileTokenSource_Token(t *testing.T) {
 			wantLog:   false,
 		},
 		{
-			name: "token refreshed",
-			setupFile: func(t *testing.T) string {
-				tokenFile := filepath.Join(t.TempDir(), "token.json")
-				return tokenFile
-			},
+			name:      "token refreshed",
+			setupFile: func(_ *testing.T, _ string) {},
 			tokenSource: &mockTokenSource{
 				token: newToken,
 			},
@@ -242,11 +246,8 @@ func TestFileTokenSource_Token(t *testing.T) {
 			wantLog:   false,
 		},
 		{
-			name: "source error",
-			setupFile: func(t *testing.T) string {
-				tokenFile := filepath.Join(t.TempDir(), "token.json")
-				return tokenFile
-			},
+			name:      "source error",
+			setupFile: func(_ *testing.T, _ string) {},
 			tokenSource: &mockTokenSource{
 				err: os.ErrNotExist,
 			},
@@ -258,14 +259,15 @@ func TestFileTokenSource_Token(t *testing.T) {
 		},
 		{
 			name: "token refreshed but save fails",
-			setupFile: func(t *testing.T) string {
-				tokenFile := "/invalid/path/that/does/not/exist/token.json"
-				return tokenFile
+			setupFile: func(t *testing.T, tokenFile string) {
+				if err := os.Chmod(tokenFile, 0o400); err != nil {
+					t.Fatalf("os.Chmod() unexpected error: %v", err)
+				}
 			},
 			tokenSource: &mockTokenSource{
 				token: newToken,
 			},
-			token:     nil,
+			token:     oldToken,
 			wantToken: newToken,
 			wantSave:  false,
 			wantLog:   true,
@@ -276,12 +278,12 @@ func TestFileTokenSource_Token(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			tokenFile := tt.setupFile(t)
-			if tt.token != nil {
-				if err := saveToken(tokenFile, tt.token); err != nil {
-					t.Fatalf("failed to setup initial token: %v", err)
-				}
+			tokenFile := filepath.Join(t.TempDir(), "token.json")
+			if err := saveToken(tokenFile, tt.token); err != nil {
+				t.Fatalf("failed to setup initial token: %v", err)
 			}
+
+			tt.setupFile(t, tokenFile)
 
 			var logBuffer bytes.Buffer
 			logger := slog.New(slog.NewJSONHandler(&logBuffer, nil))
@@ -294,7 +296,12 @@ func TestFileTokenSource_Token(t *testing.T) {
 			}
 
 			got, err := fts.Token()
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("Token() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -314,21 +321,15 @@ func TestFileTokenSource_Token(t *testing.T) {
 				t.Errorf("Internal cache mismatch (-want +got):\n%s", diff)
 			}
 
-			var wantToken *oauth2.Token
+			wantToken := tt.token
 			if tt.wantSave {
 				wantToken = tt.wantToken
-			} else if tt.token != nil {
-				wantToken = tt.token
 			}
 
 			if tt.wantLog && logBuffer.Len() == 0 {
 				t.Error("Token() expected to log a warning, but buffer was empty")
 			} else if !tt.wantLog && logBuffer.Len() > 0 {
 				t.Errorf("Token() expected to remain silent, but logged:\n%s", logBuffer.String())
-			}
-
-			if !tt.wantSave && tt.token == nil {
-				return
 			}
 
 			content, err := os.ReadFile(tokenFile)

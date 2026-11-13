@@ -155,7 +155,12 @@ func TestItem_Validate(t *testing.T) {
 			t.Parallel()
 
 			err := tt.item.Validate()
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			opts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, opts...); diff != "" {
 				t.Errorf("Validate() error mismatch (-want +got):\n%s", diff)
 			}
 		})

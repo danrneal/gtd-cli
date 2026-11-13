@@ -33,7 +33,11 @@ func NewService(ctx context.Context, credsFile, tokenFile string, logger *slog.L
 		return nil, err
 	}
 
-	service, err := tasks.NewService(ctx, option.WithHTTPClient(client))
+	opts := []option.ClientOption{
+		option.WithHTTPClient(client),
+	}
+
+	service, err := tasks.NewService(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create tasks service: %w", err)
 	}
@@ -142,7 +146,7 @@ func (fts *fileTokenSource) Token() (*oauth2.Token, error) {
 		return nil, fmt.Errorf("failed to retrieve token from source: %w", err)
 	}
 
-	if fts.token == nil || token.AccessToken != fts.token.AccessToken {
+	if token.AccessToken != fts.token.AccessToken {
 		fts.token = token
 		if err := saveToken(fts.tokenFile, token); err != nil {
 			fts.logger.Warn("failed to cache new oauth token", "error", err, "file", fts.tokenFile)

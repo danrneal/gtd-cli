@@ -122,7 +122,11 @@ func TestCreateList(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, err := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			serviceOpts := []option.ClientOption{
+				option.WithHTTPClient(mockClient),
+			}
+
+			tasksService, err := tasks.NewService(t.Context(), serviceOpts...)
 			if err != nil {
 				t.Fatalf("tasks.NewService() unexpected error: %v", err)
 			}
@@ -132,7 +136,12 @@ func TestCreateList(t *testing.T) {
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			err = tasksClient.CreateList(t.Context(), tt.list)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			opts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, opts...); diff != "" {
 				t.Fatalf("CreateList() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -749,7 +758,11 @@ func TestListLists(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, err := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			opts := []option.ClientOption{
+				option.WithHTTPClient(mockClient),
+			}
+
+			tasksService, err := tasks.NewService(t.Context(), opts...)
 			if err != nil {
 				t.Fatalf("tasks.NewService() unexpected error: %v", err)
 			}
@@ -1264,7 +1277,11 @@ func TestUpdateList(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, err := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			serviceOpts := []option.ClientOption{
+				option.WithHTTPClient(mockClient),
+			}
+
+			tasksService, err := tasks.NewService(t.Context(), serviceOpts...)
 			if err != nil {
 				t.Fatalf("tasks.NewService() unexpected error: %v", err)
 			}
@@ -1274,7 +1291,12 @@ func TestUpdateList(t *testing.T) {
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			err = tasksClient.UpdateList(t.Context(), tt.list, tt.currentList)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("UpdateList() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -1358,7 +1380,11 @@ func TestDeleteList(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, err := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			opts := []option.ClientOption{
+				option.WithHTTPClient(mockClient),
+			}
+
+			tasksService, err := tasks.NewService(t.Context(), opts...)
 			if err != nil {
 				t.Fatalf("tasks.NewService() unexpected error: %v", err)
 			}
@@ -1627,7 +1653,11 @@ func TestCreateItem(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, err := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			serviceOpts := []option.ClientOption{
+				option.WithHTTPClient(mockClient),
+			}
+
+			tasksService, err := tasks.NewService(t.Context(), serviceOpts...)
 			if err != nil {
 				t.Fatalf("tasks.NewService() unexpected error: %v", err)
 			}
@@ -1637,7 +1667,12 @@ func TestCreateItem(t *testing.T) {
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			err = tasksClient.CreateItem(t.Context(), tt.item, tt.previousItemID)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("CreateItem() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -1937,7 +1972,11 @@ func TestUpdateItem(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, err := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			serviceOpts := []option.ClientOption{
+				option.WithHTTPClient(mockClient),
+			}
+
+			tasksService, err := tasks.NewService(t.Context(), serviceOpts...)
 			if err != nil {
 				t.Fatalf("tasks.NewService() unexpected error: %v", err)
 			}
@@ -1947,7 +1986,12 @@ func TestUpdateItem(t *testing.T) {
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			err = tasksClient.UpdateItem(t.Context(), tt.item)
-			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("UpdateItem() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -2038,7 +2082,11 @@ func TestDeleteItem(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			tasksService, err := tasks.NewService(t.Context(), option.WithHTTPClient(mockClient))
+			opts := []option.ClientOption{
+				option.WithHTTPClient(mockClient),
+			}
+
+			tasksService, err := tasks.NewService(t.Context(), opts...)
 			if err != nil {
 				t.Fatalf("tasks.NewService() unexpected error: %v", err)
 			}

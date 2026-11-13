@@ -10,7 +10,7 @@ require (
 	go.uber.org/goleak v1.3.0
 	golang.org/x/oauth2 v0.38.0
 	golang.org/x/sync v0.25.0
-	google.golang.org/api v0.312.0
+	google.golang.org/api v0.315.0
 )
 
 require (
@@ -30,7 +30,7 @@ require (
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
 	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
-	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/text v0.44.0 // indirect
