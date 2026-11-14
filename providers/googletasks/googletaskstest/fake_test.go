@@ -18,7 +18,7 @@ func TestRoundTrip(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		setup         func(fake *FakeGoogleTasks)
+		setup         func(fake *Fake)
 		req           *http.Request
 		wantStatus    int
 		wantTaskLists []*tasks.TaskList
@@ -44,7 +44,7 @@ func TestRoundTrip(t *testing.T) {
 		},
 		{
 			name: "fails to insert task list",
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.FailInsertTaskList = true
 			},
 			req: httptest.NewRequest(http.MethodPost, "/tasks/v1/users/@me/lists", strings.NewReader(`
@@ -57,7 +57,7 @@ func TestRoundTrip(t *testing.T) {
 		{
 			name: "list task lists",
 			req:  httptest.NewRequest(http.MethodGet, "/tasks/v1/users/@me/lists", http.NoBody),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -77,7 +77,7 @@ func TestRoundTrip(t *testing.T) {
 		{
 			name: "fails to list task lists",
 			req:  httptest.NewRequest(http.MethodGet, "/tasks/v1/users/@me/lists", http.NoBody),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.FailListTaskLists = true
 			},
 			wantStatus: http.StatusInternalServerError,
@@ -89,7 +89,7 @@ func TestRoundTrip(t *testing.T) {
 					"title": "My Updated List"
 				}
 			`)),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -113,7 +113,7 @@ func TestRoundTrip(t *testing.T) {
 					"title": "My Updated List"
 				}
 			`)),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -137,7 +137,7 @@ func TestRoundTrip(t *testing.T) {
 					"title": "My Updated List"
 				}
 			`)),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.FailPatchTaskList = true
 			},
 			wantStatus: http.StatusInternalServerError,
@@ -145,7 +145,7 @@ func TestRoundTrip(t *testing.T) {
 		{
 			name: "delete task list",
 			req:  httptest.NewRequest(http.MethodDelete, "/tasks/v1/users/@me/lists/external-list-1", http.NoBody),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -169,7 +169,7 @@ func TestRoundTrip(t *testing.T) {
 		{
 			name: "delete task list not found",
 			req:  httptest.NewRequest(http.MethodDelete, "/tasks/v1/users/@me/lists/external-list-2", http.NoBody),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -189,7 +189,7 @@ func TestRoundTrip(t *testing.T) {
 		{
 			name: "fails to delete task list",
 			req:  httptest.NewRequest(http.MethodDelete, "/tasks/v1/users/@me/lists/external-list-1", http.NoBody),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.FailDeleteTaskList = true
 			},
 			wantStatus: http.StatusInternalServerError,
@@ -205,7 +205,7 @@ func TestRoundTrip(t *testing.T) {
 					}
 				`),
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -245,7 +245,7 @@ func TestRoundTrip(t *testing.T) {
 					}
 				`),
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -280,7 +280,7 @@ func TestRoundTrip(t *testing.T) {
 					}
 				`),
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -332,7 +332,7 @@ func TestRoundTrip(t *testing.T) {
 					}
 				`),
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -378,7 +378,7 @@ func TestRoundTrip(t *testing.T) {
 					}
 				`),
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.FailInsertTask = true
 			},
 			wantStatus: http.StatusInternalServerError,
@@ -386,7 +386,7 @@ func TestRoundTrip(t *testing.T) {
 		{
 			name: "list tasks",
 			req:  httptest.NewRequest(http.MethodGet, "/tasks/v1/lists/external-list-1/tasks", http.NoBody),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -424,7 +424,7 @@ func TestRoundTrip(t *testing.T) {
 		{
 			name: "list tasks list not found",
 			req:  httptest.NewRequest(http.MethodGet, "/tasks/v1/lists/external-list-2/tasks", http.NoBody),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -451,7 +451,7 @@ func TestRoundTrip(t *testing.T) {
 		{
 			name: "fails to list tasks",
 			req:  httptest.NewRequest(http.MethodGet, "/tasks/v1/lists/external-list-1/tasks", http.NoBody),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.FailListTasks = true
 			},
 			wantStatus: http.StatusInternalServerError,
@@ -468,7 +468,7 @@ func TestRoundTrip(t *testing.T) {
 				}
 			`),
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -516,7 +516,7 @@ func TestRoundTrip(t *testing.T) {
 				}
 			`),
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -565,7 +565,7 @@ func TestRoundTrip(t *testing.T) {
 				}
 			`),
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -611,7 +611,7 @@ func TestRoundTrip(t *testing.T) {
 				}
 			`),
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -657,7 +657,7 @@ func TestRoundTrip(t *testing.T) {
 				}
 			`),
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.FailPatchTask = true
 			},
 			wantStatus: http.StatusInternalServerError,
@@ -670,7 +670,7 @@ func TestRoundTrip(t *testing.T) {
 					"destinationTasklist=external-list-2&previous=external-task-2",
 				http.NoBody,
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -742,7 +742,7 @@ func TestRoundTrip(t *testing.T) {
 				"/tasks/v1/lists/external-list-1/tasks/external-task-1/move?previous=external-task-2",
 				http.NoBody,
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -794,7 +794,7 @@ func TestRoundTrip(t *testing.T) {
 					"destinationTasklist=external-list-2&previous=external-task-2",
 				http.NoBody,
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -859,7 +859,7 @@ func TestRoundTrip(t *testing.T) {
 					"destinationTasklist=external-list-2&previous=external-task-2",
 				http.NoBody,
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -923,7 +923,7 @@ func TestRoundTrip(t *testing.T) {
 					"destinationTasklist=external-list-3&previous=external-task-2",
 				http.NoBody,
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -988,7 +988,7 @@ func TestRoundTrip(t *testing.T) {
 					"destinationTasklist=external-list-2&previous=external-task-3",
 				http.NoBody,
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -1053,7 +1053,7 @@ func TestRoundTrip(t *testing.T) {
 					"destinationTasklist=external-list-2&previous=external-task-2",
 				http.NoBody,
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.FailMoveTask = true
 			},
 			wantStatus: http.StatusInternalServerError,
@@ -1065,7 +1065,7 @@ func TestRoundTrip(t *testing.T) {
 				"/tasks/v1/lists/external-list-1/tasks/external-task-1",
 				http.NoBody,
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -1112,7 +1112,7 @@ func TestRoundTrip(t *testing.T) {
 				"/tasks/v1/lists/external-list-2/tasks/external-task-1",
 				http.NoBody,
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -1154,7 +1154,7 @@ func TestRoundTrip(t *testing.T) {
 				"/tasks/v1/lists/external-list-1/tasks/external-task-2",
 				http.NoBody,
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
 						Id:      "external-list-1",
@@ -1196,7 +1196,7 @@ func TestRoundTrip(t *testing.T) {
 				"/tasks/v1/lists/external-list-1/tasks/external-task-1",
 				http.NoBody,
 			),
-			setup: func(fake *FakeGoogleTasks) {
+			setup: func(fake *Fake) {
 				fake.FailDeleteTask = true
 			},
 			wantStatus: http.StatusInternalServerError,
@@ -1216,7 +1216,7 @@ func TestRoundTrip(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fake := NewFakeGoogleTasks(t)
+			fake := NewFake(t)
 
 			if tt.setup != nil {
 				tt.setup(fake)

@@ -15,7 +15,7 @@ import (
 	"google.golang.org/api/tasks/v1"
 
 	"github.com/danrneal/gtd-cli/model"
-	"github.com/danrneal/gtd-cli/providers/util/reorder"
+	"github.com/danrneal/gtd-cli/providers/internal/reorder"
 )
 
 const (

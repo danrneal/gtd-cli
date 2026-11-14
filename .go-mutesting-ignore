@@ -48,6 +48,6 @@ providers/sqlite/store.go:1002:branch/if
 providers/sqlite/store.go:1032:statement/remove
 providers/sqlite/store.go:1054:branch/if
 providers/sqlite/store.go:1084:branch/if
-providers/util/reorder/move.go:78:numbers/decrementer
-providers/util/reorder/move.go:78:numbers/incrementer
-providers/util/reorder/move.go:86:numbers/incrementer
+providers/internal/reorder/move.go:78:numbers/decrementer
+providers/internal/reorder/move.go:78:numbers/incrementer
+providers/internal/reorder/move.go:86:numbers/incrementer

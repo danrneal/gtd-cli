@@ -23,8 +23,8 @@ var (
 	taskRegex = regexp.MustCompile(`^/tasks/v1/lists/([^/]+)/tasks(?:/([^/]+)(?:/move)?)?$`)
 )
 
-// FakeGoogleTasks provides a mock implementation of the Google Tasks API for testing purposes.
-type FakeGoogleTasks struct {
+// Fake provides a mock implementation of the Google Tasks API for testing purposes.
+type Fake struct {
 	t                  *testing.T
 	TaskLists          []*tasks.TaskList
 	Tasks              map[string][]*tasks.Task
@@ -40,19 +40,19 @@ type FakeGoogleTasks struct {
 	FailDeleteTask     bool
 }
 
-// NewFakeGoogleTasks initializes and returns a new FakeGoogleTasks round tripper.
-func NewFakeGoogleTasks(t *testing.T) *FakeGoogleTasks {
-	googleTasks := &FakeGoogleTasks{
+// NewFake initializes and returns a new Fake round tripper.
+func NewFake(t *testing.T) *Fake {
+	fake := &Fake{
 		t:         t,
 		TaskLists: []*tasks.TaskList{},
 		Tasks:     map[string][]*tasks.Task{},
 	}
 
-	return googleTasks
+	return fake
 }
 
 // RoundTrip intercepts HTTP requests and routes them to the appropriate mock handler.
-func (f *FakeGoogleTasks) RoundTrip(req *http.Request) (*http.Response, error) {
+func (f *Fake) RoundTrip(req *http.Request) (*http.Response, error) {
 	if matches := taskListRegex.FindStringSubmatch(req.URL.Path); matches != nil {
 		taskListID := matches[1]
 
@@ -98,7 +98,7 @@ func (f *FakeGoogleTasks) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 // InsertTaskList simulates the creation of a new task list in Google Tasks.
-func (f *FakeGoogleTasks) InsertTaskList(req *http.Request) (*http.Response, error) {
+func (f *Fake) InsertTaskList(req *http.Request) (*http.Response, error) {
 	if f.FailInsertTaskList {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -139,7 +139,7 @@ func (f *FakeGoogleTasks) InsertTaskList(req *http.Request) (*http.Response, err
 }
 
 // ListTaskLists simulates retrieving all task lists from Google Tasks.
-func (f *FakeGoogleTasks) ListTaskLists(req *http.Request) (*http.Response, error) {
+func (f *Fake) ListTaskLists(req *http.Request) (*http.Response, error) {
 	if f.FailListTaskLists {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -169,7 +169,7 @@ func (f *FakeGoogleTasks) ListTaskLists(req *http.Request) (*http.Response, erro
 }
 
 // PatchTaskList simulates updating an existing task list in Google Tasks.
-func (f *FakeGoogleTasks) PatchTaskList(taskListID string, req *http.Request) (*http.Response, error) {
+func (f *Fake) PatchTaskList(taskListID string, req *http.Request) (*http.Response, error) {
 	if f.FailPatchTaskList {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -221,7 +221,7 @@ func (f *FakeGoogleTasks) PatchTaskList(taskListID string, req *http.Request) (*
 }
 
 // DeleteTaskList simulates deleting a task list from Google Tasks.
-func (f *FakeGoogleTasks) DeleteTaskList(taskListID string, req *http.Request) (*http.Response, error) {
+func (f *Fake) DeleteTaskList(taskListID string, req *http.Request) (*http.Response, error) {
 	if f.FailDeleteTaskList {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -259,7 +259,7 @@ func (f *FakeGoogleTasks) DeleteTaskList(taskListID string, req *http.Request) (
 }
 
 // InsertTask simulates inserting a new task into a task list in Google Tasks.
-func (f *FakeGoogleTasks) InsertTask(taskListID string, req *http.Request) (*http.Response, error) {
+func (f *Fake) InsertTask(taskListID string, req *http.Request) (*http.Response, error) {
 	if f.FailInsertTask {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -328,7 +328,7 @@ func (f *FakeGoogleTasks) InsertTask(taskListID string, req *http.Request) (*htt
 }
 
 // ListTasks simulates retrieving all tasks for a given task list from Google Tasks.
-func (f *FakeGoogleTasks) ListTasks(taskListID string, req *http.Request) (*http.Response, error) {
+func (f *Fake) ListTasks(taskListID string, req *http.Request) (*http.Response, error) {
 	if f.FailListTasks {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -369,7 +369,7 @@ func (f *FakeGoogleTasks) ListTasks(taskListID string, req *http.Request) (*http
 }
 
 // PatchTask simulates updating an existing task in Google Tasks.
-func (f *FakeGoogleTasks) PatchTask(taskListID, taskID string, req *http.Request) (*http.Response, error) {
+func (f *Fake) PatchTask(taskListID, taskID string, req *http.Request) (*http.Response, error) {
 	if f.FailPatchTask {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -440,7 +440,7 @@ func (f *FakeGoogleTasks) PatchTask(taskListID, taskID string, req *http.Request
 }
 
 // MoveTask simulates changing the position of a task within or across task lists.
-func (f *FakeGoogleTasks) MoveTask(taskListID, taskID string, req *http.Request) (*http.Response, error) {
+func (f *Fake) MoveTask(taskListID, taskID string, req *http.Request) (*http.Response, error) {
 	if f.FailMoveTask {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -524,7 +524,7 @@ func (f *FakeGoogleTasks) MoveTask(taskListID, taskID string, req *http.Request)
 }
 
 // DeleteTask simulates deleting a task from Google Tasks.
-func (f *FakeGoogleTasks) DeleteTask(taskListID, taskID string, req *http.Request) (*http.Response, error) {
+func (f *Fake) DeleteTask(taskListID, taskID string, req *http.Request) (*http.Response, error) {
 	if f.FailDeleteTask {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,

@@ -58,7 +58,7 @@ func TestCreateList(t *testing.T) {
 	tests := []struct {
 		name           string
 		list           *model.List
-		setupFake      func(fake *googletaskstest.FakeGoogleTasks)
+		setupFake      func(fake *googletaskstest.Fake)
 		wantExternalID string
 		wantErr        error
 	}{
@@ -68,7 +68,7 @@ func TestCreateList(t *testing.T) {
 				Name:     "  New List  \n",
 				Modified: time.Now(),
 			},
-			setupFake:      func(fake *googletaskstest.FakeGoogleTasks) {},
+			setupFake:      func(fake *googletaskstest.Fake) {},
 			wantExternalID: "external-list-1",
 		},
 		{
@@ -78,7 +78,7 @@ func TestCreateList(t *testing.T) {
 				Status:   model.StatusDeleted,
 				Modified: time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.Fake) {},
 			wantErr:   cmpopts.AnyError,
 		},
 		{
@@ -88,7 +88,7 @@ func TestCreateList(t *testing.T) {
 				ExternalID: new("existing-list-1"),
 				Modified:   time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.Fake) {},
 			wantErr:   cmpopts.AnyError,
 		},
 		{
@@ -96,7 +96,7 @@ func TestCreateList(t *testing.T) {
 			list: &model.List{
 				Name: "",
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.Fake) {},
 			wantErr:   model.ErrInvalidResource,
 		},
 		{
@@ -105,7 +105,7 @@ func TestCreateList(t *testing.T) {
 				Name:     "Fail List",
 				Modified: time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.FailInsertTaskList = true
 			},
 			wantErr: cmpopts.AnyError,
@@ -116,7 +116,7 @@ func TestCreateList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeTasks := googletaskstest.NewFakeGoogleTasks(t)
+			fakeTasks := googletaskstest.NewFake(t)
 			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
 				Transport: fakeTasks,
@@ -163,13 +163,13 @@ func TestListLists(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		setupFake func(fake *googletaskstest.FakeGoogleTasks)
+		setupFake func(fake *googletaskstest.Fake)
 		wantLists []model.List
 		wantErr   bool
 	}{
 		{
 			name: "success with items",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Inbox",
@@ -205,7 +205,7 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "basic properties (unsorted, position sort)",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Inbox",
@@ -267,7 +267,7 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "waiting for parsing",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Waiting For",
@@ -302,7 +302,7 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "waiting for parsing without separator",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Waiting For",
@@ -337,7 +337,7 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "waiting for parsing with created date",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Waiting For",
@@ -373,7 +373,7 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "waiting for parsing with invalid created date",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Waiting For",
@@ -408,7 +408,7 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "project parsing",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Inbox",
@@ -443,7 +443,7 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "project parsing boundary",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Inbox",
@@ -478,7 +478,7 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "due date parsing (title)",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Inbox",
@@ -513,7 +513,7 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "multiple tags",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Inbox",
@@ -548,7 +548,7 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "tag parsing boundary",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Inbox",
@@ -582,7 +582,7 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "completed task",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Inbox",
@@ -617,7 +617,7 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "description included",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Inbox",
@@ -653,7 +653,7 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "native due date (snoozed)",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Inbox",
@@ -689,7 +689,7 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "updated timestamp",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Inbox",
@@ -726,7 +726,7 @@ func TestListLists(t *testing.T) {
 
 		{
 			name: "tasklists list failure",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.FailListTaskLists = true
 			},
 			wantLists: nil,
@@ -734,7 +734,7 @@ func TestListLists(t *testing.T) {
 		},
 		{
 			name: "list items failure",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:      "L1",
 					Title:   "Inbox",
@@ -752,7 +752,7 @@ func TestListLists(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeTasks := googletaskstest.NewFakeGoogleTasks(t)
+			fakeTasks := googletaskstest.NewFake(t)
 			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
 				Transport: fakeTasks,
@@ -794,7 +794,7 @@ func TestUpdateList(t *testing.T) {
 		name         string
 		list         *model.List
 		currentList  *model.List
-		setupFake    func(fake *googletaskstest.FakeGoogleTasks)
+		setupFake    func(fake *googletaskstest.Fake)
 		wantTaskList *tasks.TaskList
 		wantTasks    []*tasks.Task
 		wantErr      error
@@ -837,7 +837,7 @@ func TestUpdateList(t *testing.T) {
 					},
 				},
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:    "L1",
 					Title: "Same List",
@@ -883,7 +883,7 @@ func TestUpdateList(t *testing.T) {
 			currentList: &model.List{
 				Name: "Target List",
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:    "L1",
 					Title: "Target List",
@@ -923,7 +923,7 @@ func TestUpdateList(t *testing.T) {
 					{ExternalID: new("A")},
 				},
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:    "L1",
 					Title: "My List",
@@ -1007,7 +1007,7 @@ func TestUpdateList(t *testing.T) {
 					},
 				},
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:    "L1",
 					Title: "Same List",
@@ -1048,7 +1048,7 @@ func TestUpdateList(t *testing.T) {
 				Name:  "Target List",
 				Items: []*model.Item{},
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists,
 					&tasks.TaskList{
 						Id:    "L1",
@@ -1097,7 +1097,7 @@ func TestUpdateList(t *testing.T) {
 					{ExternalID: new("B")},
 				},
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists,
 					&tasks.TaskList{
 						Id:    "L1",
@@ -1127,7 +1127,7 @@ func TestUpdateList(t *testing.T) {
 				Name:     "Update List",
 				Modified: time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.Fake) {},
 			wantErr:   cmpopts.AnyError,
 		},
 		{
@@ -1136,7 +1136,7 @@ func TestUpdateList(t *testing.T) {
 				ExternalID: new("L1"),
 				Name:       "",
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.Fake) {},
 			wantErr:   model.ErrInvalidResource,
 		},
 		{
@@ -1149,7 +1149,7 @@ func TestUpdateList(t *testing.T) {
 			currentList: &model.List{
 				Name: "Target List",
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.FailPatchTaskList = true
 			},
 			wantErr: cmpopts.AnyError,
@@ -1178,7 +1178,7 @@ func TestUpdateList(t *testing.T) {
 					{ExternalID: new("A")},
 				},
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.FailMoveTask = true
 			},
 			wantErr: cmpopts.AnyError,
@@ -1202,7 +1202,7 @@ func TestUpdateList(t *testing.T) {
 				Name:  "Same List",
 				Items: []*model.Item{},
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{
 					Id:    "L1",
 					Title: "Same List",
@@ -1239,7 +1239,7 @@ func TestUpdateList(t *testing.T) {
 				Name:  "Target List",
 				Items: []*model.Item{},
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists,
 					&tasks.TaskList{
 						Id:    "L1",
@@ -1271,7 +1271,7 @@ func TestUpdateList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeTasks := googletaskstest.NewFakeGoogleTasks(t)
+			fakeTasks := googletaskstest.NewFake(t)
 			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
 				Transport: fakeTasks,
@@ -1337,7 +1337,7 @@ func TestDeleteList(t *testing.T) {
 	tests := []struct {
 		name      string
 		list      *model.List
-		setupFake func(fake *googletaskstest.FakeGoogleTasks)
+		setupFake func(fake *googletaskstest.Fake)
 		wantErr   bool
 	}{
 		{
@@ -1345,7 +1345,7 @@ func TestDeleteList(t *testing.T) {
 			list: &model.List{
 				ExternalID: new("L1"),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{Id: "L1"})
 			},
 			wantErr: false,
@@ -1355,7 +1355,7 @@ func TestDeleteList(t *testing.T) {
 			list: &model.List{
 				Name: "Delete List",
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.Fake) {},
 			wantErr:   true,
 		},
 		{
@@ -1363,7 +1363,7 @@ func TestDeleteList(t *testing.T) {
 			list: &model.List{
 				ExternalID: new("L1"),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.FailDeleteTaskList = true
 			},
 			wantErr: true,
@@ -1374,7 +1374,7 @@ func TestDeleteList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeTasks := googletaskstest.NewFakeGoogleTasks(t)
+			fakeTasks := googletaskstest.NewFake(t)
 			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
 				Transport: fakeTasks,
@@ -1410,7 +1410,7 @@ func TestCreateItem(t *testing.T) {
 		listID         string
 		item           *model.Item
 		previousItemID string
-		setupFake      func(fake *googletaskstest.FakeGoogleTasks)
+		setupFake      func(fake *googletaskstest.Fake)
 		wantTask       *tasks.Task
 		wantExternalID string
 		wantErr        error
@@ -1423,7 +1423,7 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{}
 			},
 			wantTask: &tasks.Task{
@@ -1442,7 +1442,7 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{}
 			},
 			wantTask: &tasks.Task{
@@ -1461,7 +1461,7 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{}
 			},
 			wantTask: &tasks.Task{
@@ -1480,7 +1480,7 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{}
 			},
 			wantTask: &tasks.Task{
@@ -1500,7 +1500,7 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{}
 			},
 			wantTask: &tasks.Task{
@@ -1519,7 +1519,7 @@ func TestCreateItem(t *testing.T) {
 				Status:         model.StatusNotStarted,
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{}
 			},
 			wantErr: model.ErrInvalidResource,
@@ -1533,7 +1533,7 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{}
 			},
 			wantTask: &tasks.Task{
@@ -1552,7 +1552,7 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{}
 			},
 			wantTask: &tasks.Task{
@@ -1572,7 +1572,7 @@ func TestCreateItem(t *testing.T) {
 				Modified:       time.Now(),
 			},
 			previousItemID: "P1",
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{
 						Id: "P1",
@@ -1596,7 +1596,7 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{}
 			},
 			wantErr: cmpopts.AnyError,
@@ -1611,7 +1611,7 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{}
 			},
 			wantErr: cmpopts.AnyError,
@@ -1624,7 +1624,7 @@ func TestCreateItem(t *testing.T) {
 				Title:    "Fail",
 				Modified: time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.Fake) {},
 			wantErr:   cmpopts.AnyError,
 		},
 		{
@@ -1636,7 +1636,7 @@ func TestCreateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.FailInsertTask = true
 			},
 			wantErr: cmpopts.AnyError,
@@ -1647,7 +1647,7 @@ func TestCreateItem(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeTasks := googletaskstest.NewFakeGoogleTasks(t)
+			fakeTasks := googletaskstest.NewFake(t)
 			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
 				Transport: fakeTasks,
@@ -1711,7 +1711,7 @@ func TestUpdateItem(t *testing.T) {
 		name      string
 		listID    string
 		item      *model.Item
-		setupFake func(fake *googletaskstest.FakeGoogleTasks)
+		setupFake func(fake *googletaskstest.Fake)
 		wantTask  *tasks.Task
 		wantErr   error
 	}{
@@ -1726,7 +1726,7 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{
 						Id:    "T1",
@@ -1752,7 +1752,7 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{Id: "T1"},
 				}
@@ -1773,7 +1773,7 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{Id: "T1"},
 				}
@@ -1794,7 +1794,7 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{Id: "T1"},
 				}
@@ -1816,7 +1816,7 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{Id: "T1"},
 				}
@@ -1839,7 +1839,7 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{
 						Id:     "T1",
@@ -1866,7 +1866,7 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{Id: "T1"},
 				}
@@ -1890,7 +1890,7 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{
 						Id:    "T1",
@@ -1916,7 +1916,7 @@ func TestUpdateItem(t *testing.T) {
 				Status:         model.StatusNotStarted,
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{
 					{Id: "T1"},
 				}
@@ -1930,7 +1930,7 @@ func TestUpdateItem(t *testing.T) {
 				Title:    "Update Task",
 				Modified: time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.Fake) {},
 			wantErr:   cmpopts.AnyError,
 		},
 		{
@@ -1941,7 +1941,7 @@ func TestUpdateItem(t *testing.T) {
 				Modified:   time.Now(),
 				ExternalID: new("T1"),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.Fake) {},
 			wantErr:   cmpopts.AnyError,
 		},
 		{
@@ -1955,7 +1955,7 @@ func TestUpdateItem(t *testing.T) {
 				ExternalListID: new("L1"),
 				Modified:       time.Now(),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.FailPatchTask = true
 			},
 			wantErr: cmpopts.AnyError,
@@ -1966,7 +1966,7 @@ func TestUpdateItem(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeTasks := googletaskstest.NewFakeGoogleTasks(t)
+			fakeTasks := googletaskstest.NewFake(t)
 			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
 				Transport: fakeTasks,
@@ -2026,7 +2026,7 @@ func TestDeleteItem(t *testing.T) {
 	tests := []struct {
 		name      string
 		item      *model.Item
-		setupFake func(fake *googletaskstest.FakeGoogleTasks)
+		setupFake func(fake *googletaskstest.Fake)
 		wantErr   bool
 	}{
 		{
@@ -2035,7 +2035,7 @@ func TestDeleteItem(t *testing.T) {
 				ExternalID:     new("T1"),
 				ExternalListID: new("L1"),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{{Id: "T1"}}
 			},
 			wantErr: false,
@@ -2046,7 +2046,7 @@ func TestDeleteItem(t *testing.T) {
 				ListID: "list-1",
 				Title:  "Delete Task",
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.Fake) {},
 			wantErr:   true,
 		},
 		{
@@ -2056,7 +2056,7 @@ func TestDeleteItem(t *testing.T) {
 				Title:      "Delete Task",
 				ExternalID: new("T1"),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {},
+			setupFake: func(fake *googletaskstest.Fake) {},
 			wantErr:   true,
 		},
 		{
@@ -2065,7 +2065,7 @@ func TestDeleteItem(t *testing.T) {
 				ExternalID:     new("T1"),
 				ExternalListID: new("L1"),
 			},
-			setupFake: func(fake *googletaskstest.FakeGoogleTasks) {
+			setupFake: func(fake *googletaskstest.Fake) {
 				fake.FailDeleteTask = true
 			},
 			wantErr: true,
@@ -2076,7 +2076,7 @@ func TestDeleteItem(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeTasks := googletaskstest.NewFakeGoogleTasks(t)
+			fakeTasks := googletaskstest.NewFake(t)
 			tt.setupFake(fakeTasks)
 			mockClient := &http.Client{
 				Transport: fakeTasks,

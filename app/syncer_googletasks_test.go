@@ -3536,7 +3536,7 @@ func TestPullGoogleTasks(t *testing.T) {
 }
 
 func setupTestGoogleTasks(t *testing.T, lists []model.List) *errorProvider {
-	fakeGoogleTasks := googletaskstest.NewFakeGoogleTasks(t)
+	fakeGoogleTasks := googletaskstest.NewFake(t)
 	mockHTTPClient := &http.Client{
 		Transport: fakeGoogleTasks,
 	}
