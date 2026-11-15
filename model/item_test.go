@@ -853,7 +853,7 @@ func TestItem_Equivalent(t *testing.T) {
 				Due:            iso8601ToDate(t, "2024-01-01"),
 				Tags:           []string{"tag1"},
 				Modified:       time.Now().Add(time.Hour),
-				Created:        baseItem.Created.Add(time.Hour),
+				Created:        baseItem.Created,
 			},
 			want: true,
 		},

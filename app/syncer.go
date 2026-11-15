@@ -66,7 +66,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider, syncStart ti
 		}
 	}
 
-	ss := &syncSession{
+	session := &syncSession{
 		key:       s.key,
 		srcState:  srcState,
 		dstState:  dstState,
@@ -75,13 +75,13 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider, syncStart ti
 
 	changed := false
 	for _, srcList := range srcState.lists {
-		created, err := ss.syncListCreation(ctx, &srcList)
+		created, err := session.syncListCreation(ctx, &srcList)
 		changed = changed || created
 		if err != nil {
 			return changed, err
 		}
 
-		updated, err := ss.syncListUpdate(ctx, &srcList)
+		updated, err := session.syncListUpdate(ctx, &srcList)
 		changed = changed || updated
 		if err != nil {
 			return changed, err
@@ -89,13 +89,13 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider, syncStart ti
 	}
 
 	for _, srcList := range srcState.lists {
-		if err := ss.syncNextActionProjectUpdate(ctx, &srcList); err != nil {
+		if err := session.syncNextActionProjectUpdate(ctx, &srcList); err != nil {
 			return changed, err
 		}
 	}
 
 	for _, dstList := range dstState.lists {
-		deleted, err := ss.syncListDeletion(ctx, &dstList)
+		deleted, err := session.syncListDeletion(ctx, &dstList)
 		changed = changed || deleted
 		if err != nil {
 			return changed, err

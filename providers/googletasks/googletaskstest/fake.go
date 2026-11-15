@@ -281,8 +281,8 @@ func (f *Fake) InsertTask(taskListID string, req *http.Request) (*http.Response,
 		return resp, nil
 	}
 
-	q := req.URL.Query()
-	prevTaskID := q.Get("previous")
+	query := req.URL.Query()
+	prevTaskID := query.Get("previous")
 	idx := slices.IndexFunc(taskItems, func(t *tasks.Task) bool {
 		return t.Id == prevTaskID
 	})
@@ -476,8 +476,8 @@ func (f *Fake) MoveTask(taskListID, taskID string, req *http.Request) (*http.Res
 		return resp, nil
 	}
 
-	q := req.URL.Query()
-	dstTaskListID := q.Get("destinationTasklist")
+	query := req.URL.Query()
+	dstTaskListID := query.Get("destinationTasklist")
 	if dstTaskListID == "" {
 		dstTaskListID = taskListID
 	}
@@ -496,7 +496,7 @@ func (f *Fake) MoveTask(taskListID, taskID string, req *http.Request) (*http.Res
 	task := srcTasks[taskIdx]
 	f.Tasks[taskListID] = slices.Delete(f.Tasks[taskListID], taskIdx, taskIdx+1)
 
-	prevTaskID := q.Get("previous")
+	prevTaskID := query.Get("previous")
 	prevTaskIdx := slices.IndexFunc(f.Tasks[dstTaskListID], func(t *tasks.Task) bool {
 		return t.Id == prevTaskID
 	})
