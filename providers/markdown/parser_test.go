@@ -566,7 +566,7 @@ func TestParse(t *testing.T) {
 // errReader implements [io.Reader] and always returns an error for testing read failures.
 type errReader struct{}
 
-func (errReader) Read(p []byte) (n int, err error) {
+func (errReader) Read(p []byte) (int, error) {
 	return 0, errors.New("simulated I/O error")
 }
 
