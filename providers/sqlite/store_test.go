@@ -596,24 +596,7 @@ func TestUpdateList(t *testing.T) {
 							created
 						)
 						VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-					`, "item-3", "C", "", "list-1", "", 0, "not_started", time.Now(), time.Now(),
-				)
-
-				mustExec(t, db,
-					`
-						INSERT INTO items (
-							id,
-							title,
-							description,
-							list_id,
-							waiting_on,
-							position,
-							status,
-							modified,
-							created
-						)
-						VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-					`, "item-1", "A", "", "list-1", "", 1, "not_started", time.Now(), time.Now(),
+					`, "item-1", "A", "", "list-1", "", 0, "not_started", time.Now(), time.Now(),
 				)
 
 				mustExec(t, db,
@@ -629,7 +612,7 @@ func TestUpdateList(t *testing.T) {
 							modified,
 							created
 						) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-					`, "item-2", "B", "", "list-1", "", 2, "not_started", time.Now(), time.Now(),
+					`, "item-2", "B", "", "list-1", "", 1, "not_started", time.Now(), time.Now(),
 				)
 
 				return "list-1"
@@ -643,23 +626,16 @@ func TestUpdateList(t *testing.T) {
 					Modified: time.Now(),
 					Items: []*model.Item{
 						{
-							ID:       "item-3",
-							ListID:   id,
-							Position: 0,
-							Title:    "C",
-							Status:   model.StatusNotStarted,
-						},
-						{
 							ID:       "item-2",
 							ListID:   id,
-							Position: 1,
+							Position: 0,
 							Title:    "B",
 							Status:   model.StatusNotStarted,
 						},
 						{
 							ID:       "item-1",
 							ListID:   id,
-							Position: 2,
+							Position: 1,
 							Title:    "A",
 							Status:   model.StatusNotStarted,
 						},
@@ -672,7 +648,6 @@ func TestUpdateList(t *testing.T) {
 				list := &model.List{
 					Name: "Old Name",
 					Items: []*model.Item{
-						{ID: "item-3"},
 						{ID: "item-1"},
 						{ID: "item-2"},
 					},
@@ -688,17 +663,9 @@ func TestUpdateList(t *testing.T) {
 			},
 			wantItems: []*model.Item{
 				{
-					ID:       "item-3",
-					ListID:   "list-1",
-					Position: 0,
-					Title:    "C",
-					Status:   model.StatusNotStarted,
-					Tags:     []string{},
-				},
-				{
 					ID:       "item-2",
 					ListID:   "list-1",
-					Position: 1,
+					Position: 0,
 					Title:    "B",
 					Status:   model.StatusNotStarted,
 					Tags:     []string{},
@@ -706,7 +673,7 @@ func TestUpdateList(t *testing.T) {
 				{
 					ID:       "item-1",
 					ListID:   "list-1",
-					Position: 2,
+					Position: 1,
 					Title:    "A",
 					Status:   model.StatusNotStarted,
 					Tags:     []string{},
@@ -784,6 +751,120 @@ func TestUpdateList(t *testing.T) {
 					ListID:   "list-opt",
 					Position: 99,
 					Title:    "Task Opt",
+					Status:   model.StatusNotStarted,
+					Tags:     []string{},
+				},
+			},
+		},
+		{
+			name: "valid update (partial optimization skip)",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "List 1", time.Now(),
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-2", "List 2", time.Now(),
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							waiting_on,
+							position,
+							status,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-1", "A", "", "list-1", "", 0, "not_started", time.Now(), time.Now(),
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							waiting_on,
+							position,
+							status,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+					`, "item-2", "B", "", "list-2", "", 0, "not_started", time.Now(), time.Now(),
+				)
+
+				return "list-1"
+			},
+			setupList: func(id string) model.List {
+				list := model.List{
+					ID:       id,
+					Name:     "List 1",
+					Modified: time.Now(),
+					Items: []*model.Item{
+						{
+							ID:       "item-1",
+							ListID:   id,
+							Position: 0,
+							Title:    "A",
+							Status:   model.StatusNotStarted,
+						},
+						{
+							ID:       "item-2",
+							ListID:   "list-2",
+							Position: 1,
+							Title:    "B",
+							Status:   model.StatusNotStarted,
+						},
+					},
+				}
+
+				return list
+			},
+			setupCurrent: func() *model.List {
+				list := &model.List{
+					Name: "List 1",
+					Items: []*model.Item{
+						{
+							ID:       "item-1",
+							ListID:   "list-1",
+							Position: 0,
+						},
+					},
+				}
+
+				return list
+			},
+			wantList: &model.List{
+				ID:     "list-1",
+				Name:   "List 1",
+				Status: model.StatusOpen,
+			},
+			wantItems: []*model.Item{
+				{
+					ID:       "item-1",
+					ListID:   "list-1",
+					Position: 0,
+					Title:    "A",
+					Status:   model.StatusNotStarted,
+					Tags:     []string{},
+				},
+				{
+					ID:       "item-2",
+					ListID:   "list-1",
+					Position: 1,
+					Title:    "B",
 					Status:   model.StatusNotStarted,
 					Tags:     []string{},
 				},
