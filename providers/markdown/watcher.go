@@ -19,14 +19,14 @@ const DefaultDebounceInterval = 50 * time.Millisecond
 func (c *Client) Watch(ctx context.Context) (<-chan error, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create file watcher: %w", err)
+		return nil, fmt.Errorf("create file watcher: %w", err)
 	}
 
 	dir := filepath.Dir(c.filepath)
 
 	if err := watcher.Add(dir); err != nil {
 		_ = watcher.Close()
-		return nil, fmt.Errorf("failed to watch directory %s: %w", dir, err)
+		return nil, fmt.Errorf("watch directory %s: %w", dir, err)
 	}
 
 	events := make(chan error, 1)
@@ -76,7 +76,7 @@ func (c *Client) watchLoop(ctx context.Context, watcher *fsnotify.Watcher, event
 			select {
 			case <-ctx.Done():
 				return
-			case events <- fmt.Errorf("markdown file watcher error: %w", err):
+			case events <- fmt.Errorf("markdown file watcher: %w", err):
 				// Successfully sent the error.
 			}
 		}

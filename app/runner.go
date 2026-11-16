@@ -65,7 +65,7 @@ func (r *Runner) Run(ctx context.Context) error {
 			return fmt.Errorf("sync loop canceled: %w", ctx.Err())
 		case event := <-r.events:
 			if event.err != nil {
-				return fmt.Errorf("fatal error in %s watcher: %w", event.target.Name, event.err)
+				return fmt.Errorf("%s watcher: %w", event.target.Name, event.err)
 			}
 
 			r.processEvent(ctx, event)
@@ -78,7 +78,7 @@ func (r *Runner) Run(ctx context.Context) error {
 func (r *Runner) startWatcher(ctx context.Context, target *SyncTarget) error {
 	events, err := target.Watcher.Watch(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to start watcher for %s: %w", target.Name, err)
+		return fmt.Errorf("start watcher for %s: %w", target.Name, err)
 	}
 
 	go func() {

@@ -109,7 +109,7 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider, syncStart ti
 func (s *Syncer) buildProviderState(ctx context.Context, p Provider) (*providerState, error) {
 	lists, err := p.ListLists(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve lists from provider: %w", err)
+		return nil, fmt.Errorf("retrieve lists from provider: %w", err)
 	}
 
 	listsByKey := make(map[string]*model.List, len(lists))
@@ -336,12 +336,12 @@ func (ss *syncSession) syncListDeletion(ctx context.Context, dstList *model.List
 func (ss *syncSession) createList(ctx context.Context, list *model.List) error {
 	listKey := ss.key(list)
 	if err := ss.dstState.provider.CreateList(ctx, list); err != nil {
-		return fmt.Errorf("failed to create list %q in destination: %w", list.Name, err)
+		return fmt.Errorf("create list %q in destination: %w", list.Name, err)
 	}
 
 	if listKey == "" {
 		if err := ss.srcState.provider.UpdateList(ctx, list, list); err != nil {
-			return fmt.Errorf("failed to backfill external key for list %q in source: %w", list.Name, err)
+			return fmt.Errorf("backfill external key for list %q in source: %w", list.Name, err)
 		}
 	}
 
@@ -357,12 +357,12 @@ func (ss *syncSession) createItem(ctx context.Context, item *model.Item, prevIte
 
 	itemKey := ss.key(item)
 	if err := ss.dstState.provider.CreateItem(ctx, item, prevItemID); err != nil {
-		return fmt.Errorf("failed to create item %q in destination: %w", item.Title, err)
+		return fmt.Errorf("create item %q in destination: %w", item.Title, err)
 	}
 
 	if itemKey == "" {
 		if err := ss.srcState.provider.UpdateItem(ctx, item); err != nil {
-			return fmt.Errorf("failed to backfill external key for item %q in source: %w", item.Title, err)
+			return fmt.Errorf("backfill external key for item %q in source: %w", item.Title, err)
 		}
 	}
 
@@ -390,7 +390,7 @@ func (ss *syncSession) updateList(ctx context.Context, list, dstList *model.List
 
 	syncList.Items = listItems
 	if err := ss.dstState.provider.UpdateList(ctx, &syncList, dstList); err != nil {
-		return fmt.Errorf("failed to update list %q in destination: %w", syncList.Name, err)
+		return fmt.Errorf("update list %q in destination: %w", syncList.Name, err)
 	}
 
 	return nil
@@ -406,7 +406,7 @@ func (ss *syncSession) updateItem(ctx context.Context, srcItem, dstItem *model.I
 	}
 
 	if err := ss.dstState.provider.UpdateItem(ctx, srcItem); err != nil {
-		return fmt.Errorf("failed to update item %q in destination: %w", srcItem.Title, err)
+		return fmt.Errorf("update item %q in destination: %w", srcItem.Title, err)
 	}
 
 	return nil
@@ -418,18 +418,18 @@ func (ss *syncSession) deleteList(ctx context.Context, srcList, dstList *model.L
 	if srcList == nil {
 		dstList.Status = model.StatusDeleted
 		if err := ss.dstState.provider.UpdateList(ctx, dstList, dstList); err != nil {
-			return fmt.Errorf("failed to mark list %q as deleted in destination: %w", dstList.Name, err)
+			return fmt.Errorf("mark list %q as deleted in destination: %w", dstList.Name, err)
 		}
 
 		return nil
 	}
 
 	if err := ss.dstState.provider.DeleteList(ctx, dstList); err != nil {
-		return fmt.Errorf("failed to permanently delete list %q from destination: %w", dstList.Name, err)
+		return fmt.Errorf("permanently delete list %q from destination: %w", dstList.Name, err)
 	}
 
 	if err := ss.srcState.provider.DeleteList(ctx, srcList); err != nil {
-		return fmt.Errorf("failed to permanently delete list %q from source: %w", srcList.Name, err)
+		return fmt.Errorf("permanently delete list %q from source: %w", srcList.Name, err)
 	}
 
 	return nil
@@ -441,18 +441,18 @@ func (ss *syncSession) deleteItem(ctx context.Context, srcItem, dstItem *model.I
 	if srcItem == nil {
 		dstItem.Status = model.StatusDeleted
 		if err := ss.dstState.provider.UpdateItem(ctx, dstItem); err != nil {
-			return fmt.Errorf("failed to mark item %q as deleted in destination: %w", dstItem.Title, err)
+			return fmt.Errorf("mark item %q as deleted in destination: %w", dstItem.Title, err)
 		}
 
 		return nil
 	}
 
 	if err := ss.dstState.provider.DeleteItem(ctx, dstItem); err != nil {
-		return fmt.Errorf("failed to permanently delete item %q from destination: %w", dstItem.Title, err)
+		return fmt.Errorf("permanently delete item %q from destination: %w", dstItem.Title, err)
 	}
 
 	if err := ss.srcState.provider.DeleteItem(ctx, srcItem); err != nil {
-		return fmt.Errorf("failed to permanently delete item %q from source: %w", srcItem.Title, err)
+		return fmt.Errorf("permanently delete item %q from source: %w", srcItem.Title, err)
 	}
 
 	return nil

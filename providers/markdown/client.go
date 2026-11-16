@@ -91,7 +91,7 @@ func (c *Client) UpdateList(_ context.Context, list, currentList *model.List) er
 	}
 
 	if list.ID == "" {
-		return errors.New("failed to update list: missing ID")
+		return errors.New("update list: missing ID")
 	}
 
 	lists, err := c.readFile()
@@ -104,7 +104,7 @@ func (c *Client) UpdateList(_ context.Context, list, currentList *model.List) er
 	})
 
 	if idx == -1 {
-		return fmt.Errorf("failed to update list: list %q not found", list.ID)
+		return fmt.Errorf("update list: list %q not found", list.ID)
 	}
 
 	lists[idx].ID = list.ID
@@ -138,7 +138,7 @@ func (c *Client) UpdateList(_ context.Context, list, currentList *model.List) er
 // DeleteList removes a list from the markdown file.
 func (c *Client) DeleteList(ctx context.Context, list *model.List) error {
 	if list.ID == "" {
-		return errors.New("failed to delete list: missing ID")
+		return errors.New("delete list: missing ID")
 	}
 
 	lists, err := c.readFile()
@@ -151,7 +151,7 @@ func (c *Client) DeleteList(ctx context.Context, list *model.List) error {
 	})
 
 	if idx == -1 {
-		return fmt.Errorf("failed to delete list: list %q not found", list.ID)
+		return fmt.Errorf("delete list: list %q not found", list.ID)
 	}
 
 	lists = slices.Delete(lists, idx, idx+1)
@@ -174,7 +174,7 @@ func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemI
 	}
 
 	if item.ListID == "" {
-		return errors.New("failed to create item: missing list ID")
+		return errors.New("create item: missing list ID")
 	}
 
 	lists, err := c.readFile()
@@ -187,7 +187,7 @@ func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemI
 	})
 
 	if listIdx == -1 {
-		return fmt.Errorf("failed to create item: list %q not found", item.ListID)
+		return fmt.Errorf("create item: list %q not found", item.ListID)
 	}
 
 	list := lists[listIdx]
@@ -217,7 +217,7 @@ func (c *Client) UpdateItem(ctx context.Context, item *model.Item) error {
 	}
 
 	if item.ID == "" || item.ListID == "" {
-		return errors.New("failed to update item: missing identifiers")
+		return errors.New("update item: missing identifiers")
 	}
 
 	lists, err := c.readFile()
@@ -230,7 +230,7 @@ func (c *Client) UpdateItem(ctx context.Context, item *model.Item) error {
 	})
 
 	if listIdx == -1 {
-		return fmt.Errorf("failed to update item: list %q not found", item.ListID)
+		return fmt.Errorf("update item: list %q not found", item.ListID)
 	}
 
 	list := lists[listIdx]
@@ -240,7 +240,7 @@ func (c *Client) UpdateItem(ctx context.Context, item *model.Item) error {
 	})
 
 	if itemIdx == -1 {
-		return fmt.Errorf("failed to update item: item %q not found", item.ID)
+		return fmt.Errorf("update item: item %q not found", item.ID)
 	}
 
 	list.Items[itemIdx] = item
@@ -284,7 +284,7 @@ func moveItem(lists []model.List, item *model.Item, destinationListIdx int) erro
 // DeleteItem removes an item from the markdown file.
 func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
 	if item.ID == "" || item.ListID == "" {
-		return errors.New("failed to delete item: missing identifiers")
+		return errors.New("delete item: missing identifiers")
 	}
 
 	lists, err := c.readFile()
@@ -297,7 +297,7 @@ func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
 	})
 
 	if listIdx == -1 {
-		return fmt.Errorf("failed to delete item: list %q not found", item.ListID)
+		return fmt.Errorf("delete item: list %q not found", item.ListID)
 	}
 
 	list := lists[listIdx]
@@ -307,7 +307,7 @@ func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
 	})
 
 	if itemIdx == -1 {
-		return fmt.Errorf("failed to delete item: item %q not found", item.ID)
+		return fmt.Errorf("delete item: item %q not found", item.ID)
 	}
 
 	list.Items = slices.Delete(list.Items, itemIdx, itemIdx+1)
@@ -324,12 +324,12 @@ func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
 func (c *Client) readFile() ([]model.List, error) {
 	stat, err := os.Stat(c.filepath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to access markdown file: %w", err)
+		return nil, fmt.Errorf("stat markdown file: %w", err)
 	}
 
 	fileBytes, err := os.ReadFile(c.filepath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read markdown file: %w", err)
+		return nil, fmt.Errorf("read markdown file: %w", err)
 	}
 
 	if len(fileBytes) == 0 {
@@ -339,12 +339,12 @@ func (c *Client) readFile() ([]model.List, error) {
 	reader := bytes.NewReader(fileBytes)
 	lists, err := parse(reader, stat.ModTime())
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse markdown file: %w", err)
+		return nil, fmt.Errorf("parse markdown file: %w", err)
 	}
 
 	var renderedBuf bytes.Buffer
 	if err := render(&renderedBuf, lists); err != nil {
-		return nil, fmt.Errorf("failed to render markdown for comparison: %w", err)
+		return nil, fmt.Errorf("render markdown for comparison: %w", err)
 	}
 
 	if !bytes.Equal(fileBytes, renderedBuf.Bytes()) {
@@ -383,7 +383,7 @@ func (c *Client) writeFile(lists []model.List, opts ...writeOption) error {
 
 	var buf bytes.Buffer
 	if err := render(&buf, lists); err != nil {
-		return fmt.Errorf("failed to render markdown file: %w", err)
+		return fmt.Errorf("render markdown file: %w", err)
 	}
 
 	c.mu.Lock()
@@ -391,27 +391,27 @@ func (c *Client) writeFile(lists []model.List, opts ...writeOption) error {
 
 	file, err := os.OpenFile(c.filepath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
-		return fmt.Errorf("failed to open markdown file for writing: %w", err)
+		return fmt.Errorf("open markdown file for writing: %w", err)
 	}
 
 	defer file.Close()
 
 	if _, err = file.Write(buf.Bytes()); err != nil {
-		return fmt.Errorf("failed to write to markdown file: %w", err)
+		return fmt.Errorf("write markdown file: %w", err)
 	}
 
 	if err = file.Close(); err != nil {
-		return fmt.Errorf("failed to close markdown file: %w", err)
+		return fmt.Errorf("close markdown file: %w", err)
 	}
 
 	if options.modTime != nil {
 		if err := os.Chtimes(c.filepath, *options.modTime, *options.modTime); err != nil {
-			return fmt.Errorf("failed to restore original modification time: %w", err)
+			return fmt.Errorf("restore modification time: %w", err)
 		}
 	} else {
 		stat, err := os.Stat(c.filepath)
 		if err != nil {
-			return fmt.Errorf("failed to stat markdown file after writing: %w", err)
+			return fmt.Errorf("stat markdown file after writing: %w", err)
 		}
 
 		c.lastModTime = stat.ModTime()

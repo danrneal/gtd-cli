@@ -18,7 +18,7 @@ func render(writer io.Writer, lists []model.List) error {
 	}
 
 	if _, err := fmt.Fprint(writer, buf.String()); err != nil {
-		return fmt.Errorf("failed to write to writer: %w", err)
+		return fmt.Errorf("write markdown output: %w", err)
 	}
 
 	return nil

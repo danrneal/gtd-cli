@@ -110,7 +110,7 @@ func run(cfg *Config, logger *slog.Logger) error {
 
 	sqliteStore, err := sqlite.NewStore(ctx, cfg.db, logger)
 	if err != nil {
-		return fmt.Errorf("failed to initialize sqlite store: %w", err)
+		return fmt.Errorf("initialize sqlite store: %w", err)
 	}
 
 	defer sqliteStore.Close()
@@ -127,7 +127,7 @@ func run(cfg *Config, logger *slog.Logger) error {
 			var tasksService *tasks.Service
 			tasksService, err = googletasks.NewService(ctx, cfg.credsFile, cfg.tokenFile, logger)
 			if err != nil {
-				return fmt.Errorf("failed to initialize google tasks service: %w", err)
+				return fmt.Errorf("initialize google tasks service: %w", err)
 			}
 
 			pollInterval := time.Duration(cfg.googleTasksPollInterval) * time.Second
@@ -157,7 +157,7 @@ func run(cfg *Config, logger *slog.Logger) error {
 
 	runner := app.NewRunner(syncTargets, logger)
 	if err = runner.Run(ctx); err != nil {
-		return fmt.Errorf("sync loop failed: %w", err)
+		return fmt.Errorf("run sync loop: %w", err)
 	}
 
 	return nil

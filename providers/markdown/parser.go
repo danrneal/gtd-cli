@@ -78,7 +78,7 @@ func parse(reader io.Reader, modified time.Time) ([]model.List, error) {
 	p.flushList(modified)
 
 	if err := scanner.Err(); err != nil {
-		return p.lists, fmt.Errorf("failed to scan markdown file: %w", err)
+		return p.lists, fmt.Errorf("scan markdown file: %w", err)
 	}
 
 	return p.lists, nil

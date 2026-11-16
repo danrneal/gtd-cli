@@ -57,12 +57,12 @@ func NewStore(ctx context.Context, dbPath string, logger *slog.Logger, opts ...O
 	dataSourceName := fmt.Sprintf("%s?_busy_timeout=5000&_foreign_keys=on&_journal_mode=WAL", dbPath)
 	db, err := sql.Open("sqlite3", dataSourceName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+		return nil, fmt.Errorf("open database: %w", err)
 	}
 
 	if err = db.PingContext(ctx); err != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf("failed to ping database: %w", err)
+		return nil, fmt.Errorf("ping database: %w", err)
 	}
 
 	db.SetMaxOpenConns(1)
@@ -94,7 +94,7 @@ func NewStore(ctx context.Context, dbPath string, logger *slog.Logger, opts ...O
 func (s *Store) Close() error {
 	if s.db != nil {
 		if err := s.db.Close(); err != nil {
-			return fmt.Errorf("failed to close database: %w", err)
+			return fmt.Errorf("close database: %w", err)
 		}
 	}
 
@@ -133,7 +133,7 @@ func (s *Store) createTables(ctx context.Context) error {
 	`
 
 	if _, err := s.db.ExecContext(ctx, query); err != nil {
-		return fmt.Errorf("failed to create tables: %w", err)
+		return fmt.Errorf("create tables: %w", err)
 	}
 
 	return nil
@@ -156,7 +156,7 @@ func (s *Store) CreateList(ctx context.Context, list *model.List) error {
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		return fmt.Errorf("begin transaction: %w", err)
 	}
 
 	defer tx.Rollback()
@@ -166,7 +166,7 @@ func (s *Store) CreateList(ctx context.Context, list *model.List) error {
 	}
 
 	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		return fmt.Errorf("commit transaction: %w", err)
 	}
 
 	return nil
@@ -182,7 +182,7 @@ func (s *Store) execInsertList(ctx context.Context, tx *sql.Tx, list *model.List
 	`
 
 	if _, err := tx.ExecContext(ctx, query, list.Position); err != nil {
-		return fmt.Errorf("failed to shift list positions: %w", err)
+		return fmt.Errorf("shift list positions: %w", err)
 	}
 
 	query = `
@@ -206,7 +206,7 @@ func (s *Store) execInsertList(ctx context.Context, tx *sql.Tx, list *model.List
 		list.Modified,
 		list.ExternalID,
 	); err != nil {
-		return fmt.Errorf("failed to insert list %q: %w", list.Name, err)
+		return fmt.Errorf("insert list %q: %w", list.Name, err)
 	}
 
 	return nil
@@ -217,7 +217,7 @@ func (s *Store) execInsertList(ctx context.Context, tx *sql.Tx, list *model.List
 func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+		return nil, fmt.Errorf("begin transaction: %w", err)
 	}
 
 	defer tx.Rollback()
@@ -246,7 +246,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 
 	rows, err := tx.QueryContext(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query lists: %w", err)
+		return nil, fmt.Errorf("query lists: %w", err)
 	}
 
 	defer rows.Close()
@@ -263,7 +263,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 			&list.Modified,
 			&list.ExternalID,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan list: %w", err)
+			return nil, fmt.Errorf("scan list: %w", err)
 		}
 
 		list.Position = i
@@ -279,7 +279,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows iteration failed: %w", err)
+		return nil, fmt.Errorf("iterate list rows: %w", err)
 	}
 
 	return lists, nil
@@ -314,7 +314,7 @@ func queryList(ctx context.Context, tx *sql.Tx, listID string) (*model.List, err
 			return nil, fmt.Errorf("list with ID %q: %w", listID, ErrNotFound)
 		}
 
-		return nil, fmt.Errorf("failed to scan list: %w", err)
+		return nil, fmt.Errorf("scan list: %w", err)
 	}
 
 	items, err := listItems(ctx, tx, listID)
@@ -342,7 +342,7 @@ func queryListID(ctx context.Context, tx *sql.Tx, externalID *string) (string, e
 			return "", fmt.Errorf("list with external ID %q: %w", *externalID, ErrNotFound)
 		}
 
-		return "", fmt.Errorf("failed to scan list ID: %w", err)
+		return "", fmt.Errorf("scan list ID: %w", err)
 	}
 
 	return id, nil
@@ -358,12 +358,12 @@ func (s *Store) UpdateList(ctx context.Context, list, currentList *model.List) e
 	}
 
 	if list.ID == "" && list.ExternalID == nil {
-		return errors.New("failed to update list: no internal or external ID provided")
+		return errors.New("update list: no internal or external ID provided")
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		return fmt.Errorf("begin transaction: %w", err)
 	}
 
 	defer tx.Rollback()
@@ -394,7 +394,7 @@ func (s *Store) UpdateList(ctx context.Context, list, currentList *model.List) e
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		return fmt.Errorf("commit transaction: %w", err)
 	}
 
 	return nil
@@ -424,12 +424,12 @@ func (s *Store) execUpdateList(ctx context.Context, tx *sql.Tx, list *model.List
 		list.ID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to update list %q (ID: %s): %w", list.Name, list.ID, err)
+		return fmt.Errorf("update list %q (ID: %s): %w", list.Name, list.ID, err)
 	}
 
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		return fmt.Errorf("check rows affected: %w", err)
 	}
 
 	if rowsAffected == 0 {
@@ -443,7 +443,7 @@ func (s *Store) execUpdateList(ctx context.Context, tx *sql.Tx, list *model.List
 func (s *Store) DeleteList(ctx context.Context, list *model.List) error {
 	s.logger.InfoContext(ctx, "SQLite: Deleting list", "id", list.ID, "name", list.Name)
 	if err := s.deleteResource(ctx, list); err != nil {
-		return fmt.Errorf("failed to delete list %q (ID: %s): %w", list.Name, list.ID, err)
+		return fmt.Errorf("delete list %q (ID: %s): %w", list.Name, list.ID, err)
 	}
 
 	return nil
@@ -468,7 +468,7 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		return fmt.Errorf("begin transaction: %w", err)
 	}
 
 	defer tx.Rollback()
@@ -493,7 +493,7 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 	}
 
 	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		return fmt.Errorf("commit transaction: %w", err)
 	}
 
 	currentList := *list
@@ -527,7 +527,7 @@ func (s *Store) execInsertItem(ctx context.Context, tx *sql.Tx, list *model.List
 	`
 
 	if _, err := tx.ExecContext(ctx, query, item.ListID, item.Position); err != nil {
-		return fmt.Errorf("failed to shift item positions: %w", err)
+		return fmt.Errorf("shift item positions: %w", err)
 	}
 
 	query = `
@@ -570,7 +570,7 @@ func (s *Store) execInsertItem(ctx context.Context, tx *sql.Tx, list *model.List
 		item.ExternalID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to insert item %q: %w", item.Title, err)
+		return fmt.Errorf("insert item %q: %w", item.Title, err)
 	}
 
 	return nil
@@ -607,7 +607,7 @@ func listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, error) {
 
 	rows, err := tx.QueryContext(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query items: %w", err)
+		return nil, fmt.Errorf("query items: %w", err)
 	}
 
 	defer rows.Close()
@@ -635,12 +635,12 @@ func listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, error) {
 			&item.ExternalListID,
 			&item.ExternalProjectID,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan item: %w", err)
+			return nil, fmt.Errorf("scan item: %w", err)
 		}
 
 		if tagsJSON != "" {
 			if err := json.Unmarshal([]byte(tagsJSON), &item.Tags); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal tags for item %s: %w", item.ID, err)
+				return nil, fmt.Errorf("unmarshal tags for item %s: %w", item.ID, err)
 			}
 		}
 
@@ -648,7 +648,7 @@ func listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, error) {
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows iteration failed: %w", err)
+		return nil, fmt.Errorf("iterate item rows: %w", err)
 	}
 
 	return items, nil
@@ -686,7 +686,7 @@ func listItems(ctx context.Context, tx *sql.Tx, listID string) ([]*model.Item, e
 
 	rows, err := tx.QueryContext(ctx, query, listID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query items for list: %w", err)
+		return nil, fmt.Errorf("query items for list: %w", err)
 	}
 
 	defer rows.Close()
@@ -714,12 +714,12 @@ func listItems(ctx context.Context, tx *sql.Tx, listID string) ([]*model.Item, e
 			&item.ExternalListID,
 			&item.ExternalProjectID,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan item: %w", err)
+			return nil, fmt.Errorf("scan item: %w", err)
 		}
 
 		if tagsJSON != "" {
 			if err := json.Unmarshal([]byte(tagsJSON), &item.Tags); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal tags for item %s: %w", item.ID, err)
+				return nil, fmt.Errorf("unmarshal tags for item %s: %w", item.ID, err)
 			}
 		}
 
@@ -727,7 +727,7 @@ func listItems(ctx context.Context, tx *sql.Tx, listID string) ([]*model.Item, e
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows iteration failed: %w", err)
+		return nil, fmt.Errorf("iterate item rows: %w", err)
 	}
 
 	return items, nil
@@ -748,7 +748,7 @@ func queryItemID(ctx context.Context, tx *sql.Tx, externalID *string) (string, e
 			return "", fmt.Errorf("item with external ID %q: %w", *externalID, ErrNotFound)
 		}
 
-		return "", fmt.Errorf("failed to scan item ID: %w", err)
+		return "", fmt.Errorf("scan item ID: %w", err)
 	}
 
 	return id, nil
@@ -783,7 +783,7 @@ func queryProjectID(ctx context.Context, tx *sql.Tx, item *model.Item) (*string,
 				return nil, fmt.Errorf("item with project tag %q: %w", *item.ProjectTag, ErrNotFound)
 			}
 
-			return nil, fmt.Errorf("failed to scan project ID: %w", err)
+			return nil, fmt.Errorf("scan project ID: %w", err)
 		}
 
 		return projectID, nil
@@ -806,7 +806,7 @@ func queryProjectID(ctx context.Context, tx *sql.Tx, item *model.Item) (*string,
 				return nil, fmt.Errorf("item not found when checking coalescing state: %w", ErrNotFound)
 			}
 
-			return nil, fmt.Errorf("failed to check current project state: %w", err)
+			return nil, fmt.Errorf("check current project state: %w", err)
 		}
 
 		if projectID == nil || projectTag != nil {
@@ -817,7 +817,7 @@ func queryProjectID(ctx context.Context, tx *sql.Tx, item *model.Item) (*string,
 	}
 
 	return nil, errors.New(
-		"unable to resolve project: externalProjectID and projectTag are nil, and projectID is already set",
+		"resolve project: externalProjectID and projectTag are nil, and projectID is already set",
 	)
 }
 
@@ -830,12 +830,12 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 	}
 
 	if item.ID == "" && item.ExternalID == nil {
-		return errors.New("failed to update item: no internal or external ID provided")
+		return errors.New("update item: no internal or external ID provided")
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		return fmt.Errorf("begin transaction: %w", err)
 	}
 
 	defer tx.Rollback()
@@ -870,7 +870,7 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 	}
 
 	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		return fmt.Errorf("commit transaction: %w", err)
 	}
 
 	currentList := *list
@@ -902,7 +902,7 @@ func (s *Store) execUpdateItem(ctx context.Context, tx *sql.Tx, list *model.List
 		`
 
 		if _, err := tx.ExecContext(ctx, query, item.Modified, item.ID, projectTag, item.ID); err != nil {
-			return fmt.Errorf("failed to update project next action modified timestamps: %w", err)
+			return fmt.Errorf("update project next action modified timestamps: %w", err)
 		}
 	} else if item.ProjectID == nil &&
 		(item.ExternalProjectID != nil || item.ProjectTag != nil || item.ExternalID == nil) {
@@ -948,12 +948,12 @@ func (s *Store) execUpdateItem(ctx context.Context, tx *sql.Tx, list *model.List
 		item.ID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to update item %q (ID: %s): %w", item.Title, item.ID, err)
+		return fmt.Errorf("update item %q (ID: %s): %w", item.Title, item.ID, err)
 	}
 
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		return fmt.Errorf("check rows affected: %w", err)
 	}
 
 	if rowsAffected == 0 {
@@ -979,14 +979,14 @@ func batchMoveItems(ctx context.Context, tx *sql.Tx, items []*model.Item) error 
 
 	stmt, err := tx.PrepareContext(ctx, query)
 	if err != nil {
-		return fmt.Errorf("failed to prepare batch move item statement: %w", err)
+		return fmt.Errorf("prepare batch move item statement: %w", err)
 	}
 
 	defer stmt.Close()
 
 	for _, item := range items {
 		if item.ID == "" && item.ExternalID == nil {
-			return errors.New("failed to update item location: no internal or external ID provided")
+			return errors.New("update item location: no internal or external ID provided")
 		}
 
 		if item.ID == "" {
@@ -1004,12 +1004,12 @@ func batchMoveItems(ctx context.Context, tx *sql.Tx, items []*model.Item) error 
 			item.ID,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to move item %q (ID: %s): %w", item.Title, item.ID, err)
+			return fmt.Errorf("move item %q (ID: %s): %w", item.Title, item.ID, err)
 		}
 
 		rowsAffected, err := res.RowsAffected()
 		if err != nil {
-			return fmt.Errorf("failed to get rows affected: %w", err)
+			return fmt.Errorf("check rows affected: %w", err)
 		}
 
 		if rowsAffected == 0 {
@@ -1024,7 +1024,7 @@ func batchMoveItems(ctx context.Context, tx *sql.Tx, items []*model.Item) error 
 func (s *Store) DeleteItem(ctx context.Context, item *model.Item) error {
 	s.logger.InfoContext(ctx, "SQLite: Deleting item", "id", item.ID, "title", item.Title)
 	if err := s.deleteResource(ctx, item); err != nil {
-		return fmt.Errorf("failed to delete item %q (ID: %s): %w", item.Title, item.ID, err)
+		return fmt.Errorf("delete item %q (ID: %s): %w", item.Title, item.ID, err)
 	}
 
 	return nil
@@ -1035,7 +1035,7 @@ func (s *Store) DeleteItem(ctx context.Context, item *model.Item) error {
 func deleteListItems(ctx context.Context, tx *sql.Tx, list *model.List) error {
 	query := `DELETE FROM items WHERE list_id = ?`
 	if _, err := tx.ExecContext(ctx, query, list.ID); err != nil {
-		return fmt.Errorf("failed to delete items from list %q (ID: %s): %w", list.Name, list.ID, err)
+		return fmt.Errorf("delete items from list %q (ID: %s): %w", list.Name, list.ID, err)
 	}
 
 	return nil
@@ -1045,12 +1045,12 @@ func deleteListItems(ctx context.Context, tx *sql.Tx, list *model.List) error {
 // It wraps ErrNotFound if the record does not exist.
 func (s *Store) deleteResource(ctx context.Context, resource model.Resource) error {
 	if resource.GetID() == "" && resource.GetExternalID() == nil {
-		return errors.New("failed to delete resource: no internal or external ID provided")
+		return errors.New("delete resource: no internal or external ID provided")
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		return fmt.Errorf("begin transaction: %w", err)
 	}
 
 	defer tx.Rollback()
@@ -1082,18 +1082,18 @@ func (s *Store) deleteResource(ctx context.Context, resource model.Resource) err
 	if _, ok := resource.(*model.Item); ok {
 		projQuery := `UPDATE items SET modified = ? WHERE project_id = ?`
 		if _, err = tx.ExecContext(ctx, projQuery, time.Now(), resourceID); err != nil {
-			return fmt.Errorf("failed to update project next action modified timestamps: %w", err)
+			return fmt.Errorf("update project next action modified timestamps: %w", err)
 		}
 	}
 
 	res, err := tx.ExecContext(ctx, query, resourceID)
 	if err != nil {
-		return fmt.Errorf("failed to execute delete query for resource ID %q: %w", resourceID, err)
+		return fmt.Errorf("execute delete query for resource ID %q: %w", resourceID, err)
 	}
 
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		return fmt.Errorf("check rows affected: %w", err)
 	}
 
 	if rowsAffected == 0 {
@@ -1101,7 +1101,7 @@ func (s *Store) deleteResource(ctx context.Context, resource model.Resource) err
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		return fmt.Errorf("commit transaction: %w", err)
 	}
 
 	return nil

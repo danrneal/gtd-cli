@@ -20,12 +20,12 @@ import (
 func NewService(ctx context.Context, credsFile, tokenFile string, logger *slog.Logger) (*tasks.Service, error) {
 	creds, err := os.ReadFile(credsFile)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read client secret file: %w", err)
+		return nil, fmt.Errorf("read client secret file: %w", err)
 	}
 
 	config, err := google.ConfigFromJSON(creds, tasks.TasksScope)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse client secret file to config: %w", err)
+		return nil, fmt.Errorf("parse client secret file to config: %w", err)
 	}
 
 	client, err := clientFromConfig(ctx, config, tokenFile, logger)
@@ -39,7 +39,7 @@ func NewService(ctx context.Context, credsFile, tokenFile string, logger *slog.L
 
 	service, err := tasks.NewService(ctx, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create tasks service: %w", err)
+		return nil, fmt.Errorf("create tasks service: %w", err)
 	}
 
 	return service, nil
@@ -79,7 +79,7 @@ func clientFromConfig(
 func tokenFromFile(file string) (*oauth2.Token, error) {
 	f, err := os.Open(file)
 	if err != nil {
-		return nil, fmt.Errorf("could not open token file: %w", err)
+		return nil, fmt.Errorf("open token file: %w", err)
 	}
 
 	defer f.Close()
@@ -87,7 +87,7 @@ func tokenFromFile(file string) (*oauth2.Token, error) {
 	decoder := json.NewDecoder(f)
 	token := &oauth2.Token{}
 	if err = decoder.Decode(token); err != nil {
-		return nil, fmt.Errorf("could not decode token from file %q: %w", file, err)
+		return nil, fmt.Errorf("decode token from file %q: %w", file, err)
 	}
 
 	return token, nil
@@ -101,12 +101,12 @@ func tokenFromWeb(ctx context.Context, config *oauth2.Config) (*oauth2.Token, er
 
 	var authCode string
 	if _, err := fmt.Scan(&authCode); err != nil {
-		return nil, fmt.Errorf("unable to read authorization code: %w", err)
+		return nil, fmt.Errorf("read authorization code: %w", err)
 	}
 
 	token, err := config.Exchange(ctx, authCode)
 	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve token from web: %w", err)
+		return nil, fmt.Errorf("retrieve token from web: %w", err)
 	}
 
 	return token, nil
@@ -116,16 +116,16 @@ func tokenFromWeb(ctx context.Context, config *oauth2.Config) (*oauth2.Token, er
 func saveToken(path string, token *oauth2.Token) error {
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
-		return fmt.Errorf("unable to cache oauth token: %w", err)
+		return fmt.Errorf("open token file for writing: %w", err)
 	}
 
 	if err := json.NewEncoder(f).Encode(token); err != nil {
 		_ = f.Close()
-		return fmt.Errorf("could not encode token: %w", err)
+		return fmt.Errorf("encode token: %w", err)
 	}
 
 	if err := f.Close(); err != nil {
-		return fmt.Errorf("could not close token file: %w", err)
+		return fmt.Errorf("close token file: %w", err)
 	}
 
 	return nil
@@ -143,7 +143,7 @@ type fileTokenSource struct {
 func (fts *fileTokenSource) Token() (*oauth2.Token, error) {
 	token, err := fts.tokenSource.Token()
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve token from source: %w", err)
+		return nil, fmt.Errorf("retrieve token from source: %w", err)
 	}
 
 	if token.AccessToken != fts.token.AccessToken {
