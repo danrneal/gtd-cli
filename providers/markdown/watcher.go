@@ -62,9 +62,9 @@ func (c *Client) watchLoop(ctx context.Context, watcher *fsnotify.Watcher, event
 		case <-timeout:
 			select {
 			case events <- nil:
-				// Successfully sent the event
+				// Successfully sent the event.
 			default:
-				// Non-blocking send: drop duplicate burst events if the channel is unread
+				// Non-blocking send: drop duplicate burst events if the channel is unread.
 			}
 
 			timer, timeout = nil, nil
@@ -77,7 +77,7 @@ func (c *Client) watchLoop(ctx context.Context, watcher *fsnotify.Watcher, event
 			case <-ctx.Done():
 				return
 			case events <- fmt.Errorf("markdown file watcher error: %w", err):
-				// Successfully sent the error
+				// Successfully sent the error.
 			}
 		}
 	}

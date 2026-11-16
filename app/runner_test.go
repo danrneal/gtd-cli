@@ -601,7 +601,7 @@ func TestRun(t *testing.T) {
 
 					return
 				default:
-					// Non-blocking read: proceed to test logic if the runner booted successfully
+					// Non-blocking read: proceed to test logic if the runner booted successfully.
 				}
 
 				if tt.sendEvents != nil {

@@ -19,9 +19,12 @@ import (
 )
 
 const (
-	statusNeedsAction = "needsAction" // Google Tasks API representation of an incomplete task
-	statusCompleted   = "completed"   // Google Tasks API representation of a completed task
-	maxTaskResults    = 100           // Maximum number of tasks to retrieve per API request
+	// statusNeedsAction is the Google Tasks API representation of an incomplete task.
+	statusNeedsAction = "needsAction"
+	// statusCompleted is the Google Tasks API representation of a completed task.
+	statusCompleted = "completed"
+	// maxTaskResults is the maximum number of tasks to retrieve per API request.
+	maxTaskResults = 100
 )
 
 // Client is a wrapper around the Google Tasks service.

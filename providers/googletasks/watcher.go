@@ -23,9 +23,9 @@ func (c *Client) Watch(ctx context.Context) (<-chan error, error) {
 			case <-ticker.C:
 				select {
 				case events <- nil:
-					// Successfully sent the event
+					// Successfully sent the event.
 				default:
-					// Non-blocking send: drop duplicate polling ping if the channel is unread
+					// Non-blocking send: drop duplicate polling ping if the channel is unread.
 				}
 			}
 		}

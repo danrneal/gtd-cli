@@ -2313,7 +2313,7 @@ func TestClient_Concurrency(t *testing.T) {
 
 	go func() {
 		for range events {
-			// Drain the channel to prevent the watcher from blocking
+			// Drain the channel to prevent the watcher from blocking.
 		}
 	}()
 
