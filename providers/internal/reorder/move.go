@@ -14,17 +14,8 @@ type Move struct {
 	PreviousItemID string
 }
 
-// CalculateMoves computes the minimal set of Move operations required to transform
-// the current state of items (currentItems) into the desired state (list).
-//
-// Parameters:
-//   - list: The target model.List containing the desired ordered Items.
-//   - currentItems: The slice of items as they currently exist in the destination system.
-//
-// Returns:
-//
-//	A slice of Move operations. The sequence of moves assumes they are applied in order.
-//	It uses a Longest Common Subsequence (LCS) algorithm to minimize the number of moves by identifying stable items.
+// CalculateMoves computes the minimal ordered slice of Move operations required to transform
+// currentItems into list.Items using a Longest Common Subsequence (LCS) algorithm.
 func CalculateMoves(list *model.List, currentItems []*model.Item) []Move {
 	var moves []Move
 	stableItemIDs := calculateStableItemIDs(list.Items, currentItems)

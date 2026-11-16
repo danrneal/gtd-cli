@@ -51,8 +51,8 @@ func WithItemIDGenerator(fn func() string) Option {
 	return itemIDGeneratorOpt
 }
 
-// NewStore initializes a new SQLite store.
-// It opens the database at dbPath, ensures it is accessible, and creates the necessary schema.
+// NewStore initializes a new SQLite store, opening the database at dbPath and creating the schema.
+// Callers must call Close when done with the returned Store.
 func NewStore(ctx context.Context, dbPath string, logger *slog.Logger, opts ...Option) (*Store, error) {
 	dataSourceName := fmt.Sprintf("%s?_busy_timeout=5000&_foreign_keys=on&_journal_mode=WAL", dbPath)
 	db, err := sql.Open("sqlite3", dataSourceName)
@@ -139,7 +139,7 @@ func (s *Store) createTables(ctx context.Context) error {
 	return nil
 }
 
-// CreateList inserts a new list into the database.
+// CreateList inserts a new list into the database, wrapping [model.ErrInvalidResource] if validation fails.
 func (s *Store) CreateList(ctx context.Context, list *model.List) error {
 	list.Clean()
 	if err := list.Validate(); err != nil {
@@ -286,6 +286,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 }
 
 // queryList retrieves a list and its associated items from the database by its internal ID.
+// It wraps ErrNotFound if the list does not exist.
 func queryList(ctx context.Context, tx *sql.Tx, listID string) (*model.List, error) {
 	var list model.List
 	query := `
@@ -327,6 +328,7 @@ func queryList(ctx context.Context, tx *sql.Tx, listID string) (*model.List, err
 }
 
 // queryListID resolves the internal list ID using the provided external ID.
+// It wraps ErrNotFound if no matching list exists.
 func queryListID(ctx context.Context, tx *sql.Tx, externalID *string) (string, error) {
 	if externalID == nil {
 		return "", errors.New("externalID is nil")
@@ -346,11 +348,9 @@ func queryListID(ctx context.Context, tx *sql.Tx, externalID *string) (string, e
 	return id, nil
 }
 
-// UpdateList updates an existing list in the database.
-//
-// Parameters:
-//   - list: The list with the desired state. It identifies the record via ID or ExternalID.
-//   - currentItems: The items currently associated with this list, used to optimize position updates.
+// UpdateList updates an existing list in the database, identifying it via ID or ExternalID
+// and using currentList.Items to compute minimal item position updates.
+// It wraps [model.ErrInvalidResource] if validation fails or ErrNotFound if the list or any moved item does not exist.
 func (s *Store) UpdateList(ctx context.Context, list, currentList *model.List) error {
 	list.Clean()
 	if err := list.Validate(); err != nil {
@@ -401,7 +401,7 @@ func (s *Store) UpdateList(ctx context.Context, list, currentList *model.List) e
 }
 
 // execUpdateList executes the SQL query to update an existing list record in the database.
-// It maps the updated List struct fields to the query parameters and handles 'RowsAffected' to detect missing records.
+// It wraps ErrNotFound if the list does not exist.
 func (s *Store) execUpdateList(ctx context.Context, tx *sql.Tx, list *model.List) error {
 	query := `
     	UPDATE lists SET
@@ -439,7 +439,7 @@ func (s *Store) execUpdateList(ctx context.Context, tx *sql.Tx, list *model.List
 	return nil
 }
 
-// DeleteList deletes a list from the database.
+// DeleteList deletes a list from the database, wrapping ErrNotFound if it does not exist.
 func (s *Store) DeleteList(ctx context.Context, list *model.List) error {
 	s.logger.InfoContext(ctx, "SQLite: Deleting list", "id", list.ID, "name", list.Name)
 	if err := s.deleteResource(ctx, list); err != nil {
@@ -449,9 +449,9 @@ func (s *Store) DeleteList(ctx context.Context, list *model.List) error {
 	return nil
 }
 
-// CreateItem inserts a new item into the database.
-// If item.ListID is empty, it attempts to resolve it using item.ExternalListID.
-// The previousItemID parameter is ignored by the SQLite store but kept for interface consistency.
+// CreateItem inserts a new item into the database, resolving item.ExternalListID when item.ListID is empty.
+// The previousItemID parameter is ignored by the SQLite store for interface consistency.
+// It wraps [model.ErrInvalidResource] if validation fails or ErrNotFound if the target list does not exist.
 func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) error {
 	item.Clean()
 	if err := item.Validate(); err != nil {
@@ -734,6 +734,7 @@ func listItems(ctx context.Context, tx *sql.Tx, listID string) ([]*model.Item, e
 }
 
 // queryItemID resolves the internal item ID using the provided external ID.
+// It wraps ErrNotFound if no matching item exists.
 func queryItemID(ctx context.Context, tx *sql.Tx, externalID *string) (string, error) {
 	if externalID == nil {
 		return "", errors.New("externalID is nil")
@@ -820,8 +821,8 @@ func queryProjectID(ctx context.Context, tx *sql.Tx, item *model.Item) (*string,
 	)
 }
 
-// UpdateItem updates an existing item in the database.
-// It identifies the record via ID or ExternalID.
+// UpdateItem updates an existing item in the database, identifying the record via ID or ExternalID.
+// It wraps [model.ErrInvalidResource] if validation fails or ErrNotFound if the item or target list does not exist.
 func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 	item.Clean()
 	if err := item.Validate(); err != nil {
@@ -881,7 +882,7 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 
 // execUpdateItem manages the database-level execution required to update an existing Item.
 // It resolves the internal project ID if necessary, enforces relationship constraints based on the target list,
-// and maps the fields to the SQL parameters for the UPDATE statement.
+// and wraps ErrNotFound if the item does not exist.
 func (s *Store) execUpdateItem(ctx context.Context, tx *sql.Tx, list *model.List, item *model.Item) error {
 	tagsJSON, _ := json.Marshal(item.Tags)
 
@@ -962,8 +963,8 @@ func (s *Store) execUpdateItem(ctx context.Context, tx *sql.Tx, list *model.List
 	return nil
 }
 
-// batchMoveItems updates the list_id and position for a batch of items.
-// It uses a single prepared statement for efficiency.
+// batchMoveItems updates the list_id and position for a batch of items using a single prepared statement.
+// It wraps ErrNotFound if any moved item does not exist.
 func batchMoveItems(ctx context.Context, tx *sql.Tx, items []*model.Item) error {
 	if len(items) == 0 {
 		return nil
@@ -1019,7 +1020,7 @@ func batchMoveItems(ctx context.Context, tx *sql.Tx, items []*model.Item) error 
 	return nil
 }
 
-// DeleteItem deletes an item from the database.
+// DeleteItem deletes an item from the database, wrapping ErrNotFound if it does not exist.
 func (s *Store) DeleteItem(ctx context.Context, item *model.Item) error {
 	s.logger.InfoContext(ctx, "SQLite: Deleting item", "id", item.ID, "title", item.Title)
 	if err := s.deleteResource(ctx, item); err != nil {
@@ -1040,7 +1041,8 @@ func deleteListItems(ctx context.Context, tx *sql.Tx, list *model.List) error {
 	return nil
 }
 
-// deleteResource handles the boilerplate of resolving an ID and deleting a record within a transaction.
+// deleteResource resolves a resource ID and deletes its record within a transaction.
+// It wraps ErrNotFound if the record does not exist.
 func (s *Store) deleteResource(ctx context.Context, resource model.Resource) error {
 	if resource.GetID() == "" && resource.GetExternalID() == nil {
 		return errors.New("failed to delete resource: no internal or external ID provided")

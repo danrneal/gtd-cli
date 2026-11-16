@@ -53,7 +53,8 @@ func (i *Item) Clean() {
 	}
 }
 
-// Validate checks if the current state of the item satisfies domain invariants.
+// Validate checks if the current state of the item satisfies domain invariants,
+// wrapping ErrInvalidResource on failure.
 func (i *Item) Validate() error {
 	if i.Title == "" {
 		return fmt.Errorf("%w: item title cannot be empty", ErrInvalidResource)

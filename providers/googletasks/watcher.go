@@ -6,7 +6,7 @@ import (
 )
 
 // Watch starts a background goroutine that polls the Google Tasks API on a configured interval.
-// It returns a channel that emits nil errors to trigger synchronization, or fatal errors if the watcher crashes.
+// It returns a channel that emits nil errors to trigger synchronization and closes when ctx is canceled.
 func (c *Client) Watch(ctx context.Context) (<-chan error, error) {
 	events := make(chan error, 1)
 

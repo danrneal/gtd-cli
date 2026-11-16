@@ -37,6 +37,7 @@ type SyncTarget struct {
 }
 
 // Watcher defines the interface for detecting changes in a provider.
+// Watch starts monitoring and closes the returned channel when ctx is canceled.
 type Watcher interface {
 	Watch(ctx context.Context) (<-chan error, error)
 }

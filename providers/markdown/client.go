@@ -77,6 +77,7 @@ func (c *Client) CreateList(ctx context.Context, list *model.List) error {
 }
 
 // ListLists retrieves all lists from the markdown file.
+// It returns [fs.ErrNotExist] if the file does not exist or is empty.
 func (c *Client) ListLists(_ context.Context) ([]model.List, error) {
 	lists, err := c.readFile()
 	return lists, err
@@ -319,7 +320,7 @@ func (c *Client) DeleteItem(ctx context.Context, item *model.Item) error {
 }
 
 // readFile opens the markdown file, reads its modification time, and parses its contents.
-// If the file does not exist, it safely returns an empty slice to allow for bootstrapping.
+// It returns [fs.ErrNotExist] if the file does not exist or is empty.
 func (c *Client) readFile() ([]model.List, error) {
 	stat, err := os.Stat(c.filepath)
 	if err != nil {

@@ -15,7 +15,7 @@ import (
 const DefaultDebounceInterval = 50 * time.Millisecond
 
 // Watch initializes an fsnotify file watcher on the directory containing the markdown file.
-// It returns a channel that emits events when genuine user modifications are detected.
+// It returns a channel that emits events on genuine user modifications and closes when ctx is canceled.
 func (c *Client) Watch(ctx context.Context) (<-chan error, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {

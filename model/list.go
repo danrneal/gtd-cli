@@ -49,7 +49,8 @@ func (l *List) Clean() {
 	l.sortItems()
 }
 
-// Validate checks if the current state of the list satisfies domain invariants.
+// Validate checks if the current state of the list satisfies domain invariants,
+// wrapping ErrInvalidResource on failure.
 func (l *List) Validate() error {
 	if l.Name == "" {
 		return fmt.Errorf("%w: list name cannot be empty", ErrInvalidResource)
