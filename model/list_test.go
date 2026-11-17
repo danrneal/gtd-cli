@@ -113,6 +113,45 @@ func TestList_Clean(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "preserves relative order of done items",
+			list: &List{
+				Name:   "Inbox",
+				Status: StatusOpen,
+				Items: []*Item{
+					{
+						ID:       "1",
+						Title:    "Done 1",
+						Status:   StatusDone,
+						Position: 0,
+					},
+					{
+						ID:       "2",
+						Title:    "Done 2",
+						Status:   StatusDone,
+						Position: 1,
+					},
+				},
+			},
+			want: &List{
+				Name:   "Inbox",
+				Status: StatusOpen,
+				Items: []*Item{
+					{
+						ID:       "1",
+						Title:    "Done 1",
+						Status:   StatusDone,
+						Position: 0,
+					},
+					{
+						ID:       "2",
+						Title:    "Done 2",
+						Status:   StatusDone,
+						Position: 1,
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -225,6 +264,16 @@ func TestList_Equivalent(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "equal when list ID is empty",
+			list: &List{
+				ExternalID: new("ext-1"),
+				Name:       "Inbox",
+				Status:     StatusOpen,
+			},
+			other: baseList,
+			want:  true,
+		},
+		{
 			name: "different IDs when both set",
 			list: baseList,
 			other: &List{
@@ -259,6 +308,18 @@ func TestList_Equivalent(t *testing.T) {
 				Position:   0,
 			},
 			want: true,
+		},
+		{
+			name: "different ExternalIDs (list nil)",
+			list: &List{
+				ID:         "1",
+				ExternalID: nil,
+				Name:       "Inbox",
+				Status:     StatusOpen,
+				Position:   0,
+			},
+			other: baseList,
+			want:  true,
 		},
 		{
 			name: "different names",
@@ -372,6 +433,32 @@ func TestList_Equivalent(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "different item IDs (list item empty)",
+			list: &List{
+				ID:         "1",
+				ExternalID: new("ext-1"),
+				Name:       "Inbox",
+				Status:     StatusOpen,
+				Position:   0,
+				Items: []*Item{
+					{},
+				},
+			},
+			other: &List{
+				ID:         "1",
+				ExternalID: new("ext-1"),
+				Name:       "Inbox",
+				Status:     StatusOpen,
+				Position:   0,
+				Items: []*Item{
+					{
+						ID: "item-1",
+					},
+				},
+			},
+			want: true,
+		},
+		{
 			name: "different item ExternalIDs when both set",
 			list: &List{
 				ID:         "1",
@@ -428,6 +515,66 @@ func TestList_Equivalent(t *testing.T) {
 						ID:         "item-1",
 						ExternalID: nil,
 						Position:   0,
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "different item ExternalIDs (list item nil)",
+			list: &List{
+				ID:         "1",
+				ExternalID: new("ext-1"),
+				Name:       "Inbox",
+				Status:     StatusOpen,
+				Position:   0,
+				Items: []*Item{
+					{
+						ID:         "item-1",
+						ExternalID: nil,
+					},
+				},
+			},
+			other: &List{
+				ID:         "1",
+				ExternalID: new("ext-1"),
+				Name:       "Inbox",
+				Status:     StatusOpen,
+				Position:   0,
+				Items: []*Item{
+					{
+						ID:         "item-1",
+						ExternalID: new("ext-item-1"),
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "equal when item ExternalIDs match",
+			list: &List{
+				ID:         "1",
+				ExternalID: new("ext-1"),
+				Name:       "Inbox",
+				Status:     StatusOpen,
+				Position:   0,
+				Items: []*Item{
+					{
+						ID:         "item-1",
+						ExternalID: new("ext-item-1"),
+					},
+				},
+			},
+			other: &List{
+				ID:         "1",
+				ExternalID: new("ext-1"),
+				Name:       "Inbox",
+				Status:     StatusOpen,
+				Position:   0,
+				Items: []*Item{
+					{
+						ID:         "item-1",
+						ExternalID: new("ext-item-1"),
 					},
 				},
 			},
@@ -555,6 +702,12 @@ func TestList_Contains(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "empty internal IDs",
+			list: &List{},
+			item: &Item{},
+			want: false,
+		},
+		{
 			name: "matches internal ID",
 			list: &List{
 				ID: "list-1",
@@ -574,6 +727,17 @@ func TestList_Contains(t *testing.T) {
 				ExternalListID: new("ext-1"),
 			},
 			want: true,
+		},
+		{
+			name: "different external IDs",
+			list: &List{
+				ID:         "list-1",
+				ExternalID: new("ext-1"),
+			},
+			item: &Item{
+				ExternalListID: new("ext-2"),
+			},
+			want: false,
 		},
 	}
 

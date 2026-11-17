@@ -1,2 +1,4 @@
 # format: path:line:column:mutatorName
 
+model/list.go:142:12:INTEGER_INCREMENT
+model/list.go:145:10:INTEGER_INCREMENT
