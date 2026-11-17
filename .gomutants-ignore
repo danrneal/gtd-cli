@@ -8,6 +8,8 @@ providers/googletasks/googletaskstest/fake.go:221:16:BRANCH_IF
 providers/googletasks/googletaskstest/fake.go:329:16:BRANCH_IF
 providers/googletasks/googletaskstest/fake.go:370:16:BRANCH_IF
 providers/googletasks/googletaskstest/fake.go:432:16:BRANCH_IF
+providers/googletasks/service.go:117:64:INTEGER_INCREMENT
+providers/googletasks/service.go:127:34:BRANCH_IF
 providers/internal/reorder/move.go:69:20:INTEGER_DECREMENT
 providers/internal/reorder/move.go:69:20:INTEGER_INCREMENT
 providers/internal/reorder/move.go:77:37:INTEGER_INCREMENT

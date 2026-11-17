@@ -30,6 +30,20 @@ func (syntaxError) Is(target error) bool {
 	return ok
 }
 
+// marshalerError is a test sentinel that matches any [json.MarshalerError] via [errors.Is].
+type marshalerError struct{}
+
+// Error returns a static description for test failure output.
+func (marshalerError) Error() string {
+	return "json marshaler error"
+}
+
+// Is reports whether target wraps a [json.MarshalerError].
+func (marshalerError) Is(target error) bool {
+	_, ok := errors.AsType[*json.MarshalerError](target)
+	return ok
+}
+
 func TestTokenFromFile(t *testing.T) {
 	t.Parallel()
 	validToken := &oauth2.Token{
@@ -145,6 +159,17 @@ func TestSaveToken(t *testing.T) {
 			},
 			token:   validToken,
 			wantErr: fs.ErrNotExist,
+		},
+		{
+			name: "encode error",
+			setupFile: func(_ *testing.T, dir string) string {
+				return filepath.Join(dir, "token.json")
+			},
+			token: &oauth2.Token{
+				AccessToken: "access-123",
+				Expiry:      time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC),
+			},
+			wantErr: marshalerError{},
 		},
 	}
 
