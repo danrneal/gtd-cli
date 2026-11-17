@@ -311,7 +311,7 @@ func queryList(ctx context.Context, tx *sql.Tx, listID string) (*model.List, err
 		&list.ExternalID,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("list with ID %q: %w", listID, ErrNotFound)
+			return nil, fmt.Errorf("%w: list with ID %q", ErrNotFound, listID)
 		}
 
 		return nil, fmt.Errorf("scan list: %w", err)
@@ -339,7 +339,7 @@ func queryListID(ctx context.Context, tx *sql.Tx, externalID *string) (string, e
 	row := tx.QueryRowContext(ctx, query, externalID)
 	if err := row.Scan(&id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", fmt.Errorf("list with external ID %q: %w", *externalID, ErrNotFound)
+			return "", fmt.Errorf("%w: list with external ID %q", ErrNotFound, *externalID)
 		}
 
 		return "", fmt.Errorf("scan list ID: %w", err)
@@ -433,7 +433,7 @@ func (s *Store) execUpdateList(ctx context.Context, tx *sql.Tx, list *model.List
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("list with ID %q: %w", list.ID, ErrNotFound)
+		return fmt.Errorf("%w: list with ID %q", ErrNotFound, list.ID)
 	}
 
 	return nil
@@ -745,7 +745,7 @@ func queryItemID(ctx context.Context, tx *sql.Tx, externalID *string) (string, e
 	row := tx.QueryRowContext(ctx, query, externalID)
 	if err := row.Scan(&id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", fmt.Errorf("item with external ID %q: %w", *externalID, ErrNotFound)
+			return "", fmt.Errorf("%w: item with external ID %q", ErrNotFound, *externalID)
 		}
 
 		return "", fmt.Errorf("scan item ID: %w", err)
@@ -780,7 +780,7 @@ func queryProjectID(ctx context.Context, tx *sql.Tx, item *model.Item) (*string,
 		row := tx.QueryRowContext(ctx, query, model.ListProjects, item.ProjectTag)
 		if err := row.Scan(&projectID); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return nil, fmt.Errorf("item with project tag %q: %w", *item.ProjectTag, ErrNotFound)
+				return nil, fmt.Errorf("%w: item with project tag %q", ErrNotFound, *item.ProjectTag)
 			}
 
 			return nil, fmt.Errorf("scan project ID: %w", err)
@@ -803,14 +803,14 @@ func queryProjectID(ctx context.Context, tx *sql.Tx, item *model.Item) (*string,
 		row := tx.QueryRowContext(ctx, query, item.ID)
 		if err := row.Scan(&projectID, &projectTag); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return nil, fmt.Errorf("item not found when checking coalescing state: %w", ErrNotFound)
+				return nil, fmt.Errorf("%w: item when checking coalescing state", ErrNotFound)
 			}
 
 			return nil, fmt.Errorf("check current project state: %w", err)
 		}
 
 		if projectID == nil || projectTag != nil {
-			return nil, fmt.Errorf("no tagless parent project found to coalesce: %w", ErrNotFound)
+			return nil, fmt.Errorf("%w: tagless parent project to coalesce", ErrNotFound)
 		}
 
 		return projectID, nil
@@ -957,7 +957,7 @@ func (s *Store) execUpdateItem(ctx context.Context, tx *sql.Tx, list *model.List
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("item with ID %q: %w", item.ID, ErrNotFound)
+		return fmt.Errorf("%w: item with ID %q", ErrNotFound, item.ID)
 	}
 
 	return nil
@@ -1013,7 +1013,7 @@ func batchMoveItems(ctx context.Context, tx *sql.Tx, items []*model.Item) error 
 		}
 
 		if rowsAffected == 0 {
-			return fmt.Errorf("item with ID %q: %w", item.ID, ErrNotFound)
+			return fmt.Errorf("%w: item with ID %q", ErrNotFound, item.ID)
 		}
 	}
 
@@ -1097,7 +1097,7 @@ func (s *Store) deleteResource(ctx context.Context, resource model.Resource) err
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("resource with ID %q: %w", resourceID, ErrNotFound)
+		return fmt.Errorf("%w: resource with ID %q", ErrNotFound, resourceID)
 	}
 
 	if err := tx.Commit(); err != nil {
