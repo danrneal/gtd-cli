@@ -21,3 +21,5 @@ providers/markdown/client.go:392:75:INTEGER_INCREMENT
 providers/markdown/client.go:403:5:STATEMENT_REMOVE
 providers/markdown/client.go:403:36:BRANCH_IF
 providers/markdown/client.go:413:17:BRANCH_IF
+providers/markdown/parser.go:62:5:BRANCH_CASE
+providers/markdown/parser.go:62:5:STATEMENT_REMOVE

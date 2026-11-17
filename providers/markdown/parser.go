@@ -78,7 +78,7 @@ func parse(reader io.Reader, modified time.Time) ([]model.List, error) {
 	p.flushList(modified)
 
 	if err := scanner.Err(); err != nil {
-		return p.lists, fmt.Errorf("scan markdown file: %w", err)
+		return nil, fmt.Errorf("scan markdown file: %w", err)
 	}
 
 	return p.lists, nil
@@ -93,11 +93,10 @@ type parser struct {
 
 // flushItem finalizes the current item and appends it to the active list.
 func (p *parser) flushItem(modified time.Time) {
-	if p.list == nil || p.item == nil {
+	if p.item == nil {
 		return
 	}
 
-	p.item.Position = len(p.list.Items)
 	p.item.Modified = modified
 	p.item.Clean()
 	p.list.Items = append(p.list.Items, p.item)
