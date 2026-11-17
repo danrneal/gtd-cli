@@ -53,18 +53,27 @@ func NewFake(t *testing.T) *Fake {
 
 // RoundTrip intercepts HTTP requests and routes them to the appropriate mock handler.
 func (f *Fake) RoundTrip(req *http.Request) (*http.Response, error) {
+	var body []byte
+	if req.Body != nil {
+		var err error
+		body, err = io.ReadAll(req.Body)
+		if err != nil {
+			return nil, fmt.Errorf("read request body: %w", err)
+		}
+	}
+
 	if matches := taskListRegex.FindStringSubmatch(req.URL.Path); matches != nil {
 		taskListID := matches[1]
 
 		switch req.Method {
 		case http.MethodPost:
-			return f.InsertTaskList(req)
+			return f.insertTaskList(body), nil
 		case http.MethodGet:
-			return f.ListTaskLists(req)
+			return f.listTaskLists(), nil
 		case http.MethodPatch:
-			return f.PatchTaskList(taskListID, req)
+			return f.patchTaskList(taskListID, body), nil
 		case http.MethodDelete:
-			return f.DeleteTaskList(taskListID, req)
+			return f.deleteTaskList(taskListID), nil
 		}
 	}
 
@@ -75,16 +84,16 @@ func (f *Fake) RoundTrip(req *http.Request) (*http.Response, error) {
 		switch req.Method {
 		case http.MethodPost:
 			if taskID == "" {
-				return f.InsertTask(taskListID, req)
+				return f.insertTask(taskListID, req, body), nil
 			}
 
-			return f.MoveTask(taskListID, taskID, req)
+			return f.moveTask(taskListID, taskID, req), nil
 		case http.MethodGet:
-			return f.ListTasks(taskListID, req)
+			return f.listTasks(taskListID), nil
 		case http.MethodPatch:
-			return f.PatchTask(taskListID, taskID, req)
+			return f.patchTask(taskListID, taskID, body), nil
 		case http.MethodDelete:
-			return f.DeleteTask(taskListID, taskID, req)
+			return f.deleteTask(taskListID, taskID), nil
 		}
 	}
 
@@ -97,8 +106,8 @@ func (f *Fake) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-// InsertTaskList simulates the creation of a new task list in Google Tasks.
-func (f *Fake) InsertTaskList(req *http.Request) (*http.Response, error) {
+// insertTaskList simulates the creation of a new task list in Google Tasks.
+func (f *Fake) insertTaskList(body []byte) *http.Response {
 	if f.FailInsertTaskList {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -106,17 +115,18 @@ func (f *Fake) InsertTaskList(req *http.Request) (*http.Response, error) {
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
-	}
-
-	body, err := io.ReadAll(req.Body)
-	if err != nil {
-		f.t.Fatalf("failed to read request body: %v", err)
+		return resp
 	}
 
 	var taskList tasks.TaskList
-	if err = json.Unmarshal(body, &taskList); err != nil {
-		f.t.Fatalf("failed to unmarshal request body: %v", err)
+	if err := json.Unmarshal(body, &taskList); err != nil {
+		resp := &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Body:       io.NopCloser(bytes.NewBufferString("Bad Request")),
+			Header:     make(http.Header),
+		}
+
+		return resp
 	}
 
 	taskList.Id = fmt.Sprintf("external-list-%d", len(f.TaskLists)+1)
@@ -135,11 +145,11 @@ func (f *Fake) InsertTaskList(req *http.Request) (*http.Response, error) {
 		Header:     make(http.Header),
 	}
 
-	return resp, nil
+	return resp
 }
 
-// ListTaskLists simulates retrieving all task lists from Google Tasks.
-func (f *Fake) ListTaskLists(req *http.Request) (*http.Response, error) {
+// listTaskLists simulates retrieving all task lists from Google Tasks.
+func (f *Fake) listTaskLists() *http.Response {
 	if f.FailListTaskLists {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -147,7 +157,7 @@ func (f *Fake) ListTaskLists(req *http.Request) (*http.Response, error) {
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
+		return resp
 	}
 
 	taskLists := &tasks.TaskLists{
@@ -165,11 +175,11 @@ func (f *Fake) ListTaskLists(req *http.Request) (*http.Response, error) {
 		Header:     make(http.Header),
 	}
 
-	return resp, nil
+	return resp
 }
 
-// PatchTaskList simulates updating an existing task list in Google Tasks.
-func (f *Fake) PatchTaskList(taskListID string, req *http.Request) (*http.Response, error) {
+// patchTaskList simulates updating an existing task list in Google Tasks.
+func (f *Fake) patchTaskList(taskListID string, body []byte) *http.Response {
 	if f.FailPatchTaskList {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -177,12 +187,7 @@ func (f *Fake) PatchTaskList(taskListID string, req *http.Request) (*http.Respon
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
-	}
-
-	body, err := io.ReadAll(req.Body)
-	if err != nil {
-		f.t.Fatalf("failed to read request body: %v", err)
+		return resp
 	}
 
 	idx := slices.IndexFunc(f.TaskLists, func(t *tasks.TaskList) bool {
@@ -196,12 +201,18 @@ func (f *Fake) PatchTaskList(taskListID string, req *http.Request) (*http.Respon
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
+		return resp
 	}
 
 	taskList := f.TaskLists[idx]
-	if err = json.Unmarshal(body, &taskList); err != nil {
-		f.t.Fatalf("failed to unmarshal request body: %v", err)
+	if err := json.Unmarshal(body, &taskList); err != nil {
+		resp := &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Body:       io.NopCloser(bytes.NewBufferString("Bad Request")),
+			Header:     make(http.Header),
+		}
+
+		return resp
 	}
 
 	taskList.Updated = time.Now().Format(time.RFC3339)
@@ -217,11 +228,11 @@ func (f *Fake) PatchTaskList(taskListID string, req *http.Request) (*http.Respon
 		Header:     make(http.Header),
 	}
 
-	return resp, nil
+	return resp
 }
 
-// DeleteTaskList simulates deleting a task list from Google Tasks.
-func (f *Fake) DeleteTaskList(taskListID string, req *http.Request) (*http.Response, error) {
+// deleteTaskList simulates deleting a task list from Google Tasks.
+func (f *Fake) deleteTaskList(taskListID string) *http.Response {
 	if f.FailDeleteTaskList {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -229,7 +240,7 @@ func (f *Fake) DeleteTaskList(taskListID string, req *http.Request) (*http.Respo
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
+		return resp
 	}
 
 	idx := slices.IndexFunc(f.TaskLists, func(t *tasks.TaskList) bool {
@@ -243,7 +254,7 @@ func (f *Fake) DeleteTaskList(taskListID string, req *http.Request) (*http.Respo
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
+		return resp
 	}
 
 	f.TaskLists = slices.Delete(f.TaskLists, idx, idx+1)
@@ -255,11 +266,11 @@ func (f *Fake) DeleteTaskList(taskListID string, req *http.Request) (*http.Respo
 		Header:     make(http.Header),
 	}
 
-	return resp, nil
+	return resp
 }
 
-// InsertTask simulates inserting a new task into a task list in Google Tasks.
-func (f *Fake) InsertTask(taskListID string, req *http.Request) (*http.Response, error) {
+// insertTask simulates inserting a new task into a task list in Google Tasks.
+func (f *Fake) insertTask(taskListID string, req *http.Request, body []byte) *http.Response {
 	if f.FailInsertTask {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -267,7 +278,7 @@ func (f *Fake) InsertTask(taskListID string, req *http.Request) (*http.Response,
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
+		return resp
 	}
 
 	taskItems, ok := f.Tasks[taskListID]
@@ -278,7 +289,7 @@ func (f *Fake) InsertTask(taskListID string, req *http.Request) (*http.Response,
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
+		return resp
 	}
 
 	query := req.URL.Query()
@@ -294,17 +305,18 @@ func (f *Fake) InsertTask(taskListID string, req *http.Request) (*http.Response,
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
-	}
-
-	body, err := io.ReadAll(req.Body)
-	if err != nil {
-		f.t.Fatalf("failed to read request body: %v", err)
+		return resp
 	}
 
 	var task tasks.Task
-	if err = json.Unmarshal(body, &task); err != nil {
-		f.t.Fatalf("failed to unmarshal request body: %v", err)
+	if err := json.Unmarshal(body, &task); err != nil {
+		resp := &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Body:       io.NopCloser(bytes.NewBufferString("Bad Request")),
+			Header:     make(http.Header),
+		}
+
+		return resp
 	}
 
 	f.taskCounter++
@@ -324,11 +336,11 @@ func (f *Fake) InsertTask(taskListID string, req *http.Request) (*http.Response,
 		Header:     make(http.Header),
 	}
 
-	return resp, nil
+	return resp
 }
 
-// ListTasks simulates retrieving all tasks for a given task list from Google Tasks.
-func (f *Fake) ListTasks(taskListID string, req *http.Request) (*http.Response, error) {
+// listTasks simulates retrieving all tasks for a given task list from Google Tasks.
+func (f *Fake) listTasks(taskListID string) *http.Response {
 	if f.FailListTasks {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -336,7 +348,7 @@ func (f *Fake) ListTasks(taskListID string, req *http.Request) (*http.Response, 
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
+		return resp
 	}
 
 	items, ok := f.Tasks[taskListID]
@@ -347,7 +359,7 @@ func (f *Fake) ListTasks(taskListID string, req *http.Request) (*http.Response, 
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
+		return resp
 	}
 
 	taskItems := &tasks.Tasks{
@@ -365,11 +377,11 @@ func (f *Fake) ListTasks(taskListID string, req *http.Request) (*http.Response, 
 		Header:     make(http.Header),
 	}
 
-	return resp, nil
+	return resp
 }
 
-// PatchTask simulates updating an existing task in Google Tasks.
-func (f *Fake) PatchTask(taskListID, taskID string, req *http.Request) (*http.Response, error) {
+// patchTask simulates updating an existing task in Google Tasks.
+func (f *Fake) patchTask(taskListID, taskID string, body []byte) *http.Response {
 	if f.FailPatchTask {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -377,25 +389,10 @@ func (f *Fake) PatchTask(taskListID, taskID string, req *http.Request) (*http.Re
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
+		return resp
 	}
 
-	body, err := io.ReadAll(req.Body)
-	if err != nil {
-		f.t.Fatalf("failed to read request body: %v", err)
-	}
-
-	taskItems, ok := f.Tasks[taskListID]
-	if !ok {
-		resp := &http.Response{
-			StatusCode: http.StatusNotFound,
-			Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
-			Header:     make(http.Header),
-		}
-
-		return resp, nil
-	}
-
+	taskItems := f.Tasks[taskListID]
 	idx := slices.IndexFunc(taskItems, func(t *tasks.Task) bool {
 		return t.Id == taskID
 	})
@@ -407,12 +404,18 @@ func (f *Fake) PatchTask(taskListID, taskID string, req *http.Request) (*http.Re
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
+		return resp
 	}
 
 	task := taskItems[idx]
-	if err = json.Unmarshal(body, &task); err != nil {
-		f.t.Fatalf("failed to unmarshal request body: %v", err)
+	if err := json.Unmarshal(body, &task); err != nil {
+		resp := &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Body:       io.NopCloser(bytes.NewBufferString("Bad Request")),
+			Header:     make(http.Header),
+		}
+
+		return resp
 	}
 
 	if bytes.Contains(body, []byte(`"notes":null`)) {
@@ -436,11 +439,11 @@ func (f *Fake) PatchTask(taskListID, taskID string, req *http.Request) (*http.Re
 		Header:     make(http.Header),
 	}
 
-	return resp, nil
+	return resp
 }
 
-// MoveTask simulates changing the position of a task within or across task lists.
-func (f *Fake) MoveTask(taskListID, taskID string, req *http.Request) (*http.Response, error) {
+// moveTask simulates changing the position of a task within or across task lists.
+func (f *Fake) moveTask(taskListID, taskID string, req *http.Request) *http.Response {
 	if f.FailMoveTask {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -448,20 +451,10 @@ func (f *Fake) MoveTask(taskListID, taskID string, req *http.Request) (*http.Res
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
+		return resp
 	}
 
-	srcTasks, ok := f.Tasks[taskListID]
-	if !ok {
-		resp := &http.Response{
-			StatusCode: http.StatusNotFound,
-			Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
-			Header:     make(http.Header),
-		}
-
-		return resp, nil
-	}
-
+	srcTasks := f.Tasks[taskListID]
 	taskIdx := slices.IndexFunc(srcTasks, func(t *tasks.Task) bool {
 		return t.Id == taskID
 	})
@@ -473,7 +466,7 @@ func (f *Fake) MoveTask(taskListID, taskID string, req *http.Request) (*http.Res
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
+		return resp
 	}
 
 	query := req.URL.Query()
@@ -482,15 +475,14 @@ func (f *Fake) MoveTask(taskListID, taskID string, req *http.Request) (*http.Res
 		dstTaskListID = taskListID
 	}
 
-	_, ok = f.Tasks[dstTaskListID]
-	if !ok {
+	if _, ok := f.Tasks[dstTaskListID]; !ok {
 		resp := &http.Response{
 			StatusCode: http.StatusNotFound,
 			Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
+		return resp
 	}
 
 	task := srcTasks[taskIdx]
@@ -509,7 +501,7 @@ func (f *Fake) MoveTask(taskListID, taskID string, req *http.Request) (*http.Res
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
+		return resp
 	}
 
 	f.Tasks[dstTaskListID] = slices.Insert(f.Tasks[dstTaskListID], prevTaskIdx+1, task)
@@ -520,11 +512,11 @@ func (f *Fake) MoveTask(taskListID, taskID string, req *http.Request) (*http.Res
 		Header:     make(http.Header),
 	}
 
-	return resp, nil
+	return resp
 }
 
-// DeleteTask simulates deleting a task from Google Tasks.
-func (f *Fake) DeleteTask(taskListID, taskID string, req *http.Request) (*http.Response, error) {
+// deleteTask simulates deleting a task from Google Tasks.
+func (f *Fake) deleteTask(taskListID, taskID string) *http.Response {
 	if f.FailDeleteTask {
 		resp := &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -532,20 +524,10 @@ func (f *Fake) DeleteTask(taskListID, taskID string, req *http.Request) (*http.R
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
+		return resp
 	}
 
-	taskItems, ok := f.Tasks[taskListID]
-	if !ok {
-		resp := &http.Response{
-			StatusCode: http.StatusNotFound,
-			Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
-			Header:     make(http.Header),
-		}
-
-		return resp, nil
-	}
-
+	taskItems := f.Tasks[taskListID]
 	idx := slices.IndexFunc(taskItems, func(t *tasks.Task) bool {
 		return t.Id == taskID
 	})
@@ -557,7 +539,7 @@ func (f *Fake) DeleteTask(taskListID, taskID string, req *http.Request) (*http.R
 			Header:     make(http.Header),
 		}
 
-		return resp, nil
+		return resp
 	}
 
 	f.Tasks[taskListID] = slices.Delete(f.Tasks[taskListID], idx, idx+1)
@@ -568,5 +550,5 @@ func (f *Fake) DeleteTask(taskListID, taskID string, req *http.Request) (*http.R
 		Header:     make(http.Header),
 	}
 
-	return resp, nil
+	return resp
 }

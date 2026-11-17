@@ -2,6 +2,12 @@
 
 model/list.go:142:12:INTEGER_INCREMENT
 model/list.go:145:10:INTEGER_INCREMENT
+providers/googletasks/googletaskstest/fake.go:138:16:BRANCH_IF
+providers/googletasks/googletaskstest/fake.go:168:16:BRANCH_IF
+providers/googletasks/googletaskstest/fake.go:221:16:BRANCH_IF
+providers/googletasks/googletaskstest/fake.go:329:16:BRANCH_IF
+providers/googletasks/googletaskstest/fake.go:370:16:BRANCH_IF
+providers/googletasks/googletaskstest/fake.go:432:16:BRANCH_IF
 providers/internal/reorder/move.go:69:20:INTEGER_DECREMENT
 providers/internal/reorder/move.go:69:20:INTEGER_INCREMENT
 providers/internal/reorder/move.go:77:37:INTEGER_INCREMENT

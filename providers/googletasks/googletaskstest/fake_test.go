@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/iotest"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -23,6 +24,7 @@ func TestRoundTrip(t *testing.T) {
 		wantStatus    int
 		wantTaskLists []*tasks.TaskList
 		wantTasks     map[string][]*tasks.Task
+		wantErr       error
 	}{
 		{
 			name: "insert task list",
@@ -53,6 +55,24 @@ func TestRoundTrip(t *testing.T) {
 				}
 			`)),
 			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name: "insert task list read body error",
+			req: httptest.NewRequest(
+				http.MethodPost,
+				"/tasks/v1/users/@me/lists",
+				iotest.ErrReader(iotest.ErrTimeout),
+			),
+			wantErr: iotest.ErrTimeout,
+		},
+		{
+			name: "insert task list invalid json",
+			req: httptest.NewRequest(
+				http.MethodPost,
+				"/tasks/v1/users/@me/lists",
+				strings.NewReader("{"),
+			),
+			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name: "list task lists",
@@ -92,9 +112,8 @@ func TestRoundTrip(t *testing.T) {
 			setup: func(fake *Fake) {
 				fake.TaskLists = []*tasks.TaskList{
 					{
-						Id:      "external-list-1",
-						Title:   "L1",
-						Updated: baseRFC3339,
+						Id:    "external-list-1",
+						Title: "L1",
 					},
 				}
 			},
@@ -141,6 +160,39 @@ func TestRoundTrip(t *testing.T) {
 				fake.FailPatchTaskList = true
 			},
 			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name: "patch task list read body error",
+			req: httptest.NewRequest(
+				http.MethodPatch,
+				"/tasks/v1/users/@me/lists/external-list-1",
+				iotest.ErrReader(iotest.ErrTimeout),
+			),
+			wantErr: iotest.ErrTimeout,
+		},
+		{
+			name: "patch task list invalid json",
+			req: httptest.NewRequest(
+				http.MethodPatch,
+				"/tasks/v1/users/@me/lists/external-list-1",
+				strings.NewReader("{"),
+			),
+			setup: func(fake *Fake) {
+				fake.TaskLists = []*tasks.TaskList{
+					{
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
+					},
+				}
+			},
+			wantStatus: http.StatusBadRequest,
+			wantTaskLists: []*tasks.TaskList{
+				{
+					Id:    "external-list-1",
+					Title: "L1",
+				},
+			},
 		},
 		{
 			name: "delete task list",
@@ -382,6 +434,33 @@ func TestRoundTrip(t *testing.T) {
 				fake.FailInsertTask = true
 			},
 			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name: "insert task read body error",
+			req: httptest.NewRequest(
+				http.MethodPost,
+				"/tasks/v1/lists/external-list-1/tasks",
+				iotest.ErrReader(iotest.ErrTimeout),
+			),
+			setup: func(fake *Fake) {
+				fake.Tasks["external-list-1"] = []*tasks.Task{}
+			},
+			wantErr: iotest.ErrTimeout,
+		},
+		{
+			name: "insert task invalid json",
+			req: httptest.NewRequest(
+				http.MethodPost,
+				"/tasks/v1/lists/external-list-1/tasks",
+				strings.NewReader("{"),
+			),
+			setup: func(fake *Fake) {
+				fake.Tasks["external-list-1"] = []*tasks.Task{}
+			},
+			wantStatus: http.StatusBadRequest,
+			wantTasks: map[string][]*tasks.Task{
+				"external-list-1": {},
+			},
 		},
 		{
 			name: "list tasks",
@@ -663,6 +742,43 @@ func TestRoundTrip(t *testing.T) {
 			wantStatus: http.StatusInternalServerError,
 		},
 		{
+			name: "patch task read body error",
+			req: httptest.NewRequest(
+				http.MethodPatch,
+				"/tasks/v1/lists/external-list-1/tasks/external-task-1",
+				iotest.ErrReader(iotest.ErrTimeout),
+			),
+			wantErr: iotest.ErrTimeout,
+		},
+		{
+			name: "patch task invalid json",
+			req: httptest.NewRequest(
+				http.MethodPatch,
+				"/tasks/v1/lists/external-list-1/tasks/external-task-1",
+				strings.NewReader("{"),
+			),
+			setup: func(fake *Fake) {
+				fake.Tasks = map[string][]*tasks.Task{
+					"external-list-1": {
+						{
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
+						},
+					},
+				}
+			},
+			wantStatus: http.StatusBadRequest,
+			wantTasks: map[string][]*tasks.Task{
+				"external-list-1": {
+					{
+						Id:    "external-task-1",
+						Title: "T1",
+					},
+				},
+			},
+		},
+		{
 			name: "move task",
 			req: httptest.NewRequest(
 				http.MethodPost,
@@ -740,6 +856,57 @@ func TestRoundTrip(t *testing.T) {
 			req: httptest.NewRequest(
 				http.MethodPost,
 				"/tasks/v1/lists/external-list-1/tasks/external-task-1/move?previous=external-task-2",
+				http.NoBody,
+			),
+			setup: func(fake *Fake) {
+				fake.TaskLists = []*tasks.TaskList{
+					{
+						Id:      "external-list-1",
+						Title:   "L1",
+						Updated: baseRFC3339,
+					},
+				}
+
+				fake.Tasks = map[string][]*tasks.Task{
+					"external-list-1": {
+						{
+							Id:      "external-task-1",
+							Title:   "T1",
+							Updated: baseRFC3339,
+						},
+						{
+							Id:      "external-task-2",
+							Title:   "T2",
+							Updated: baseRFC3339,
+						},
+					},
+				}
+			},
+			wantStatus: http.StatusNoContent,
+			wantTaskLists: []*tasks.TaskList{
+				{
+					Id:    "external-list-1",
+					Title: "L1",
+				},
+			},
+			wantTasks: map[string][]*tasks.Task{
+				"external-list-1": {
+					{
+						Id:    "external-task-2",
+						Title: "T2",
+					},
+					{
+						Id:    "external-task-1",
+						Title: "T1",
+					},
+				},
+			},
+		},
+		{
+			name: "move task to top",
+			req: httptest.NewRequest(
+				http.MethodPost,
+				"/tasks/v1/lists/external-list-1/tasks/external-task-2/move",
 				http.NoBody,
 			),
 			setup: func(fake *Fake) {
@@ -920,7 +1087,7 @@ func TestRoundTrip(t *testing.T) {
 			req: httptest.NewRequest(
 				http.MethodPost,
 				"/tasks/v1/lists/external-list-1/tasks/external-task-1/move?"+
-					"destinationTasklist=external-list-3&previous=external-task-2",
+					"destinationTasklist=external-list-3",
 				http.NoBody,
 			),
 			setup: func(fake *Fake) {
@@ -1223,9 +1390,19 @@ func TestRoundTrip(t *testing.T) {
 			}
 
 			resp, err := fake.RoundTrip(tt.req)
-			if err != nil {
-				t.Fatalf("RoundTrip() unexpected error: %v", err)
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
 			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
+				t.Fatalf("RoundTrip() error mismatch (-want +got):\n%s", diff)
+			}
+
+			if tt.wantErr != nil {
+				return
+			}
+
 			defer resp.Body.Close()
 
 			if resp.StatusCode != tt.wantStatus {
