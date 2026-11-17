@@ -113,6 +113,52 @@ func TestCalculateMoves(t *testing.T) {
 			},
 		},
 		{
+			name: "reorder within list (A moves between C and D)",
+			updatedList: &model.List{
+				ExternalID: new("L1"),
+				Items: []*model.Item{
+					{
+						ExternalID:     new("B"),
+						ExternalListID: new("L1"),
+					},
+					{
+						ExternalID:     new("C"),
+						ExternalListID: new("L1"),
+					},
+					{
+						ExternalID:     new("A"),
+						ExternalListID: new("L1"),
+					},
+					{
+						ExternalID:     new("D"),
+						ExternalListID: new("L1"),
+					},
+				},
+			},
+			currentItems: []*model.Item{
+				{
+					ExternalID: new("A"),
+				},
+				{
+					ExternalID: new("B"),
+				},
+				{
+					ExternalID: new("C"),
+				},
+				{
+					ExternalID: new("D"),
+				},
+			},
+			wantMoves: []Move{
+				{
+					ItemID:            "A",
+					SourceListID:      "L1",
+					DestinationListID: "L1",
+					PreviousItemID:    "C",
+				},
+			},
+		},
+		{
 			name: "initial sync (current items empty)",
 			updatedList: &model.List{
 				ExternalID: new("L1"),
