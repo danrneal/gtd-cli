@@ -1,12 +1,16 @@
 package markdown
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/danrneal/gtd-cli/model"
 )
+
+// errInvalidStatus is returned when renderItem encounters an item status that cannot be rendered.
+var errInvalidStatus = errors.New("render received invalid status")
 
 // render writes a slice of model.List to the provided [io.Writer] in Markdown format.
 func render(writer io.Writer, lists []model.List) error {
@@ -76,7 +80,7 @@ func renderItem(buf *strings.Builder, item *model.Item) error {
 		itemStatus = "x"
 		title = fmt.Sprintf("~~%s~~", title)
 	default:
-		return fmt.Errorf("render received invalid status %q on item %s", item.Status, item.ID)
+		return fmt.Errorf("%w: %q on item %s", errInvalidStatus, item.Status, item.ID)
 	}
 
 	status := fmt.Sprintf("* [%s] ", itemStatus)

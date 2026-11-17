@@ -15,3 +15,9 @@ providers/googletasks/service.go:127:34:BRANCH_IF
 providers/internal/reorder/move.go:69:20:INTEGER_DECREMENT
 providers/internal/reorder/move.go:69:20:INTEGER_INCREMENT
 providers/internal/reorder/move.go:77:37:INTEGER_INCREMENT
+providers/markdown/client.go:326:16:BRANCH_IF
+providers/markdown/client.go:346:52:BRANCH_IF
+providers/markdown/client.go:392:75:INTEGER_INCREMENT
+providers/markdown/client.go:403:5:STATEMENT_REMOVE
+providers/markdown/client.go:403:36:BRANCH_IF
+providers/markdown/client.go:413:17:BRANCH_IF

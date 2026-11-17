@@ -170,7 +170,7 @@ func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemI
 	}
 
 	if item.Status == model.StatusDeleted {
-		return errors.New("cannot create an item with status 'deleted'")
+		return fmt.Errorf("%w: cannot create an item with status 'deleted'", model.ErrInvalidResource)
 	}
 
 	if item.ListID == "" {
@@ -178,7 +178,7 @@ func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemI
 	}
 
 	lists, err := c.readFile()
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err != nil {
 		return err
 	}
 

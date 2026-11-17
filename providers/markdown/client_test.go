@@ -1,6 +1,7 @@
 package markdown
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -197,6 +199,40 @@ func TestClient_CreateList(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "clamps position beyond list count",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "clamp_position.md")
+				content := "# Inbox (0)\n\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create file: %v", err)
+				}
+
+				return path
+			},
+			list: &model.List{
+				Name:     "Next Actions",
+				Status:   model.StatusOpen,
+				Modified: modified,
+				Position: 5,
+			},
+			want: []model.List{
+				{
+					Name:     "Inbox",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
+				},
+				{
+					Name:     "Next Actions",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -219,6 +255,15 @@ func TestClient_CreateList(t *testing.T) {
 
 			if tt.wantErr != nil {
 				return
+			}
+
+			stat, err := os.Stat(testPath)
+			if err != nil {
+				t.Fatalf("os.Stat(%q) unexpected error: %v", testPath, err)
+			}
+
+			if gotPerm, wantPerm := stat.Mode().Perm(), fs.FileMode(0o600); gotPerm != wantPerm {
+				t.Errorf("CreateList() file permissions = %04o, want %04o", gotPerm, wantPerm)
 			}
 
 			got, err := client.readFile()
@@ -296,6 +341,20 @@ func TestClient_ListLists(t *testing.T) {
 			},
 			want:    nil,
 			wantErr: fs.ErrPermission,
+		},
+		{
+			name: "parse error (line too long)",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "too_long.md")
+				content := "# " + strings.Repeat("a", bufio.MaxScanTokenSize+1)
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create oversized file: %v", err)
+				}
+
+				return path
+			},
+			want:    nil,
+			wantErr: bufio.ErrTooLong,
 		},
 	}
 
@@ -557,6 +616,7 @@ func TestClient_UpdateList(t *testing.T) {
 				path := filepath.Join(t.TempDir(), "update_success_mixed.md")
 				content := "# Inbox {{list-1}}\n" +
 					"* [ ] Task 1 {{item-1}}\n" +
+					"    Existing note\n" +
 					"* [ ] Task 2 {{item-2}}\n\n" +
 					"# Other List {{list-2}}\n" +
 					"* [ ] Task 3 {{item-3}}\n"
@@ -633,13 +693,14 @@ func TestClient_UpdateList(t *testing.T) {
 					Modified: modified,
 					Items: []*model.Item{
 						{
-							ID:       "item-1",
-							ListID:   "list-1",
-							Title:    "Task 1",
-							Position: 0,
-							Status:   model.StatusNotStarted,
-							Modified: modified,
-							Created:  created,
+							ID:          "item-1",
+							ListID:      "list-1",
+							Title:       "Task 1",
+							Description: "Existing note",
+							Position:    0,
+							Status:      model.StatusNotStarted,
+							Modified:    modified,
+							Created:     created,
 						},
 						{
 							ID:       "item-3",
@@ -799,6 +860,10 @@ func TestClient_UpdateList(t *testing.T) {
 			name: "missing list ID",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "missing_id.md")
+				if err := os.WriteFile(path, []byte("# Valid Name\n"), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
 				return path
 			},
 			list: &model.List{
@@ -806,6 +871,9 @@ func TestClient_UpdateList(t *testing.T) {
 				ID:       "",
 				Status:   model.StatusOpen,
 				Modified: modified,
+			},
+			currentList: &model.List{
+				Name: "Valid Name",
 			},
 			wantErr: cmpopts.AnyError,
 		},
@@ -1057,7 +1125,12 @@ func TestClient_DeleteList(t *testing.T) {
 		{
 			name: "empty list id",
 			setup: func(t *testing.T) string {
-				return filepath.Join(t.TempDir(), "empty_id.md")
+				path := filepath.Join(t.TempDir(), "empty_id.md")
+				if err := os.WriteFile(path, []byte("# Inbox\n"), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
+				return path
 			},
 			list: &model.List{
 				ID:       "",
@@ -1225,6 +1298,57 @@ func TestClient_CreateItem(t *testing.T) {
 			},
 		},
 		{
+			name: "insert at top when existing item has no ID",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "create_top_unidd.md")
+				content := "# Inbox {{list-1}}\n" +
+					"* [ ] Task 2\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
+				if err := os.Chtimes(path, modified, modified); err != nil {
+					t.Fatalf("failed to change file times: %v", err)
+				}
+
+				return path
+			},
+			item: &model.Item{
+				ListID:   "list-1",
+				Title:    "Task 1",
+				Status:   model.StatusNotStarted,
+				Modified: modified,
+			},
+			previousItemID: "",
+			want: []model.List{
+				{
+					ID:       "list-1",
+					Name:     "Inbox",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items: []*model.Item{
+						{
+							Title:    "Task 1",
+							ListID:   "list-1",
+							Position: 0,
+							Status:   model.StatusNotStarted,
+							Modified: modified,
+							Created:  created,
+						},
+						{
+							Title:    "Task 2",
+							ListID:   "list-1",
+							Position: 1,
+							Status:   model.StatusNotStarted,
+							Modified: modified,
+							Created:  created,
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "success (insert after previous item)",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "create_success_after.md")
@@ -1319,12 +1443,16 @@ func TestClient_CreateItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			wantErr: cmpopts.AnyError,
+			wantErr: model.ErrInvalidResource,
 		},
 		{
 			name: "missing list ID",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "missing_list.md")
+				if err := os.WriteFile(path, []byte("# Inbox\n"), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
 				return path
 			},
 			item: &model.Item{
@@ -1404,7 +1532,7 @@ func TestClient_CreateItem(t *testing.T) {
 			wantErr: fs.ErrPermission,
 		},
 		{
-			name: "success (bootstraps missing file)",
+			name: "missing file",
 			setup: func(t *testing.T) string {
 				return filepath.Join(t.TempDir(), "missing_item.md")
 			},
@@ -1413,7 +1541,7 @@ func TestClient_CreateItem(t *testing.T) {
 				ListID:   "list-1",
 				Modified: modified,
 			},
-			wantErr: cmpopts.AnyError,
+			wantErr: fs.ErrNotExist,
 		},
 	}
 
@@ -1558,6 +1686,70 @@ func TestClient_UpdateItem(t *testing.T) {
 			},
 		},
 		{
+			name: "update item in second list",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "update_second_list.md")
+				content := "# Inbox {{list-1}}\n" +
+					"* [ ] Task 1 {{item-1}}\n\n" +
+					"# Next Actions {{list-2}}\n" +
+					"* [ ] Task 2 {{item-2}}\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
+				if err := os.Chtimes(path, modified, modified); err != nil {
+					t.Fatalf("failed to change file times: %v", err)
+				}
+
+				return path
+			},
+			item: &model.Item{
+				ID:       "item-2",
+				ListID:   "list-2",
+				Title:    "Task 2 Updated",
+				Status:   model.StatusDone,
+				Modified: modified,
+			},
+			want: []model.List{
+				{
+					ID:       "list-1",
+					Name:     "Inbox",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items: []*model.Item{
+						{
+							ID:       "item-1",
+							ListID:   "list-1",
+							Title:    "Task 1",
+							Position: 0,
+							Status:   model.StatusNotStarted,
+							Modified: modified,
+							Created:  created,
+						},
+					},
+				},
+				{
+					ID:       "list-2",
+					Name:     "Next Actions",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items: []*model.Item{
+						{
+							ID:       "item-2",
+							ListID:   "list-2",
+							Title:    "Task 2 Updated",
+							Position: 0,
+							Status:   model.StatusDone,
+							Modified: modified,
+							Created:  created,
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "invalid item",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "invalid.md")
@@ -1607,10 +1799,11 @@ func TestClient_UpdateItem(t *testing.T) {
 				return path
 			},
 			item: &model.Item{
-				Title:    "Valid Title",
-				ListID:   "",
-				ID:       "item-1",
-				Modified: modified,
+				Title:          "Valid Title",
+				ListID:         "",
+				ExternalListID: new("ext-list-1"),
+				ID:             "item-1",
+				Modified:       modified,
 			},
 			wantErr: cmpopts.AnyError,
 		},
@@ -1780,6 +1973,57 @@ func TestClient_DeleteItem(t *testing.T) {
 							Created:  created,
 						},
 					},
+				},
+			},
+		},
+		{
+			name: "delete item in second list",
+			setup: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "delete_second_list.md")
+				content := "# Inbox {{list-1}}\n" +
+					"* [ ] Task 1 {{item-1}}\n\n" +
+					"# Next Actions {{list-2}}\n" +
+					"* [ ] Task 2 {{item-2}}\n"
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+					t.Fatalf("failed to create valid file: %v", err)
+				}
+
+				if err := os.Chtimes(path, modified, modified); err != nil {
+					t.Fatalf("failed to change file times: %v", err)
+				}
+
+				return path
+			},
+			item: &model.Item{
+				ID:     "item-2",
+				ListID: "list-2",
+			},
+			want: []model.List{
+				{
+					ID:       "list-1",
+					Name:     "Inbox",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items: []*model.Item{
+						{
+							ID:       "item-1",
+							ListID:   "list-1",
+							Title:    "Task 1",
+							Position: 0,
+							Status:   model.StatusNotStarted,
+							Modified: modified,
+							Created:  created,
+						},
+					},
+				},
+				{
+					ID:       "list-2",
+					Name:     "Next Actions",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
 				},
 			},
 		},
@@ -2195,7 +2439,7 @@ func TestClient_writeFile(t *testing.T) {
 				},
 			},
 			want:    "initial content",
-			wantErr: cmpopts.AnyError,
+			wantErr: errInvalidStatus,
 		},
 		{
 			name: "failed to open markdown file for writing",
@@ -2234,6 +2478,37 @@ func TestClient_writeFile(t *testing.T) {
 			},
 			want:    "",
 			wantErr: syscall.ENOSPC,
+		},
+		{
+			name: "failed to restore modification time",
+			setup: func(t *testing.T) string {
+				if os.Geteuid() == 0 {
+					t.Skip("skipping test; running as root allows chtimes on /dev/null")
+				}
+
+				if _, err := os.Stat("/dev/null"); errors.Is(err, fs.ErrNotExist) {
+					t.Skip("skipping test; /dev/null not available on this OS")
+				}
+
+				return "/dev/null"
+			},
+			lists: []model.List{
+				{
+					Name:   "Inbox",
+					Status: model.StatusOpen,
+					Items: []*model.Item{
+						{
+							Title:  "Task 1",
+							Status: model.StatusNotStarted,
+						},
+					},
+				},
+			},
+			opts: []writeOption{
+				withModTime(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)),
+			},
+			want:    "",
+			wantErr: fs.ErrPermission,
 		},
 	}
 
