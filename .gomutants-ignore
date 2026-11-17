@@ -2,6 +2,8 @@
 
 model/list.go:142:12:INTEGER_INCREMENT
 model/list.go:145:10:INTEGER_INCREMENT
+providers/googletasks/client.go:27:19:INTEGER_DECREMENT
+providers/googletasks/client.go:27:19:INTEGER_INCREMENT
 providers/googletasks/googletaskstest/fake.go:138:16:BRANCH_IF
 providers/googletasks/googletaskstest/fake.go:168:16:BRANCH_IF
 providers/googletasks/googletaskstest/fake.go:221:16:BRANCH_IF

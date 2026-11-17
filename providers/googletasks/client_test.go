@@ -1,6 +1,8 @@
 package googletasks
 
 import (
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -10,12 +12,29 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/goleak"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 	"google.golang.org/api/tasks/v1"
 
 	"github.com/danrneal/gtd-cli/model"
 	"github.com/danrneal/gtd-cli/providers/googletasks/googletaskstest"
 )
+
+// apiError is a test sentinel that matches a [*googleapi.Error] with a specific HTTP status code via [errors.Is].
+type apiError struct {
+	code int
+}
+
+// Error returns a static description for test failure output.
+func (e apiError) Error() string {
+	return fmt.Sprintf("googleapi error %d", e.code)
+}
+
+// Is reports whether target wraps a [*googleapi.Error] with status code e.code.
+func (e apiError) Is(target error) bool {
+	apiErr, ok := errors.AsType[*googleapi.Error](target)
+	return ok && apiErr.Code == e.code
+}
 
 func TestKey(t *testing.T) {
 	t.Parallel()
@@ -108,7 +127,9 @@ func TestCreateList(t *testing.T) {
 			setupFake: func(fake *googletaskstest.Fake) {
 				fake.FailInsertTaskList = true
 			},
-			wantErr: cmpopts.AnyError,
+			wantErr: apiError{
+				code: http.StatusInternalServerError,
+			},
 		},
 	}
 
@@ -165,7 +186,7 @@ func TestListLists(t *testing.T) {
 		name      string
 		setupFake func(fake *googletaskstest.Fake)
 		wantLists []model.List
-		wantErr   bool
+		wantErr   error
 	}{
 		{
 			name: "success with items",
@@ -730,7 +751,9 @@ func TestListLists(t *testing.T) {
 				fake.FailListTaskLists = true
 			},
 			wantLists: nil,
-			wantErr:   true,
+			wantErr: apiError{
+				code: http.StatusInternalServerError,
+			},
 		},
 		{
 			name: "list items failure",
@@ -744,7 +767,9 @@ func TestListLists(t *testing.T) {
 				fake.FailListTasks = true
 			},
 			wantLists: nil,
-			wantErr:   true,
+			wantErr: apiError{
+				code: http.StatusInternalServerError,
+			},
 		},
 	}
 
@@ -758,11 +783,11 @@ func TestListLists(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			opts := []option.ClientOption{
+			serviceOpts := []option.ClientOption{
 				option.WithHTTPClient(mockClient),
 			}
 
-			tasksService, err := tasks.NewService(t.Context(), opts...)
+			tasksService, err := tasks.NewService(t.Context(), serviceOpts...)
 			if err != nil {
 				t.Fatalf("tasks.NewService() unexpected error: %v", err)
 			}
@@ -772,11 +797,16 @@ func TestListLists(t *testing.T) {
 			tasksClient := NewClient(tasksService, pollInterval, logger)
 
 			got, err := tasksClient.ListLists(t.Context())
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("ListLists() error = %v, wantErr %v", err, tt.wantErr)
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
 			}
 
-			if tt.wantErr {
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
+				t.Fatalf("ListLists() error mismatch (-want +got):\n%s", diff)
+			}
+
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -1152,7 +1182,9 @@ func TestUpdateList(t *testing.T) {
 			setupFake: func(fake *googletaskstest.Fake) {
 				fake.FailPatchTaskList = true
 			},
-			wantErr: cmpopts.AnyError,
+			wantErr: apiError{
+				code: http.StatusInternalServerError,
+			},
 		},
 		{
 			name: "move failure",
@@ -1181,7 +1213,9 @@ func TestUpdateList(t *testing.T) {
 			setupFake: func(fake *googletaskstest.Fake) {
 				fake.FailMoveTask = true
 			},
-			wantErr: cmpopts.AnyError,
+			wantErr: apiError{
+				code: http.StatusInternalServerError,
+			},
 		},
 		{
 			name: "success (skips done item with nil external list ID)",
@@ -1338,7 +1372,7 @@ func TestDeleteList(t *testing.T) {
 		name      string
 		list      *model.List
 		setupFake func(fake *googletaskstest.Fake)
-		wantErr   bool
+		wantErr   error
 	}{
 		{
 			name: "success",
@@ -1348,7 +1382,6 @@ func TestDeleteList(t *testing.T) {
 			setupFake: func(fake *googletaskstest.Fake) {
 				fake.TaskLists = append(fake.TaskLists, &tasks.TaskList{Id: "L1"})
 			},
-			wantErr: false,
 		},
 		{
 			name: "missing external id",
@@ -1356,7 +1389,7 @@ func TestDeleteList(t *testing.T) {
 				Name: "Delete List",
 			},
 			setupFake: func(fake *googletaskstest.Fake) {},
-			wantErr:   true,
+			wantErr:   cmpopts.AnyError,
 		},
 		{
 			name: "api error",
@@ -1366,7 +1399,9 @@ func TestDeleteList(t *testing.T) {
 			setupFake: func(fake *googletaskstest.Fake) {
 				fake.FailDeleteTaskList = true
 			},
-			wantErr: true,
+			wantErr: apiError{
+				code: http.StatusInternalServerError,
+			},
 		},
 	}
 
@@ -1380,11 +1415,11 @@ func TestDeleteList(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			opts := []option.ClientOption{
+			serviceOpts := []option.ClientOption{
 				option.WithHTTPClient(mockClient),
 			}
 
-			tasksService, err := tasks.NewService(t.Context(), opts...)
+			tasksService, err := tasks.NewService(t.Context(), serviceOpts...)
 			if err != nil {
 				t.Fatalf("tasks.NewService() unexpected error: %v", err)
 			}
@@ -1395,8 +1430,12 @@ func TestDeleteList(t *testing.T) {
 
 			err = tasksClient.DeleteList(t.Context(), tt.list)
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("DeleteList() error = %v, wantErr %v", err, tt.wantErr)
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
+				t.Errorf("DeleteList() error mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -1639,7 +1678,9 @@ func TestCreateItem(t *testing.T) {
 			setupFake: func(fake *googletaskstest.Fake) {
 				fake.FailInsertTask = true
 			},
-			wantErr: cmpopts.AnyError,
+			wantErr: apiError{
+				code: http.StatusInternalServerError,
+			},
 		},
 	}
 
@@ -1945,6 +1986,17 @@ func TestUpdateItem(t *testing.T) {
 			wantErr:   cmpopts.AnyError,
 		},
 		{
+			name: "missing external ID (one nil)",
+			item: &model.Item{
+				ListID:         "list-1",
+				Title:          "Update Task",
+				Modified:       time.Now(),
+				ExternalListID: new("L1"),
+			},
+			setupFake: func(fake *googletaskstest.Fake) {},
+			wantErr:   cmpopts.AnyError,
+		},
+		{
 			name: "api error",
 			item: &model.Item{
 				ListID:         "L1",
@@ -1958,7 +2010,9 @@ func TestUpdateItem(t *testing.T) {
 			setupFake: func(fake *googletaskstest.Fake) {
 				fake.FailPatchTask = true
 			},
-			wantErr: cmpopts.AnyError,
+			wantErr: apiError{
+				code: http.StatusInternalServerError,
+			},
 		},
 	}
 
@@ -2027,7 +2081,7 @@ func TestDeleteItem(t *testing.T) {
 		name      string
 		item      *model.Item
 		setupFake func(fake *googletaskstest.Fake)
-		wantErr   bool
+		wantErr   error
 	}{
 		{
 			name: "success",
@@ -2038,7 +2092,6 @@ func TestDeleteItem(t *testing.T) {
 			setupFake: func(fake *googletaskstest.Fake) {
 				fake.Tasks["L1"] = []*tasks.Task{{Id: "T1"}}
 			},
-			wantErr: false,
 		},
 		{
 			name: "missing external identifiers",
@@ -2047,7 +2100,7 @@ func TestDeleteItem(t *testing.T) {
 				Title:  "Delete Task",
 			},
 			setupFake: func(fake *googletaskstest.Fake) {},
-			wantErr:   true,
+			wantErr:   cmpopts.AnyError,
 		},
 		{
 			name: "missing external list ID (one nil)",
@@ -2057,7 +2110,17 @@ func TestDeleteItem(t *testing.T) {
 				ExternalID: new("T1"),
 			},
 			setupFake: func(fake *googletaskstest.Fake) {},
-			wantErr:   true,
+			wantErr:   cmpopts.AnyError,
+		},
+		{
+			name: "missing external ID (one nil)",
+			item: &model.Item{
+				ListID:         "list-1",
+				Title:          "Delete Task",
+				ExternalListID: new("L1"),
+			},
+			setupFake: func(fake *googletaskstest.Fake) {},
+			wantErr:   cmpopts.AnyError,
 		},
 		{
 			name: "api error",
@@ -2068,7 +2131,9 @@ func TestDeleteItem(t *testing.T) {
 			setupFake: func(fake *googletaskstest.Fake) {
 				fake.FailDeleteTask = true
 			},
-			wantErr: true,
+			wantErr: apiError{
+				code: http.StatusInternalServerError,
+			},
 		},
 	}
 
@@ -2082,11 +2147,11 @@ func TestDeleteItem(t *testing.T) {
 				Transport: fakeTasks,
 			}
 
-			opts := []option.ClientOption{
+			serviceOpts := []option.ClientOption{
 				option.WithHTTPClient(mockClient),
 			}
 
-			tasksService, err := tasks.NewService(t.Context(), opts...)
+			tasksService, err := tasks.NewService(t.Context(), serviceOpts...)
 			if err != nil {
 				t.Fatalf("tasks.NewService() unexpected error: %v", err)
 			}
@@ -2097,8 +2162,12 @@ func TestDeleteItem(t *testing.T) {
 
 			err = tasksClient.DeleteItem(t.Context(), tt.item)
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("DeleteItem() error = %v, wantErr %v", err, tt.wantErr)
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
+				t.Errorf("DeleteItem() error mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
