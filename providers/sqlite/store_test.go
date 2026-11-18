@@ -1548,6 +1548,58 @@ func TestUpdateList(t *testing.T) {
 			},
 		},
 		{
+			name: "item id lookup missing external_id column",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
+				)
+
+				mustExec(t, db,
+					`
+						DROP TABLE items;
+						CREATE TABLE items (
+							id TEXT PRIMARY KEY,
+							list_id TEXT NOT NULL,
+							position INTEGER NOT NULL DEFAULT 0
+						);
+					`,
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO items (id, list_id)
+						VALUES (?, ?)
+					`, "", "list-1",
+				)
+
+				return "list-1"
+			},
+			setupList: func(id string) model.List {
+				list := model.List{
+					ID:       id,
+					Name:     "Inbox",
+					Modified: time.Now(),
+					Items: []*model.Item{
+						{
+							ExternalID: new("ext-missing-col"),
+							ListID:     id,
+							Position:   0,
+							Title:      "Item",
+							Modified:   time.Now(),
+						},
+					},
+				}
+
+				return list
+			},
+			wantErr: sqliteError{
+				code: sqlite3.ErrError,
+			},
+		},
+		{
 			name: "context cancellation",
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
@@ -2313,8 +2365,9 @@ func TestCreateItem(t *testing.T) {
 							modified,
 							created,
 							external_id
-						) VALUES (NULL, ?, ?, ?, ?, '[]', ?, ?, ?)
+						) VALUES (NULL, ?, ?, ?, ?, '[]', ?, ?, ?), (?, ?, ?, ?, ?, '[]', ?, ?, ?)
 					`, "Corrupt Project", "", "list-projects", "", time.Now(), time.Now(), "ext-null-proj",
+					"", "Empty ID Project", "", "list-projects", "", time.Now(), time.Now(), nil,
 				)
 			},
 			item: &model.Item{
@@ -3672,6 +3725,47 @@ func TestUpdateItem(t *testing.T) {
 			wantErr: cmpopts.AnyError,
 		},
 		{
+			name: "item id lookup scan failure",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?), (?, ?, ?)
+					`, "list-1", "Inbox", listModified, "list-2", "Other", listModified,
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							waiting_on,
+							tags,
+							modified,
+							created,
+							external_id
+						) VALUES (NULL, ?, ?, ?, ?, '[]', ?, ?, ?), (?, ?, ?, ?, ?, '[]', ?, ?, ?)
+					`, "Corrupt Item", "", "list-2", "", time.Now(), time.Now(), "ext-null-item",
+					"", "Empty ID Item", "", "list-1", "", time.Now(), time.Now(), nil,
+				)
+
+				return ""
+			},
+			setupItem: func(_ string) model.Item {
+				item := model.Item{
+					ExternalID: new("ext-null-item"),
+					ListID:     "list-1",
+					Title:      "Updated Item",
+					Modified:   time.Now(),
+				}
+
+				return item
+			},
+			wantErr: cmpopts.AnyError,
+		},
+		{
 			name: "update parent list failure",
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
@@ -3951,6 +4045,37 @@ func TestDeleteItem(t *testing.T) {
 				return item
 			},
 			wantErr: ErrNotFound,
+		},
+		{
+			name: "item id lookup missing external_id column",
+			setupDB: func(t *testing.T, db *sql.DB) model.Item {
+				mustExec(t, db,
+					`
+						DROP TABLE items;
+						CREATE TABLE items (
+							id TEXT PRIMARY KEY,
+							project_id TEXT,
+							modified DATETIME NOT NULL
+						);
+					`,
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO items (id, modified)
+						VALUES (?, ?)
+					`, "", time.Now(),
+				)
+
+				item := model.Item{
+					ExternalID: new("ext-missing-col"),
+				}
+
+				return item
+			},
+			wantErr: sqliteError{
+				code: sqlite3.ErrError,
+			},
 		},
 		{
 			name: "context cancellation",

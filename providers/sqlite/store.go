@@ -505,7 +505,7 @@ func (s *Store) execInsertItem(ctx context.Context, tx *sql.Tx, list *model.List
 		projectTag = item.ProjectTag
 	} else if item.ProjectID == nil && (item.ExternalProjectID != nil || item.ProjectTag != nil) {
 		if projectID, err := queryProjectID(ctx, tx, item); err == nil {
-			item.ProjectID = projectID
+			item.ProjectID = &projectID
 		} else if !errors.Is(err, ErrNotFound) {
 			return err
 		}
@@ -744,18 +744,18 @@ func queryItemID(ctx context.Context, tx *sql.Tx, externalID *string) (string, e
 // queryProjectID attempts to resolve the internal database ID for a project.
 // It searches first by the item's ExternalProjectID, and falls back to looking up the item's ProjectTag
 // among items in the "Projects" list. It returns ErrNotFound if the project cannot be located.
-func queryProjectID(ctx context.Context, tx *sql.Tx, item *model.Item) (*string, error) {
+func queryProjectID(ctx context.Context, tx *sql.Tx, item *model.Item) (string, error) {
 	if item.ExternalProjectID != nil {
 		projectID, err := queryItemID(ctx, tx, item.ExternalProjectID)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 
-		return &projectID, nil
+		return projectID, nil
 	}
 
 	if item.ProjectTag != nil {
-		var projectID *string
+		var projectID string
 		query := `
 			SELECT i.id
 			FROM items i
@@ -767,43 +767,38 @@ func queryProjectID(ctx context.Context, tx *sql.Tx, item *model.Item) (*string,
 		row := tx.QueryRowContext(ctx, query, model.ListProjects, item.ProjectTag)
 		if err := row.Scan(&projectID); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return nil, fmt.Errorf("%w: item with project tag %q", ErrNotFound, *item.ProjectTag)
+				return "", fmt.Errorf("%w: item with project tag %q", ErrNotFound, *item.ProjectTag)
 			}
 
-			return nil, fmt.Errorf("scan project ID: %w", err)
+			return "", fmt.Errorf("scan project ID: %w", err)
 		}
 
 		return projectID, nil
 	}
 
 	if item.ProjectID == nil {
-		var projectID, projectTag *string
+		var projectID string
 		query := `
-			SELECT
-				i.project_id,
-				project.project_tag
+			SELECT i.project_id
 			FROM items i
-			LEFT JOIN items project ON i.project_id = project.id
+			INNER JOIN items project ON i.project_id = project.id
 			WHERE i.id = ?
+			AND project.project_tag IS NULL
 		`
 
 		row := tx.QueryRowContext(ctx, query, item.ID)
-		if err := row.Scan(&projectID, &projectTag); err != nil {
+		if err := row.Scan(&projectID); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return nil, fmt.Errorf("%w: item when checking coalescing state", ErrNotFound)
+				return "", fmt.Errorf("%w: tagless parent project to coalesce", ErrNotFound)
 			}
 
-			return nil, fmt.Errorf("check current project state: %w", err)
-		}
-
-		if projectID == nil || projectTag != nil {
-			return nil, fmt.Errorf("%w: tagless parent project to coalesce", ErrNotFound)
+			return "", fmt.Errorf("check current project state: %w", err)
 		}
 
 		return projectID, nil
 	}
 
-	return nil, errors.New(
+	return "", errors.New(
 		"resolve project: externalProjectID and projectTag are nil, and projectID is already set",
 	)
 }
@@ -901,7 +896,7 @@ func (s *Store) execUpdateItem(ctx context.Context, tx *sql.Tx, list *model.List
 	} else if item.ProjectID == nil &&
 		(item.ExternalProjectID != nil || item.ProjectTag != nil || item.ExternalID == nil) {
 		if projectID, err := queryProjectID(ctx, tx, item); err == nil {
-			item.ProjectID = projectID
+			item.ProjectID = &projectID
 		} else if !errors.Is(err, ErrNotFound) {
 			return err
 		}

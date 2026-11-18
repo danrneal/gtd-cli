@@ -41,9 +41,9 @@ providers/sqlite/store.go:629:39:ERRORF_WRAP
 providers/sqlite/store.go:641:35:BRANCH_IF
 providers/sqlite/store.go:708:39:ERRORF_WRAP
 providers/sqlite/store.go:720:35:BRANCH_IF
-providers/sqlite/store.go:866:5:STATEMENT_REMOVE
-providers/sqlite/store.go:866:35:BRANCH_IF
-providers/sqlite/store.go:949:16:BRANCH_IF
-providers/sqlite/store.go:1005:17:BRANCH_IF
-providers/sqlite/store.go:1089:16:BRANCH_IF
-providers/sqlite/store.go:1097:36:BRANCH_IF
+providers/sqlite/store.go:861:5:STATEMENT_REMOVE
+providers/sqlite/store.go:861:35:BRANCH_IF
+providers/sqlite/store.go:944:16:BRANCH_IF
+providers/sqlite/store.go:1000:17:BRANCH_IF
+providers/sqlite/store.go:1084:16:BRANCH_IF
+providers/sqlite/store.go:1092:36:BRANCH_IF
