@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"path/filepath"
 	"strings"
@@ -13,7 +14,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/mattn/go-sqlite3"
 	"go.uber.org/goleak"
 
 	"github.com/danrneal/gtd-cli/model"
@@ -33,21 +34,38 @@ func (syntaxError) Is(target error) bool {
 	return ok
 }
 
+// sqliteError is a test sentinel that matches a [sqlite3.Error] with a specific code via [errors.Is].
+type sqliteError struct {
+	code sqlite3.ErrNo
+}
+
+// Error returns a static description for test failure output.
+func (e sqliteError) Error() string {
+	return fmt.Sprintf("sqlite error %d", e.code)
+}
+
+// Is reports whether target wraps a [sqlite3.Error] with the expected error code.
+func (e sqliteError) Is(target error) bool {
+	sqliteErr, ok := errors.AsType[sqlite3.Error](target)
+	return ok && sqliteErr.Code == e.code
+}
+
 func TestNewStore(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name         string
-		setupDBPath  func(t *testing.T) string
-		wantErr      bool
-		verifyTables func(t *testing.T, dbPath string)
+		name        string
+		setupDBPath func(t *testing.T) string
+		opts        []Option
+		wantErr     error
+		verify      func(t *testing.T, dbPath string, store *Store)
 	}{
 		{
 			name: "valid database path creates tables",
 			setupDBPath: func(t *testing.T) string {
 				return filepath.Join(t.TempDir(), "valid.db")
 			},
-			verifyTables: func(t *testing.T, dbPath string) {
+			verify: func(t *testing.T, dbPath string, _ *Store) {
 				db, err := sql.Open("sqlite3", dbPath)
 				if err != nil {
 					t.Fatalf("failed to open db for verification: %v", err)
@@ -85,11 +103,53 @@ func TestNewStore(t *testing.T) {
 			},
 		},
 		{
+			name: "applies functional options",
+			setupDBPath: func(t *testing.T) string {
+				return filepath.Join(t.TempDir(), "options.db")
+			},
+			opts: []Option{
+				WithListIDGenerator(func() string { return "custom-list-id" }),
+				WithItemIDGenerator(func() string { return "custom-item-id" }),
+			},
+			verify: func(t *testing.T, _ string, store *Store) {
+				modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+
+				list := &model.List{
+					Name:     "Inbox",
+					Status:   model.StatusOpen,
+					Modified: modified,
+				}
+				if err := store.CreateList(t.Context(), list); err != nil {
+					t.Fatalf("CreateList() unexpected error: %v", err)
+				}
+
+				if list.ID != "custom-list-id" {
+					t.Errorf("CreateList() ID = %q, want %q", list.ID, "custom-list-id")
+				}
+
+				item := &model.Item{
+					ListID:   list.ID,
+					Title:    "Task 1",
+					Status:   model.StatusNotStarted,
+					Modified: modified,
+				}
+				if err := store.CreateItem(t.Context(), item, ""); err != nil {
+					t.Fatalf("CreateItem() unexpected error: %v", err)
+				}
+
+				if item.ID != "custom-item-id" {
+					t.Errorf("CreateItem() ID = %q, want %q", item.ID, "custom-item-id")
+				}
+			},
+		},
+		{
 			name: "invalid database path (non-existent directory)",
 			setupDBPath: func(_ *testing.T) string {
 				return "/non/existent/path/db.sqlite"
 			},
-			wantErr: true,
+			wantErr: sqliteError{
+				code: sqlite3.ErrCantOpen,
+			},
 		},
 	}
 
@@ -99,13 +159,17 @@ func TestNewStore(t *testing.T) {
 
 			dbPath := tt.setupDBPath(t)
 			logger := slog.New(slog.DiscardHandler)
-			store, err := NewStore(t.Context(), dbPath, logger)
+			store, err := NewStore(t.Context(), dbPath, logger, tt.opts...)
 
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("NewStore() error = %v, wantErr %v", err, tt.wantErr)
+			opts := []cmp.Option{
+				cmpopts.EquateErrors(),
 			}
 
-			if tt.wantErr {
+			if diff := cmp.Diff(tt.wantErr, err, opts...); diff != "" {
+				t.Fatalf("NewStore() error mismatch (-want +got):\n%s", diff)
+			}
+
+			if tt.wantErr != nil {
 				return
 			}
 
@@ -115,8 +179,8 @@ func TestNewStore(t *testing.T) {
 				t.Errorf("expected MaxOpenConnections to be 1, got %d", maxConns)
 			}
 
-			if tt.verifyTables != nil {
-				tt.verifyTables(t, dbPath)
+			if tt.verify != nil {
+				tt.verify(t, dbPath, store)
 			}
 		})
 	}
@@ -260,6 +324,7 @@ func TestCreateList(t *testing.T) {
 
 			defer store.Close()
 
+			wantID := tt.list.ID
 			err = store.CreateList(ctx, tt.list)
 
 			errOpts := []cmp.Option{
@@ -304,10 +369,10 @@ func TestCreateList(t *testing.T) {
 				cmpopts.IgnoreFields(model.List{}, "ID"),
 			}
 
-			if tt.list.ID != "" && gotList.ID != tt.list.ID {
-				t.Errorf("CreateList() ID mismatch: want %q, got %q", tt.list.ID, gotList.ID)
-			} else if tt.list.ID == "" && gotList.ID == "" {
-				t.Errorf("CreateList() failed to generate an ID for the list")
+			if wantID != "" && gotList.ID != wantID {
+				t.Errorf("CreateList() ID mismatch: want %q, got %q", wantID, gotList.ID)
+			} else if wantID == "" && len(gotList.ID) != 8 {
+				t.Errorf("CreateList() generated ID %q has length %d, want 8", gotList.ID, len(gotList.ID))
 			}
 
 			if diff := cmp.Diff(tt.wantList, &gotList, opts...); diff != "" {

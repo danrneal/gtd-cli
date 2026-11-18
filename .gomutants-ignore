@@ -26,3 +26,5 @@ providers/markdown/parser.go:62:5:STATEMENT_REMOVE
 providers/markdown/watcher.go:15:33:INTEGER_DECREMENT
 providers/markdown/watcher.go:15:33:INTEGER_INCREMENT
 providers/markdown/watcher.go:21:16:BRANCH_IF
+providers/sqlite/store.go:59:16:BRANCH_IF
+providers/sqlite/store.go:91:38:BRANCH_IF

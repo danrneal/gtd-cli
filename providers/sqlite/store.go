@@ -60,11 +60,6 @@ func NewStore(ctx context.Context, dbPath string, logger *slog.Logger, opts ...O
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	if err = db.PingContext(ctx); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("ping database: %w", err)
-	}
-
 	db.SetMaxOpenConns(1)
 
 	generateID := func() string {
