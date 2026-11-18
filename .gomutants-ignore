@@ -23,3 +23,6 @@ providers/markdown/client.go:403:36:BRANCH_IF
 providers/markdown/client.go:413:17:BRANCH_IF
 providers/markdown/parser.go:62:5:BRANCH_CASE
 providers/markdown/parser.go:62:5:STATEMENT_REMOVE
+providers/markdown/watcher.go:15:33:INTEGER_DECREMENT
+providers/markdown/watcher.go:15:33:INTEGER_INCREMENT
+providers/markdown/watcher.go:21:16:BRANCH_IF

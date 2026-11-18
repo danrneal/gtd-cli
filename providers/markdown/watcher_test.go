@@ -139,6 +139,16 @@ func TestClient_watchLoop(t *testing.T) {
 
 				fakeWatcher.Events <- event
 
+				time.Sleep(1 * time.Millisecond)
+				synctest.Wait()
+
+				select {
+				case err := <-events:
+					t.Fatalf("expected event to be debounced, but got early emission: %v", err)
+				default:
+					// Success: Timer has not fired yet.
+				}
+
 				assertEventEmitted(t, events)
 
 				client.mu.RLock()
@@ -179,6 +189,50 @@ func TestClient_watchLoop(t *testing.T) {
 				event := fsnotify.Event{
 					Name: client.filepath,
 					Op:   fsnotify.Create,
+				}
+
+				fakeWatcher.Events <- event
+
+				assertEventEmitted(t, events)
+
+				client.mu.RLock()
+				lastModTime := client.lastModTime
+				client.mu.RUnlock()
+
+				if !lastModTime.After(initialModTime) {
+					t.Errorf(
+						"expected lastModTime to advance, but it did not. Initial: %v, Final: %v",
+						initialModTime,
+						lastModTime,
+					)
+				}
+			},
+		},
+		{
+			name: "processes rename event",
+			verify: func(
+				t *testing.T,
+				client *Client,
+				fakeWatcher *fsnotify.Watcher,
+				events <-chan error,
+				cancel context.CancelFunc,
+			) {
+				client.mu.Lock()
+				client.lastModTime = time.Now()
+				client.mu.Unlock()
+
+				client.mu.RLock()
+				initialModTime := client.lastModTime
+				client.mu.RUnlock()
+
+				modTime := client.lastModTime.Add(1)
+				if err := os.Chtimes(client.filepath, modTime, modTime); err != nil {
+					t.Fatalf("failed to advance file time: %v", err)
+				}
+
+				event := fsnotify.Event{
+					Name: client.filepath,
+					Op:   fsnotify.Rename,
 				}
 
 				fakeWatcher.Events <- event
@@ -251,32 +305,6 @@ func TestClient_watchLoop(t *testing.T) {
 				default:
 					// Success: The second event was dropped.
 				}
-			},
-		},
-		{
-			name: "resets timer on rapid events",
-			verify: func(
-				t *testing.T,
-				client *Client,
-				fakeWatcher *fsnotify.Watcher,
-				events <-chan error,
-				cancel context.CancelFunc,
-			) {
-				event := fsnotify.Event{
-					Name: client.filepath,
-					Op:   fsnotify.Write,
-				}
-
-				fakeWatcher.Events <- event
-
-				event = fsnotify.Event{
-					Name: client.filepath,
-					Op:   fsnotify.Write,
-				}
-
-				fakeWatcher.Events <- event
-
-				assertEventEmitted(t, events)
 			},
 		},
 		{
@@ -391,6 +419,8 @@ func TestClient_watchLoop(t *testing.T) {
 
 				fakeWatcher.Events <- event
 
+				fakeWatcher.Events <- event
+
 				assertEventEmitted(t, events)
 			},
 		},
@@ -421,8 +451,12 @@ func TestClient_watchLoop(t *testing.T) {
 
 				select {
 				case err := <-events:
-					if err == nil {
-						t.Fatal("expected an error, got nil")
+					opts := []cmp.Option{
+						cmpopts.EquateErrors(),
+					}
+
+					if diff := cmp.Diff(fs.ErrPermission, err, opts...); diff != "" {
+						t.Fatalf("watchLoop() error mismatch (-want +got):\n%s", diff)
 					}
 				case <-time.After(1 * time.Second):
 					t.Fatal("timeout waiting for error event")

@@ -84,23 +84,13 @@ func (c *Client) watchLoop(ctx context.Context, watcher *fsnotify.Watcher, event
 }
 
 // processEvent manages the debounce timer state when a valid file modification occurs.
-// It safely stops any active timer, drains its channel if necessary, and returns
-// a new timer initialized with the debounce interval.
+// It preserves any active timer on ignored events and returns a new timer initialized
+// with the debounce interval on genuine changes.
 func (c *Client) processEvent(timer *time.Timer, event fsnotify.Event) (*time.Timer, <-chan time.Time) {
 	if !c.hasFileChanged(event) {
 		if timer == nil {
 			return nil, nil
 		}
-
-		return timer, timer.C
-	}
-
-	if timer != nil {
-		if !timer.Stop() {
-			<-timer.C
-		}
-
-		timer.Reset(DefaultDebounceInterval)
 
 		return timer, timer.C
 	}
