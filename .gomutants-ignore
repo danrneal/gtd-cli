@@ -28,3 +28,15 @@ providers/markdown/watcher.go:15:33:INTEGER_INCREMENT
 providers/markdown/watcher.go:21:16:BRANCH_IF
 providers/sqlite/store.go:59:16:BRANCH_IF
 providers/sqlite/store.go:91:38:BRANCH_IF
+providers/sqlite/store.go:163:5:STATEMENT_REMOVE
+providers/sqlite/store.go:163:35:BRANCH_IF
+providers/sqlite/store.go:261:39:ERRORF_WRAP
+providers/sqlite/store.go:276:35:BRANCH_IF
+providers/sqlite/store.go:391:36:BRANCH_IF
+providers/sqlite/store.go:490:5:STATEMENT_REMOVE
+providers/sqlite/store.go:490:35:BRANCH_IF
+providers/sqlite/store.go:645:35:BRANCH_IF
+providers/sqlite/store.go:724:35:BRANCH_IF
+providers/sqlite/store.go:867:5:STATEMENT_REMOVE
+providers/sqlite/store.go:867:35:BRANCH_IF
+providers/sqlite/store.go:1098:36:BRANCH_IF

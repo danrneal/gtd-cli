@@ -231,6 +231,7 @@ func TestCreateList(t *testing.T) {
 
 	tests := []struct {
 		name     string
+		setupDB  func(t *testing.T, db *sql.DB)
 		list     *model.List
 		setupCtx func() (context.Context, context.CancelFunc)
 		wantList *model.List
@@ -241,7 +242,7 @@ func TestCreateList(t *testing.T) {
 			list: &model.List{
 				ID:       "provided",
 				Name:     "Honored",
-				Modified: time.Now(),
+				Modified: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 			},
 			wantList: &model.List{
 				ID:     "provided",
@@ -255,7 +256,7 @@ func TestCreateList(t *testing.T) {
 				Name:       "  Work  \n",
 				Position:   1,
 				Status:     "",
-				Modified:   time.Now(),
+				Modified:   time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 				ExternalID: new("ext-123"),
 			},
 			wantList: &model.List{
@@ -281,6 +282,52 @@ func TestCreateList(t *testing.T) {
 				Modified: time.Now(),
 			},
 			wantErr: model.ErrInvalidResource,
+		},
+		{
+			name: "duplicate list ID",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				query := `
+					INSERT INTO lists (id, name, position, status, modified)
+					VALUES ('dup-id', 'Existing', 0, 'open', '2024-01-01T00:00:00Z')
+				`
+				if _, err := db.Exec(query); err != nil {
+					t.Fatalf("failed to seed duplicate list: %v", err)
+				}
+			},
+			list: &model.List{
+				ID:       "dup-id",
+				Name:     "Duplicate",
+				Modified: time.Now(),
+			},
+			wantErr: sqliteError{
+				code: sqlite3.ErrConstraint,
+			},
+		},
+		{
+			name: "shift list positions failure",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				query := `
+					INSERT INTO lists (id, name, position, status, modified)
+					VALUES ('list-1', 'Existing', 0, 'open', '2024-01-01T00:00:00Z');
+
+					CREATE TRIGGER fail_list_update
+					BEFORE UPDATE ON lists
+					BEGIN
+						SELECT RAISE(ABORT, 'update blocked');
+					END;
+				`
+				if _, err := db.Exec(query); err != nil {
+					t.Fatalf("failed to seed trigger: %v", err)
+				}
+			},
+			list: &model.List{
+				Name:     "Blocked",
+				Position: 0,
+				Modified: time.Now(),
+			},
+			wantErr: sqliteError{
+				code: sqlite3.ErrConstraint,
+			},
 		},
 		{
 			name: "canceled context",
@@ -324,7 +371,12 @@ func TestCreateList(t *testing.T) {
 
 			defer store.Close()
 
+			if tt.setupDB != nil {
+				tt.setupDB(t, store.db)
+			}
+
 			wantID := tt.list.ID
+			before := time.Now()
 			err = store.CreateList(ctx, tt.list)
 
 			errOpts := []cmp.Option{
@@ -347,7 +399,7 @@ func TestCreateList(t *testing.T) {
 			defer db.Close()
 
 			query := `
-				SELECT id, name, position, status, external_id
+				SELECT id, name, position, status, modified, external_id
 				FROM lists
 				WHERE name = ?
 			`
@@ -359,14 +411,19 @@ func TestCreateList(t *testing.T) {
 				&gotList.Name,
 				&gotList.Position,
 				&gotList.Status,
+				&gotList.Modified,
 				&gotList.ExternalID,
 			)
 			if err != nil {
 				t.Fatalf("failed to query list: %v", err)
 			}
 
+			if gotList.Modified.Before(before) {
+				t.Errorf("CreateList() modified = %v, want >= %v", gotList.Modified, before)
+			}
+
 			opts := []cmp.Option{
-				cmpopts.IgnoreFields(model.List{}, "ID"),
+				cmpopts.IgnoreFields(model.List{}, "ID", "Modified"),
 			}
 
 			if wantID != "" && gotList.ID != wantID {
@@ -540,6 +597,27 @@ func TestListLists(t *testing.T) {
 				)
 			},
 			wantErr: syntaxError{},
+		},
+		{
+			name: "missing lists status column",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				mustExec(t, db, "ALTER TABLE lists DROP COLUMN status")
+			},
+			wantErr: sqliteError{
+				code: sqlite3.ErrError,
+			},
+		},
+		{
+			name: "corrupted list position type",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, position, modified)
+						VALUES (?, ?, ?, ?)
+					`, "list-bad", "Broken", "not-an-int", time.Now(),
+				)
+			},
+			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "context cancellation",
