@@ -1266,7 +1266,14 @@ func TestUpdateList(t *testing.T) {
 		},
 		{
 			name: "update list with nonexistent external id",
-			setupDB: func(_ *testing.T, _ *sql.DB) string {
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "", "Empty ID", time.Now(),
+				)
+
 				return ""
 			},
 			setupList: func(_ string) model.List {
@@ -1452,6 +1459,56 @@ func TestUpdateList(t *testing.T) {
 				return list
 			},
 			wantErr: ErrNotFound,
+		},
+		{
+			name: "delete list items failure",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Valid", time.Now(),
+				)
+
+				mustExec(t, db, "DROP TABLE items")
+
+				return "list-1"
+			},
+			setupList: func(id string) model.List {
+				return model.List{
+					ID:       id,
+					Name:     "Valid",
+					Status:   model.StatusDeleted,
+					Modified: time.Now(),
+				}
+			},
+			wantErr: sqliteError{
+				code: sqlite3.ErrError,
+			},
+		},
+		{
+			name: "duplicate list external id",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified, external_id)
+						VALUES (?, ?, ?, ?), (?, ?, ?, ?)
+					`, "list-1", "First", time.Now(), "ext-taken", "list-2", "Second", time.Now(), nil,
+				)
+
+				return "list-2"
+			},
+			setupList: func(id string) model.List {
+				return model.List{
+					ID:         id,
+					Name:       "Second",
+					ExternalID: new("ext-taken"),
+					Modified:   time.Now(),
+				}
+			},
+			wantErr: sqliteError{
+				code: sqlite3.ErrConstraint,
+			},
 		},
 		{
 			name: "context cancellation",
@@ -1667,7 +1724,14 @@ func TestDeleteList(t *testing.T) {
 		},
 		{
 			name: "delete list with nonexistent external id",
-			setupDB: func(_ *testing.T, _ *sql.DB) model.List {
+			setupDB: func(t *testing.T, db *sql.DB) model.List {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "", "Empty ID", time.Now(),
+				)
+
 				list := model.List{
 					ExternalID: new("non-existent-ext"),
 				}
@@ -2079,12 +2143,29 @@ func TestCreateItem(t *testing.T) {
 			},
 		},
 		{
-			name:    "create item with nonexistent external list id",
-			setupDB: func(_ *testing.T, _ *sql.DB) {},
+			name: "create item with nonexistent external list id",
+			setupDB: func(t *testing.T, db *sql.DB) {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "", "Empty ID", listModified,
+				)
+			},
 			item: &model.Item{
 				ExternalListID: new("non-existent-ext-id"),
 				Title:          "Orphan Item",
 				Modified:       time.Now(),
+			},
+			wantErr: ErrNotFound,
+		},
+		{
+			name:    "create item with nonexistent list id",
+			setupDB: nil,
+			item: &model.Item{
+				ListID:   "non-existent-list",
+				Title:    "Orphan Item",
+				Modified: time.Now(),
 			},
 			wantErr: ErrNotFound,
 		},
@@ -3114,8 +3195,8 @@ func TestUpdateItem(t *testing.T) {
 				mustExec(t, db,
 					`
 						INSERT INTO lists (id, name, modified)
-						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", listModified,
+						VALUES (?, ?, ?), (?, ?, ?)
+					`, "list-1", "Inbox", listModified, "", "Empty ID", listModified,
 				)
 
 				mustExec(t, db,
@@ -3146,6 +3227,22 @@ func TestUpdateItem(t *testing.T) {
 				}
 
 				return item
+			},
+			wantErr: ErrNotFound,
+		},
+		{
+			name: "update item with nonexistent list id",
+			setupDB: func(_ *testing.T, _ *sql.DB) string {
+				return "item-1"
+			},
+			setupItem: func(id string) model.Item {
+				return model.Item{
+					ID:         id,
+					ExternalID: new("ext-id"),
+					ListID:     "non-existent-list",
+					Title:      "Updated Title",
+					Modified:   time.Now(),
+				}
 			},
 			wantErr: ErrNotFound,
 		},

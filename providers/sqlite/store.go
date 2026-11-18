@@ -280,7 +280,7 @@ func (s *Store) ListLists(ctx context.Context) ([]model.List, error) {
 	return lists, nil
 }
 
-// queryList retrieves a list and its associated items from the database by its internal ID.
+// queryList retrieves a list from the database by its internal ID.
 // It wraps ErrNotFound if the list does not exist.
 func queryList(ctx context.Context, tx *sql.Tx, listID string) (*model.List, error) {
 	var list model.List
@@ -312,23 +312,12 @@ func queryList(ctx context.Context, tx *sql.Tx, listID string) (*model.List, err
 		return nil, fmt.Errorf("scan list: %w", err)
 	}
 
-	items, err := listItems(ctx, tx, listID)
-	if err != nil {
-		return nil, err
-	}
-
-	list.Items = items
-
 	return &list, nil
 }
 
 // queryListID resolves the internal list ID using the provided external ID.
 // It wraps ErrNotFound if no matching list exists.
 func queryListID(ctx context.Context, tx *sql.Tx, externalID *string) (string, error) {
-	if externalID == nil {
-		return "", errors.New("externalID is nil")
-	}
-
 	var id string
 	query := `SELECT id FROM lists WHERE external_id = ?`
 	row := tx.QueryRowContext(ctx, query, externalID)
@@ -486,6 +475,13 @@ func (s *Store) CreateItem(ctx context.Context, item *model.Item, _ string) erro
 	if err = s.execInsertItem(ctx, tx, list, item); err != nil {
 		return err
 	}
+
+	items, err := listItems(ctx, tx, list.ID)
+	if err != nil {
+		return err
+	}
+
+	list.Items = items
 
 	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
@@ -731,10 +727,6 @@ func listItems(ctx context.Context, tx *sql.Tx, listID string) ([]*model.Item, e
 // queryItemID resolves the internal item ID using the provided external ID.
 // It wraps ErrNotFound if no matching item exists.
 func queryItemID(ctx context.Context, tx *sql.Tx, externalID *string) (string, error) {
-	if externalID == nil {
-		return "", errors.New("externalID is nil")
-	}
-
 	var id string
 	query := `SELECT id FROM items WHERE external_id = ?`
 	row := tx.QueryRowContext(ctx, query, externalID)
@@ -863,6 +855,13 @@ func (s *Store) UpdateItem(ctx context.Context, item *model.Item) error {
 	if err = s.execUpdateItem(ctx, tx, list, item); err != nil {
 		return err
 	}
+
+	items, err := listItems(ctx, tx, list.ID)
+	if err != nil {
+		return err
+	}
+
+	list.Items = items
 
 	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
