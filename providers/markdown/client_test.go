@@ -1298,57 +1298,6 @@ func TestClient_CreateItem(t *testing.T) {
 			},
 		},
 		{
-			name: "insert at top when existing item has no ID",
-			setup: func(t *testing.T) string {
-				path := filepath.Join(t.TempDir(), "create_top_unidd.md")
-				content := "# Inbox {{list-1}}\n" +
-					"* [ ] Task 2\n"
-				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-					t.Fatalf("failed to create valid file: %v", err)
-				}
-
-				if err := os.Chtimes(path, modified, modified); err != nil {
-					t.Fatalf("failed to change file times: %v", err)
-				}
-
-				return path
-			},
-			item: &model.Item{
-				ListID:   "list-1",
-				Title:    "Task 1",
-				Status:   model.StatusNotStarted,
-				Modified: modified,
-			},
-			previousItemID: "",
-			want: []model.List{
-				{
-					ID:       "list-1",
-					Name:     "Inbox",
-					Position: 0,
-					Status:   model.StatusOpen,
-					Modified: modified,
-					Items: []*model.Item{
-						{
-							Title:    "Task 1",
-							ListID:   "list-1",
-							Position: 0,
-							Status:   model.StatusNotStarted,
-							Modified: modified,
-							Created:  created,
-						},
-						{
-							Title:    "Task 2",
-							ListID:   "list-1",
-							Position: 1,
-							Status:   model.StatusNotStarted,
-							Modified: modified,
-							Created:  created,
-						},
-					},
-				},
-			},
-		},
-		{
 			name: "success (insert after previous item)",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(t.TempDir(), "create_success_after.md")

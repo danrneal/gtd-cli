@@ -117,18 +117,10 @@ func (s *Syncer) buildProviderState(ctx context.Context, p Provider) (*providerS
 	for _, list := range lists {
 		for _, item := range list.Items {
 			itemKey := s.key(item)
-			if itemKey == "" {
-				continue
-			}
-
 			itemsByKey[itemKey] = item
 		}
 
 		listKey := s.key(&list)
-		if listKey == "" {
-			continue
-		}
-
 		list.Items = slices.Clone(list.Items)
 		listsByKey[listKey] = &list
 	}

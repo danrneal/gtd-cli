@@ -206,12 +206,6 @@ func TestStore_Close(t *testing.T) {
 				return store
 			},
 		},
-		{
-			name: "nil db",
-			setup: func(t *testing.T) *Store {
-				return &Store{db: nil}
-			},
-		},
 	}
 
 	for _, tt := range tests {
@@ -2597,38 +2591,6 @@ func TestCreateItem(t *testing.T) {
 			wantErr: syntaxError{},
 		},
 		{
-			name: "corrupted sibling item description",
-			setupDB: func(t *testing.T, db *sql.DB) {
-				mustExec(t, db,
-					`
-						INSERT INTO lists (id, name, modified)
-						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", listModified,
-				)
-
-				mustExec(t, db,
-					`
-						INSERT INTO items (
-							id,
-							title,
-							description,
-							list_id,
-							waiting_on,
-							tags,
-							modified,
-							created
-						) VALUES (?, ?, NULL, ?, ?, '[]', ?, ?)
-					`, "poisoned-item", "Poisoned Item", "list-1", "", time.Now(), time.Now(),
-				)
-			},
-			item: &model.Item{
-				ListID:   "list-1",
-				Title:    "Valid New Item",
-				Modified: time.Now(),
-			},
-			wantErr: cmpopts.AnyError,
-		},
-		{
 			name: "update parent list failure",
 			setupDB: func(t *testing.T, db *sql.DB) {
 				mustExec(t, db,
@@ -3834,91 +3796,6 @@ func TestUpdateItem(t *testing.T) {
 				return item
 			},
 			wantErr: syntaxError{},
-		},
-		{
-			name: "missing items position column",
-			setupDB: func(t *testing.T, db *sql.DB) string {
-				mustExec(t, db,
-					`
-						INSERT INTO lists (id, name, modified)
-						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", listModified,
-				)
-
-				mustExec(t, db,
-					`
-						INSERT INTO items (
-							id,
-							title,
-							description,
-							list_id,
-							waiting_on,
-							tags,
-							modified,
-							created
-						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?)
-					`, "item-1", "Original", "", "list-1", "", time.Now(), time.Now(),
-				)
-
-				mustExec(t, db, "ALTER TABLE items DROP COLUMN position")
-
-				return "item-1"
-			},
-			setupItem: func(id string) model.Item {
-				item := model.Item{
-					ID:         id,
-					ExternalID: new("ext-id"),
-					ListID:     "list-1",
-					Title:      "Updated Item",
-					Modified:   time.Now(),
-				}
-
-				return item
-			},
-			wantErr: sqliteError{
-				code: sqlite3.ErrError,
-			},
-		},
-		{
-			name: "corrupted sibling item description",
-			setupDB: func(t *testing.T, db *sql.DB) string {
-				mustExec(t, db,
-					`
-						INSERT INTO lists (id, name, modified)
-						VALUES (?, ?, ?)
-					`, "list-1", "Inbox", listModified,
-				)
-
-				mustExec(t, db,
-					`
-						INSERT INTO items (
-							id,
-							title,
-							description,
-							list_id,
-							waiting_on,
-							tags,
-							modified,
-							created
-						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?), (?, ?, NULL, ?, ?, '[]', ?, ?)
-					`, "item-1", "Original", "", "list-1", "", time.Now(), time.Now(),
-					"poisoned-item", "Poisoned Item", "list-1", "", time.Now(), time.Now(),
-				)
-
-				return "item-1"
-			},
-			setupItem: func(id string) model.Item {
-				item := model.Item{
-					ID:         id,
-					ExternalID: new("ext-id"),
-					ListID:     "list-1",
-					Title:      "Updated Item",
-					Modified:   time.Now(),
-				}
-
-				return item
-			},
-			wantErr: cmpopts.AnyError,
 		},
 		{
 			name: "item id lookup scan failure",

@@ -40,11 +40,8 @@ func NewClient(filepath string, logger *slog.Logger) *Client {
 
 // Key extracts the ID from the resource.
 func (*Client) Key(resource model.Resource) string {
-	if id := resource.GetID(); id != "" {
-		return id
-	}
-
-	return ""
+	id := resource.GetID()
+	return id
 }
 
 // CreateList creates a new list in the markdown file.
@@ -192,15 +189,19 @@ func (c *Client) CreateItem(ctx context.Context, item *model.Item, previousItemI
 
 	list := lists[listIdx]
 
-	prevItemIdx := slices.IndexFunc(list.Items, func(i *model.Item) bool {
-		return previousItemID != "" && i.ID == previousItemID
-	})
+	insertIdx := 0
+	if previousItemID != "" {
+		prevItemIdx := slices.IndexFunc(list.Items, func(i *model.Item) bool {
+			return i.ID == previousItemID
+		})
+		if prevItemIdx == -1 {
+			return fmt.Errorf("state corruption: anchor item %q not found in markdown", previousItemID)
+		}
 
-	if prevItemIdx == -1 && previousItemID != "" {
-		return fmt.Errorf("state corruption: anchor item %q not found in markdown", previousItemID)
+		insertIdx = prevItemIdx + 1
 	}
 
-	list.Items = slices.Insert(list.Items, prevItemIdx+1, item)
+	list.Items = slices.Insert(list.Items, insertIdx, item)
 	lists[listIdx] = list
 
 	c.logger.InfoContext(ctx, "Markdown: Creating item", "id", item.ID, "title", item.Title, "listId", item.ListID)

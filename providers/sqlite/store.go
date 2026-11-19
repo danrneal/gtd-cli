@@ -87,10 +87,8 @@ func NewStore(ctx context.Context, dbPath string, logger *slog.Logger, opts ...O
 
 // Close closes the underlying SQLite database connection, ensuring WAL and SHM files are cleaned up.
 func (s *Store) Close() error {
-	if s.db != nil {
-		if err := s.db.Close(); err != nil {
-			return fmt.Errorf("close database: %w", err)
-		}
+	if err := s.db.Close(); err != nil {
+		return fmt.Errorf("close database: %w", err)
 	}
 
 	return nil
@@ -596,53 +594,9 @@ func listAllItems(ctx context.Context, tx *sql.Tx) ([]*model.Item, error) {
 		ORDER BY i.position
 	`
 
-	rows, err := tx.QueryContext(ctx, query)
-	if err != nil {
-		return nil, fmt.Errorf("query items: %w", err)
-	}
+	items, err := queryItems(ctx, tx, query)
 
-	defer rows.Close()
-
-	var items []*model.Item
-	for rows.Next() {
-		var tagsJSON string
-		item := &model.Item{}
-		if err := rows.Scan(
-			&item.ID,
-			&item.ListID,
-			&item.ProjectID,
-			&item.Position,
-			&item.Status,
-			&item.Title,
-			&item.Description,
-			&item.ProjectTag,
-			&item.WaitingOn,
-			&item.Snoozed,
-			&item.Due,
-			&tagsJSON,
-			&item.Modified,
-			&item.Created,
-			&item.ExternalID,
-			&item.ExternalListID,
-			&item.ExternalProjectID,
-		); err != nil {
-			return nil, fmt.Errorf("scan item: %w", err)
-		}
-
-		if tagsJSON != "" {
-			if err := json.Unmarshal([]byte(tagsJSON), &item.Tags); err != nil {
-				return nil, fmt.Errorf("unmarshal tags for item %s: %w", item.ID, err)
-			}
-		}
-
-		items = append(items, item)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate item rows: %w", err)
-	}
-
-	return items, nil
+	return items, err
 }
 
 // listItems retrieves all items belonging to a specific list ID, ordered by position.
@@ -675,9 +629,16 @@ func listItems(ctx context.Context, tx *sql.Tx, listID string) ([]*model.Item, e
 		ORDER BY i.position
 	`
 
-	rows, err := tx.QueryContext(ctx, query, listID)
+	items, err := queryItems(ctx, tx, query, listID)
+
+	return items, err
+}
+
+// queryItems executes the given item SELECT query and scans the resulting rows into Item structs.
+func queryItems(ctx context.Context, tx *sql.Tx, query string, args ...any) ([]*model.Item, error) {
+	rows, err := tx.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("query items for list: %w", err)
+		return nil, fmt.Errorf("query items: %w", err)
 	}
 
 	defer rows.Close()
@@ -776,31 +737,25 @@ func queryProjectID(ctx context.Context, tx *sql.Tx, item *model.Item) (string, 
 		return projectID, nil
 	}
 
-	if item.ProjectID == nil {
-		var projectID string
-		query := `
-			SELECT i.project_id
-			FROM items i
-			INNER JOIN items project ON i.project_id = project.id
-			WHERE i.id = ?
-			AND project.project_tag IS NULL
-		`
+	var projectID string
+	query := `
+		SELECT i.project_id
+		FROM items i
+		INNER JOIN items project ON i.project_id = project.id
+		WHERE i.id = ?
+		AND project.project_tag IS NULL
+	`
 
-		row := tx.QueryRowContext(ctx, query, item.ID)
-		if err := row.Scan(&projectID); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return "", fmt.Errorf("%w: tagless parent project to coalesce", ErrNotFound)
-			}
-
-			return "", fmt.Errorf("check current project state: %w", err)
+	row := tx.QueryRowContext(ctx, query, item.ID)
+	if err := row.Scan(&projectID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", fmt.Errorf("%w: tagless parent project to coalesce", ErrNotFound)
 		}
 
-		return projectID, nil
+		return "", fmt.Errorf("check current project state: %w", err)
 	}
 
-	return "", errors.New(
-		"resolve project: externalProjectID and projectTag are nil, and projectID is already set",
-	)
+	return projectID, nil
 }
 
 // UpdateItem updates an existing item in the database, identifying the record via ID or ExternalID.
@@ -1056,8 +1011,6 @@ func (s *Store) deleteResource(ctx context.Context, resource model.Resource) err
 	case *model.Item:
 		query = `DELETE FROM items WHERE id = ?;`
 		queryResourceID = queryItemID
-	default:
-		return fmt.Errorf("unsupported resource type: %T", resource)
 	}
 
 	resourceID := resource.GetID()
