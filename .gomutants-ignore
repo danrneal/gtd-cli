@@ -44,6 +44,8 @@ providers/sqlite/store.go:720:35:BRANCH_IF
 providers/sqlite/store.go:861:5:STATEMENT_REMOVE
 providers/sqlite/store.go:861:35:BRANCH_IF
 providers/sqlite/store.go:944:16:BRANCH_IF
+providers/sqlite/store.go:958:19:INTEGER_DECREMENT
+providers/sqlite/store.go:958:21:BRANCH_IF
 providers/sqlite/store.go:1000:17:BRANCH_IF
 providers/sqlite/store.go:1084:16:BRANCH_IF
 providers/sqlite/store.go:1092:36:BRANCH_IF

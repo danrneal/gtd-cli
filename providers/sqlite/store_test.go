@@ -1600,6 +1600,101 @@ func TestUpdateList(t *testing.T) {
 			},
 		},
 		{
+			name: "prepare batch move items failure",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
+				)
+
+				mustExec(t, db, "DROP TABLE items")
+
+				return "list-1"
+			},
+			setupList: func(id string) model.List {
+				list := model.List{
+					ID:       id,
+					Name:     "Inbox",
+					Modified: time.Now(),
+					Items: []*model.Item{
+						{
+							ID:       "item-1",
+							ListID:   id,
+							Position: 0,
+							Title:    "Item",
+							Modified: time.Now(),
+						},
+					},
+				}
+
+				return list
+			},
+			wantErr: sqliteError{
+				code: sqlite3.ErrError,
+			},
+		},
+		{
+			name: "move item execution failure",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							waiting_on,
+							tags,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Item", "", "list-1", "", time.Now(), time.Now(),
+				)
+
+				mustExec(t, db,
+					`
+						CREATE TRIGGER fail_item_move
+						BEFORE UPDATE ON items
+						BEGIN
+							SELECT RAISE(ABORT, 'update blocked');
+						END;
+					`,
+				)
+
+				return "list-1"
+			},
+			setupList: func(id string) model.List {
+				list := model.List{
+					ID:       id,
+					Name:     "Inbox",
+					Modified: time.Now(),
+					Items: []*model.Item{
+						{
+							ID:       "item-1",
+							ListID:   id,
+							Position: 0,
+							Title:    "Item",
+							Modified: time.Now(),
+						},
+					},
+				}
+
+				return list
+			},
+			wantErr: sqliteError{
+				code: sqlite3.ErrConstraint,
+			},
+		},
+		{
 			name: "context cancellation",
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
@@ -1839,6 +1934,36 @@ func TestDeleteList(t *testing.T) {
 				return list
 			},
 			wantErr: ErrNotFound,
+		},
+		{
+			name: "delete list execution failure",
+			setupDB: func(t *testing.T, db *sql.DB) model.List {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "To Delete", time.Now(),
+				)
+
+				mustExec(t, db,
+					`
+						CREATE TRIGGER fail_list_delete
+						BEFORE DELETE ON lists
+						BEGIN
+							SELECT RAISE(ABORT, 'delete blocked');
+						END;
+					`,
+				)
+
+				list := model.List{
+					ID: "list-1",
+				}
+
+				return list
+			},
+			wantErr: sqliteError{
+				code: sqlite3.ErrConstraint,
+			},
 		},
 		{
 			name: "context cancellation",
@@ -2696,6 +2821,62 @@ func TestUpdateItem(t *testing.T) {
 		wantErr   error
 	}{
 		{
+			name: "honor provided project id",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", listModified,
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							list_id,
+							title,
+							description,
+							waiting_on,
+							tags,
+							modified,
+							created,
+							external_id
+						) VALUES
+							(?, ?, ?, ?, ?, '[]', ?, ?, ?),
+							(?, ?, ?, ?, ?, '[]', ?, ?, ?),
+							(?, ?, ?, ?, ?, '[]', ?, ?, ?)
+					`, "existing-project", "list-1", "Project", "", "", time.Now(), time.Now(), nil,
+					"poison-project", "list-1", "Poison", "", "", time.Now(), time.Now(), "ext-proj-1",
+					"item-1", "list-1", "Original", "", "", time.Now(), time.Now(), nil,
+				)
+
+				return "item-1"
+			},
+			setupItem: func(id string) model.Item {
+				item := model.Item{
+					ID:                id,
+					ExternalID:        new("ext-id"),
+					ListID:            "list-1",
+					ProjectID:         new("existing-project"),
+					ExternalProjectID: new("ext-proj-1"),
+					Title:             "Honored Item",
+					Modified:          time.Now(),
+					Created:           time.Now(),
+				}
+
+				return item
+			},
+			wantItem: &model.Item{
+				ExternalID: new("ext-id"),
+				ListID:     "list-1",
+				ProjectID:  new("existing-project"),
+				Title:      "Honored Item",
+				Status:     model.StatusNotStarted,
+				Tags:       []string{},
+			},
+		},
+		{
 			name: "valid update (complex fields)",
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
@@ -2734,7 +2915,7 @@ func TestUpdateItem(t *testing.T) {
 					Description: "  Line 1  \n    Line 2",
 					Status:      model.StatusDone,
 					Tags:        []string{"updated", "tag"},
-					Modified:    time.Now(),
+					Modified:    time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 					Created:     time.Now(),
 				}
 
@@ -3402,6 +3583,21 @@ func TestUpdateItem(t *testing.T) {
 					`, "list-1", "Inbox", listModified,
 				)
 
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							waiting_on,
+							tags,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?)
+					`, "", "Empty ID Item", "", "list-1", "", time.Now(), time.Now(),
+				)
+
 				return ""
 			},
 			setupItem: func(_ string) model.Item {
@@ -3736,6 +3932,29 @@ func TestUpdateItem(t *testing.T) {
 
 				mustExec(t, db,
 					`
+						DROP TABLE items;
+						CREATE TABLE items (
+							id TEXT PRIMARY KEY,
+							list_id TEXT NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
+							project_id TEXT REFERENCES items(id) ON DELETE SET NULL,
+							position INTEGER NOT NULL DEFAULT 0,
+							status TEXT NOT NULL DEFAULT 'not_started',
+							title TEXT NOT NULL,
+							description TEXT,
+							project_tag TEXT,
+							waiting_on TEXT,
+							snoozed DATETIME,
+							due DATETIME,
+							tags TEXT NOT NULL DEFAULT '[]',
+							modified DATETIME NOT NULL,
+							created DATETIME NOT NULL,
+							external_id TEXT
+						);
+					`,
+				)
+
+				mustExec(t, db,
+					`
 						INSERT INTO items (
 							id,
 							title,
@@ -3764,6 +3983,152 @@ func TestUpdateItem(t *testing.T) {
 				return item
 			},
 			wantErr: cmpopts.AnyError,
+		},
+		{
+			name: "update project next action timestamps failure",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?), (?, ?, ?)
+					`, "list-projects", model.ListProjects, listModified, "list-1", "Inbox", listModified,
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							project_id,
+							project_tag,
+							waiting_on,
+							tags,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?), (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?)
+					`, "proj-1", "Project", "", "list-projects", nil, "old-tag", "", time.Now(), time.Now(),
+					"child-1", "Child Action", "", "list-1", "proj-1", nil, "", time.Now(), time.Now(),
+				)
+
+				mustExec(t, db,
+					`
+						CREATE TRIGGER fail_child_update
+						BEFORE UPDATE ON items
+						WHEN NEW.project_id IS NOT NULL
+						BEGIN
+							SELECT RAISE(ABORT, 'update blocked');
+						END;
+					`,
+				)
+
+				return "proj-1"
+			},
+			setupItem: func(id string) model.Item {
+				item := model.Item{
+					ID:         id,
+					ExternalID: new("ext-proj"),
+					ListID:     "list-projects",
+					Title:      "Project",
+					ProjectTag: new("new-tag"),
+					Modified:   time.Now(),
+				}
+
+				return item
+			},
+			wantErr: sqliteError{
+				code: sqlite3.ErrConstraint,
+			},
+		},
+		{
+			name: "project lookup scan failure",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?), (?, ?, ?)
+					`, "list-1", "Inbox", listModified, "list-projects", model.ListProjects, listModified,
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							waiting_on,
+							tags,
+							modified,
+							created,
+							external_id
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?, ?), (NULL, ?, ?, ?, ?, '[]', ?, ?, ?)
+					`, "item-1", "Original", "", "list-1", "", time.Now(), time.Now(), nil,
+					"Corrupt Project", "", "list-projects", "", time.Now(), time.Now(), "ext-null-proj",
+				)
+
+				return "item-1"
+			},
+			setupItem: func(id string) model.Item {
+				item := model.Item{
+					ID:                id,
+					ExternalID:        new("ext-id"),
+					ListID:            "list-1",
+					ExternalProjectID: new("ext-null-proj"),
+					Title:             "Task with Corrupt Project",
+					Modified:          time.Now(),
+				}
+
+				return item
+			},
+			wantErr: cmpopts.AnyError,
+		},
+		{
+			name: "duplicate item external id",
+			setupDB: func(t *testing.T, db *sql.DB) string {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", listModified,
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							waiting_on,
+							tags,
+							modified,
+							created,
+							external_id
+						) VALUES
+							(?, ?, ?, ?, ?, '[]', ?, ?, ?),
+							(?, ?, ?, ?, ?, '[]', ?, ?, ?)
+					`, "item-1", "First", "", "list-1", "", time.Now(), time.Now(), "ext-taken",
+					"item-2", "Second", "", "list-1", "", time.Now(), time.Now(), nil,
+				)
+
+				return "item-2"
+			},
+			setupItem: func(id string) model.Item {
+				item := model.Item{
+					ID:         id,
+					ExternalID: new("ext-taken"),
+					ListID:     "list-1",
+					Title:      "Second",
+					Modified:   time.Now(),
+				}
+
+				return item
+			},
+			wantErr: sqliteError{
+				code: sqlite3.ErrConstraint,
+			},
 		},
 		{
 			name: "update parent list failure",
@@ -3855,13 +4220,14 @@ func TestUpdateItem(t *testing.T) {
 			id := tt.setupDB(t, db)
 			item := tt.setupItem(id)
 
+			before := time.Now()
 			err = store.UpdateItem(ctx, &item)
 
-			opts := []cmp.Option{
+			errOpts := []cmp.Option{
 				cmpopts.EquateErrors(),
 			}
 
-			if diff := cmp.Diff(tt.wantErr, err, opts...); diff != "" {
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("UpdateItem() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -3901,7 +4267,8 @@ func TestUpdateItem(t *testing.T) {
 					tags,
 					position,
 					external_id,
-					project_tag
+					project_tag,
+					modified
 				FROM items
 				WHERE id = ?
 			`
@@ -3917,9 +4284,14 @@ func TestUpdateItem(t *testing.T) {
 				&gotItem.Position,
 				&gotItem.ExternalID,
 				&gotItem.ProjectTag,
+				&gotItem.Modified,
 			)
 			if err != nil {
 				t.Fatalf("failed to query item: %v", err)
+			}
+
+			if gotItem.Modified.Before(before) {
+				t.Errorf("UpdateItem() modified = %v, want >= %v", gotItem.Modified, before)
 			}
 
 			if err := json.Unmarshal([]byte(tagsJSON), &gotItem.Tags); err != nil {
@@ -3932,7 +4304,11 @@ func TestUpdateItem(t *testing.T) {
 
 			tt.wantItem.ID = id
 
-			if diff := cmp.Diff(tt.wantItem, &gotItem); diff != "" {
+			itemOpts := []cmp.Option{
+				cmpopts.IgnoreFields(model.Item{}, "Modified"),
+			}
+
+			if diff := cmp.Diff(tt.wantItem, &gotItem, itemOpts...); diff != "" {
 				t.Errorf("UpdateItem() mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -3943,10 +4319,11 @@ func TestDeleteItem(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		setupDB  func(t *testing.T, db *sql.DB) model.Item
-		setupCtx func() (context.Context, context.CancelFunc)
-		wantErr  error
+		name      string
+		setupDB   func(t *testing.T, db *sql.DB) model.Item
+		setupCtx  func() (context.Context, context.CancelFunc)
+		wantItems []*model.Item
+		wantErr   error
 	}{
 		{
 			name: "valid delete",
@@ -4014,6 +4391,53 @@ func TestDeleteItem(t *testing.T) {
 			},
 		},
 		{
+			name: "delete project updates child modified timestamp",
+			setupDB: func(t *testing.T, db *sql.DB) model.Item {
+				oldTime := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?), (?, ?, ?)
+					`, "list-projects", model.ListProjects, oldTime, "list-1", "Inbox", oldTime,
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							project_id,
+							waiting_on,
+							tags,
+							modified,
+							created
+						) VALUES
+							(?, ?, ?, ?, ?, ?, '[]', ?, ?),
+							(?, ?, ?, ?, ?, ?, '[]', ?, ?)
+					`, "proj-1", "Project", "", "list-projects", nil, "", oldTime, oldTime,
+					"child-1", "Child Action", "", "list-1", "proj-1", "", oldTime, oldTime,
+				)
+
+				item := model.Item{
+					ID: "proj-1",
+				}
+
+				return item
+			},
+			wantItems: []*model.Item{
+				{
+					ID:     "child-1",
+					ListID: "list-1",
+					Title:  "Child Action",
+					Status: model.StatusNotStarted,
+					Tags:   []string{},
+				},
+			},
+		},
+		{
 			name: "delete item missing identifiers",
 			setupDB: func(_ *testing.T, _ *sql.DB) model.Item {
 				item := model.Item{
@@ -4075,6 +4499,88 @@ func TestDeleteItem(t *testing.T) {
 			},
 			wantErr: sqliteError{
 				code: sqlite3.ErrError,
+			},
+		},
+		{
+			name: "update project next action timestamps failure",
+			setupDB: func(t *testing.T, db *sql.DB) model.Item {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							waiting_on,
+							tags,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Item to Delete", "", "list-1", "", time.Now(), time.Now(),
+				)
+
+				mustExec(t, db, "ALTER TABLE items DROP COLUMN modified")
+
+				item := model.Item{
+					ID: "item-1",
+				}
+
+				return item
+			},
+			wantErr: sqliteError{
+				code: sqlite3.ErrError,
+			},
+		},
+		{
+			name: "delete item execution failure",
+			setupDB: func(t *testing.T, db *sql.DB) model.Item {
+				mustExec(t, db,
+					`
+						INSERT INTO lists (id, name, modified)
+						VALUES (?, ?, ?)
+					`, "list-1", "Inbox", time.Now(),
+				)
+
+				mustExec(t, db,
+					`
+						INSERT INTO items (
+							id,
+							title,
+							description,
+							list_id,
+							waiting_on,
+							tags,
+							modified,
+							created
+						) VALUES (?, ?, ?, ?, ?, '[]', ?, ?)
+					`, "item-1", "Item to Delete", "", "list-1", "", time.Now(), time.Now(),
+				)
+
+				mustExec(t, db,
+					`
+						CREATE TRIGGER fail_item_delete
+						BEFORE DELETE ON items
+						BEGIN
+							SELECT RAISE(ABORT, 'delete blocked');
+						END;
+					`,
+				)
+
+				item := model.Item{
+					ID: "item-1",
+				}
+
+				return item
+			},
+			wantErr: sqliteError{
+				code: sqlite3.ErrConstraint,
 			},
 		},
 		{
@@ -4153,13 +4659,14 @@ func TestDeleteItem(t *testing.T) {
 
 			item := tt.setupDB(t, db)
 
+			before := time.Now()
 			err = store.DeleteItem(ctx, &item)
 
-			opts := []cmp.Option{
+			errOpts := []cmp.Option{
 				cmpopts.EquateErrors(),
 			}
 
-			if diff := cmp.Diff(tt.wantErr, err, opts...); diff != "" {
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 				t.Fatalf("DeleteItem() error mismatch (-want +got):\n%s", diff)
 			}
 
@@ -4178,7 +4685,22 @@ func TestDeleteItem(t *testing.T) {
 				t.Fatalf("failed to get all items: %v", err)
 			}
 
-			if diff := cmp.Diff([]*model.Item(nil), items); diff != "" {
+			for _, gotItem := range items {
+				if gotItem.Modified.Before(before) {
+					t.Errorf(
+						"DeleteItem() child item %q modified = %v, want >= %v",
+						gotItem.ID,
+						gotItem.Modified,
+						before,
+					)
+				}
+			}
+
+			itemOpts := []cmp.Option{
+				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
+			}
+
+			if diff := cmp.Diff(tt.wantItems, items, itemOpts...); diff != "" {
 				t.Errorf("DeleteItem() items mismatch (-want +got):\n%s", diff)
 			}
 		})
