@@ -75,6 +75,10 @@ func (s *Syncer) oneWaySync(ctx context.Context, src, dst Provider, syncStart ti
 
 	changed := false
 	for _, srcList := range srcState.lists {
+		if srcList.Status == model.StatusDeleted {
+			continue
+		}
+
 		created, err := session.syncListCreation(ctx, &srcList)
 		changed = changed || created
 		if err != nil {
@@ -154,10 +158,6 @@ type syncSession struct {
 // syncListCreation processes a single list from the source provider state, creating or updating it and its items
 // in the destination provider state as needed. It returns true if any changes were applied.
 func (ss *syncSession) syncListCreation(ctx context.Context, srcList *model.List) (bool, error) {
-	if srcList.Status == model.StatusDeleted {
-		return false, nil
-	}
-
 	created := false
 	listKey := ss.key(srcList)
 	dstList, ok := ss.dstState.listsByKey[listKey]
@@ -215,10 +215,6 @@ func (ss *syncSession) syncListCreation(ctx context.Context, srcList *model.List
 // syncListUpdate evaluates an existing list and its items from the source provider state,
 // updating them in the destination provider if the source is newer or structurally different.
 func (ss *syncSession) syncListUpdate(ctx context.Context, srcList *model.List) (bool, error) {
-	if srcList.Status == model.StatusDeleted {
-		return false, nil
-	}
-
 	updated := false
 	listKey := ss.key(srcList)
 	dstList := ss.dstState.listsByKey[listKey]
@@ -313,7 +309,7 @@ func (ss *syncSession) syncListDeletion(ctx context.Context, dstList *model.List
 		srcItem, ok := ss.srcState.itemsByKey[itemKey]
 		if (!ok || srcItem.Status == model.StatusDeleted) && dstItem.Modified.Before(ss.syncStart) {
 			if err := ss.deleteItem(ctx, srcItem, dstItem); err != nil {
-				return deleted, err
+				return false, err
 			}
 
 			deleted = true

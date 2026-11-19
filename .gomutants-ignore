@@ -1,5 +1,6 @@
 # format: path:line:column:mutatorName
 
+app/syncer.go:257:35:EXPRESSION_REMOVE
 model/list.go:142:12:INTEGER_INCREMENT
 model/list.go:145:10:INTEGER_INCREMENT
 providers/googletasks/client.go:27:19:INTEGER_DECREMENT
