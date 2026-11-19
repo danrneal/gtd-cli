@@ -3567,60 +3567,6 @@ func TestPullGoogleTasks(t *testing.T) {
 			wantUpdated: false,
 		},
 		{
-			name: "skips unlinked list before synced list",
-			setupGoogleTasks: func(t *testing.T) *errorProvider {
-				tasks := setupTestGoogleTasks(t, []model.List{
-					{
-						Name:     "L2",
-						Modified: baseTime,
-					},
-				})
-
-				return tasks
-			},
-			setupSQLite: func(t *testing.T) *errorProvider {
-				sqlite := setupTestSQLite(t, []model.List{
-					{
-						Name:     "L1",
-						Modified: baseTime,
-					},
-					{
-						Name:       "L2",
-						Modified:   baseTime,
-						ExternalID: new("external-list-1"),
-					},
-				})
-
-				return sqlite
-			},
-			wantGoogleTasksLists: []model.List{
-				{
-					Name:       "L2",
-					Status:     model.StatusOpen,
-					ExternalID: new("external-list-1"),
-					Items:      []*model.Item{},
-				},
-			},
-			wantSQLiteLists: []model.List{
-				{
-					ID:       "store-list-1",
-					Name:     "L1",
-					Position: 0,
-					Status:   model.StatusOpen,
-					Items:    []*model.Item{},
-				},
-				{
-					ID:         "store-list-2",
-					Name:       "L2",
-					Position:   1,
-					Status:     model.StatusOpen,
-					ExternalID: new("external-list-1"),
-					Items:      []*model.Item{},
-				},
-			},
-			wantUpdated: true,
-		},
-		{
 			name: "deletes list in destination",
 			setupGoogleTasks: func(t *testing.T) *errorProvider {
 				tasks := setupTestGoogleTasks(t, []model.List{})

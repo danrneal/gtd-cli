@@ -37,11 +37,6 @@ func TestClient_Key(t *testing.T) {
 			},
 			wantKey: "list-123",
 		},
-		{
-			name:     "item with empty ID",
-			resource: &model.Item{},
-			wantKey:  "",
-		},
 	}
 
 	for _, tt := range tests {

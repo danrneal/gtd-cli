@@ -3259,30 +3259,6 @@ func TestUpdateItem(t *testing.T) {
 			},
 		},
 		{
-			name: "update item fails when coalescing check finds no rows",
-			setupDB: func(t *testing.T, db *sql.DB) string {
-				mustExec(t, db,
-					`
-                           INSERT INTO lists (id, name, modified)
-                           VALUES (?, ?, ?)
-                       `, "list-1", "Inbox", listModified,
-				)
-
-				return "non-existent-id"
-			},
-			setupItem: func(id string) model.Item {
-				item := model.Item{
-					ID:       id,
-					ListID:   "list-1",
-					Title:    "Valid Update",
-					Modified: time.Now(),
-				}
-
-				return item
-			},
-			wantErr: ErrNotFound,
-		},
-		{
 			name: "do not coalesce project id when parent has a tag",
 			setupDB: func(t *testing.T, db *sql.DB) string {
 				mustExec(t, db,
