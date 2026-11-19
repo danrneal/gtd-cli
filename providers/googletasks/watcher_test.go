@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestClient_Watch(t *testing.T) {
+func TestWatch(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

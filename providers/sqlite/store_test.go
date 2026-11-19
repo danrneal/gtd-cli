@@ -186,7 +186,7 @@ func TestNewStore(t *testing.T) {
 	}
 }
 
-func TestStore_Close(t *testing.T) {
+func TestClose(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

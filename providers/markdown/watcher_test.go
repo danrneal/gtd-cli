@@ -15,7 +15,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
-func TestClient_Watch(t *testing.T) {
+func TestWatch(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -97,7 +97,7 @@ func TestClient_Watch(t *testing.T) {
 	}
 }
 
-func TestClient_watchLoop(t *testing.T) {
+func TestWatchLoop(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

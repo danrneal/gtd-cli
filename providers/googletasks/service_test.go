@@ -229,7 +229,7 @@ func (m *mockTokenSource) Token() (*oauth2.Token, error) {
 	return m.token, m.err
 }
 
-func TestFileTokenSource_Token(t *testing.T) {
+func TestToken(t *testing.T) {
 	t.Parallel()
 	oldToken := &oauth2.Token{
 		AccessToken: "old",

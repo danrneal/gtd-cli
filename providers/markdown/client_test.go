@@ -21,7 +21,7 @@ import (
 	"github.com/danrneal/gtd-cli/model"
 )
 
-func TestClient_Key(t *testing.T) {
+func TestKey(t *testing.T) {
 	t.Parallel()
 	client := &Client{}
 
@@ -51,7 +51,7 @@ func TestClient_Key(t *testing.T) {
 	}
 }
 
-func TestClient_CreateList(t *testing.T) {
+func TestCreateList(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
@@ -277,7 +277,7 @@ func TestClient_CreateList(t *testing.T) {
 	}
 }
 
-func TestClient_ListLists(t *testing.T) {
+func TestListLists(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
@@ -378,7 +378,7 @@ func TestClient_ListLists(t *testing.T) {
 	}
 }
 
-func TestClient_UpdateList(t *testing.T) {
+func TestUpdateList(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
@@ -1063,7 +1063,7 @@ func TestClient_UpdateList(t *testing.T) {
 	}
 }
 
-func TestClient_DeleteList(t *testing.T) {
+func TestDeleteList(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
@@ -1226,7 +1226,7 @@ func TestClient_DeleteList(t *testing.T) {
 	}
 }
 
-func TestClient_CreateItem(t *testing.T) {
+func TestCreateItem(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
@@ -1528,7 +1528,7 @@ func TestClient_CreateItem(t *testing.T) {
 	}
 }
 
-func TestClient_UpdateItem(t *testing.T) {
+func TestUpdateItem(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
@@ -1865,7 +1865,7 @@ func TestClient_UpdateItem(t *testing.T) {
 	}
 }
 
-func TestClient_DeleteItem(t *testing.T) {
+func TestDeleteItem(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
@@ -2117,7 +2117,7 @@ func TestClient_DeleteItem(t *testing.T) {
 	}
 }
 
-func TestClient_readFile(t *testing.T) {
+func TestReadFile(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
@@ -2292,7 +2292,7 @@ func TestClient_readFile(t *testing.T) {
 	}
 }
 
-func TestClient_writeFile(t *testing.T) {
+func TestWriteFile(t *testing.T) {
 	t.Parallel()
 
 	modified := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
@@ -2511,7 +2511,7 @@ func TestClient_writeFile(t *testing.T) {
 	}
 }
 
-func TestClient_Concurrency(t *testing.T) {
+func TestConcurrency(t *testing.T) {
 	t.Parallel()
 
 	path := filepath.Join(t.TempDir(), "concurrency.md")
