@@ -136,27 +136,23 @@ func (r *Runner) processEvent(ctx context.Context, event syncEvent) {
 }
 
 // pull attempts to synchronize state from the given target to the local store.
-// It returns true if changes were successfully pulled, and sets retry flags on failure.
+// It returns true if any changes were pulled, and sets retry flags on failure.
 func (r *Runner) pull(ctx context.Context, target *SyncTarget, syncStart time.Time) bool {
 	r.logger.InfoContext(ctx, fmt.Sprintf("---> Pulling from %s", target.Name))
 	pulled, err := target.Syncer.Pull(ctx, syncStart)
-	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			r.logger.ErrorContext(ctx, "Failed to pull", "syncTarget", target.Name, "err", err)
-			target.needsPullRetry = true
 
-			return false
-		}
-
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
 		r.logger.InfoContext(ctx, "Provider missing, scheduling recreation", "syncTarget", target.Name)
 		target.needsPullRetry = false
 		target.needsPushRetry = true
-
-		return false
+	case err != nil:
+		r.logger.ErrorContext(ctx, "Failed to pull", "syncTarget", target.Name, "err", err)
+		target.needsPullRetry = true
+	default:
+		target.needsPushRetry = target.needsPushRetry || target.needsPullRetry
+		target.needsPullRetry = false
 	}
-
-	target.needsPushRetry = target.needsPushRetry || target.needsPullRetry
-	target.needsPullRetry = false
 
 	return pulled
 }

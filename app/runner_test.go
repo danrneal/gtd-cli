@@ -150,6 +150,123 @@ func TestRun(t *testing.T) {
 			},
 		},
 		{
+			name: "watcher event skips pulling from non-triggering target",
+			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (store, md, tasks *errorProvider) {
+				store = setupTestSQLite(t, []model.List{})
+				md = setupTestMarkdown(t, []model.List{})
+				tasks = setupTestGoogleTasks(t, []model.List{})
+
+				return store, md, tasks
+			},
+			sendEvents: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher, store, md, tasks *errorProvider) {
+				list := &model.List{
+					Name:     "Unpulled List",
+					Modified: modified,
+					Items:    []*model.Item{},
+				}
+
+				err := md.CreateList(t.Context(), list)
+				if err != nil {
+					t.Fatalf("failed to create markdown list during event trigger: %v", err)
+				}
+
+				tasksWatcher.Events <- nil
+			},
+			wantStore: []model.List{},
+			wantMd: []model.List{
+				{
+					Name:   "Unpulled List",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+			wantTasks: []model.List{},
+		},
+		{
+			name: "unchanged pull skips pushing to targets",
+			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (store, md, tasks *errorProvider) {
+				store = setupTestSQLite(t, []model.List{
+					{
+						ID:         "custom-list-1",
+						Name:       "Inbox",
+						Status:     model.StatusOpen,
+						ExternalID: new("external-list-1"),
+						Modified:   modified,
+						Items:      []*model.Item{},
+					},
+				})
+
+				md = setupTestMarkdown(t, []model.List{
+					{
+						ID:       "custom-list-1",
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: modified,
+						Items:    []*model.Item{},
+					},
+				})
+
+				tasks = setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: modified,
+						Items:    []*model.Item{},
+					},
+				})
+
+				return store, md, tasks
+			},
+			sendEvents: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher, store, md, tasks *errorProvider) {
+				list := &model.List{
+					Name:     "Local List",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
+				}
+
+				err := store.CreateList(t.Context(), list)
+				if err != nil {
+					t.Fatalf("failed to create store list during event trigger: %v", err)
+				}
+
+				tasksWatcher.Events <- nil
+			},
+			wantStore: []model.List{
+				{
+					ID:         "custom-list-1",
+					Name:       "Inbox",
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-1"),
+					Items:      []*model.Item{},
+				},
+				{
+					ID:       "store-list-1",
+					Name:     "Local List",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Items:    []*model.Item{},
+				},
+			},
+			wantMd: []model.List{
+				{
+					ID:     "custom-list-1",
+					Name:   "Inbox",
+					Status: model.StatusOpen,
+					Items:  []*model.Item{},
+				},
+			},
+			wantTasks: []model.List{
+				{
+					Name:       "Inbox",
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-1"),
+					Items:      []*model.Item{},
+				},
+			},
+		},
+		{
 			name: "pull failure sets retry flag and recovers on next event",
 			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (store, md, tasks *errorProvider) {
 				store = setupTestSQLite(t, []model.List{
@@ -317,7 +434,7 @@ func TestRun(t *testing.T) {
 			},
 		},
 		{
-			name: "push failure sets retry flag",
+			name: "push failure sets retry flag and clears it on recovery",
 			setup: func(t *testing.T, mdWatcher, tasksWatcher *FakeWatcher) (store, md, tasks *errorProvider) {
 				store = setupTestSQLite(t, []model.List{
 					{
@@ -359,6 +476,21 @@ func TestRun(t *testing.T) {
 				tasksWatcher.Events <- nil
 
 				synctest.Wait()
+
+				list := &model.List{
+					Name:     "Local List",
+					Position: 2,
+					Status:   model.StatusOpen,
+					Modified: modified,
+					Items:    []*model.Item{},
+				}
+
+				err := store.CreateList(t.Context(), list)
+				if err != nil {
+					t.Fatalf("failed to create store list after recovery: %v", err)
+				}
+
+				tasksWatcher.Events <- nil
 			},
 			wantStore: []model.List{
 				{
@@ -377,6 +509,13 @@ func TestRun(t *testing.T) {
 					ExternalID: new("external-list-2"),
 					Modified:   modified,
 					Items:      []*model.Item{},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "Local List",
+					Position: 2,
+					Status:   model.StatusOpen,
+					Items:    []*model.Item{},
 				},
 			},
 			wantMd: []model.List{
@@ -618,6 +757,10 @@ func TestRun(t *testing.T) {
 
 						if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
 							t.Fatalf("Run() error mismatch (-want +got):\n%s", diff)
+						}
+
+						if len(runner.events) != 0 {
+							t.Errorf("Run() left %d queued events after error, want 0", len(runner.events))
 						}
 
 						return
