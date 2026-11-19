@@ -27,7 +27,7 @@ func TestPushMarkdown(t *testing.T) {
 		setupMarkdown     func(t *testing.T) *errorProvider
 		wantSQLiteLists   []model.List
 		wantMarkdownLists []model.List
-		wantErr           bool
+		wantErr           error
 	}{
 		{
 			name: "success (no updates needed)",
@@ -1543,7 +1543,7 @@ func TestPushMarkdown(t *testing.T) {
 			name: "fails to build source state",
 			setupSQLite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{})
-				sqlite.errListLists = errors.New("boom")
+				sqlite.errListLists = fs.ErrPermission
 
 				return sqlite
 			},
@@ -1551,7 +1551,7 @@ func TestPushMarkdown(t *testing.T) {
 				md := setupTestMarkdown(t, []model.List{})
 				return md
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "creates destination file if missing",
@@ -1596,11 +1596,11 @@ func TestPushMarkdown(t *testing.T) {
 			},
 			setupMarkdown: func(t *testing.T) *errorProvider {
 				md := setupTestMarkdown(t, []model.List{})
-				md.errListLists = errors.New("boom")
+				md.errListLists = fs.ErrPermission
 
 				return md
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to create list in destination",
@@ -1616,11 +1616,11 @@ func TestPushMarkdown(t *testing.T) {
 			},
 			setupMarkdown: func(t *testing.T) *errorProvider {
 				md := setupTestMarkdown(t, []model.List{})
-				md.errCreateList = errors.New("boom")
+				md.errCreateList = fs.ErrPermission
 
 				return md
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to create item in destination",
@@ -1649,11 +1649,11 @@ func TestPushMarkdown(t *testing.T) {
 					},
 				})
 
-				md.errCreateItem = errors.New("boom")
+				md.errCreateItem = fs.ErrPermission
 
 				return md
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to update list in destination",
@@ -1676,11 +1676,11 @@ func TestPushMarkdown(t *testing.T) {
 					},
 				})
 
-				md.errUpdateList = errors.New("boom")
+				md.errUpdateList = fs.ErrPermission
 
 				return md
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to update item in destination",
@@ -1716,11 +1716,11 @@ func TestPushMarkdown(t *testing.T) {
 					},
 				})
 
-				md.errUpdateItem = errors.New("boom")
+				md.errUpdateItem = fs.ErrPermission
 
 				return md
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to permanently delete list from destination",
@@ -1744,11 +1744,11 @@ func TestPushMarkdown(t *testing.T) {
 					},
 				})
 
-				md.errDeleteList = errors.New("boom")
+				md.errDeleteList = fs.ErrPermission
 
 				return md
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to permanently delete list from source",
@@ -1761,7 +1761,7 @@ func TestPushMarkdown(t *testing.T) {
 					},
 				})
 
-				sqlite.errDeleteList = errors.New("boom")
+				sqlite.errDeleteList = fs.ErrPermission
 
 				return sqlite
 			},
@@ -1776,7 +1776,7 @@ func TestPushMarkdown(t *testing.T) {
 
 				return md
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to permanently delete item from destination",
@@ -1813,11 +1813,11 @@ func TestPushMarkdown(t *testing.T) {
 					},
 				})
 
-				md.errDeleteItem = errors.New("boom")
+				md.errDeleteItem = fs.ErrPermission
 
 				return md
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to permanently delete item from source",
@@ -1836,7 +1836,7 @@ func TestPushMarkdown(t *testing.T) {
 					},
 				})
 
-				sqlite.errDeleteItem = errors.New("boom")
+				sqlite.errDeleteItem = fs.ErrPermission
 
 				return sqlite
 			},
@@ -1858,7 +1858,7 @@ func TestPushMarkdown(t *testing.T) {
 
 				return md
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 	}
 
@@ -1873,15 +1873,20 @@ func TestPushMarkdown(t *testing.T) {
 
 			syncStart := baseTime.Add(time.Hour)
 			err := syncer.Push(t.Context(), syncStart)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("Push error = %v, wantErr %v", err, tt.wantErr)
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
+				t.Fatalf("Push() error mismatch (-want +got):\n%s", diff)
 			}
 
 			if err != nil {
 				return
 			}
 
-			opts := []cmp.Option{
+			listOpts := []cmp.Option{
 				cmpopts.EquateEmpty(),
 				cmpopts.IgnoreFields(model.List{}, "Modified"),
 				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
@@ -1892,7 +1897,7 @@ func TestPushMarkdown(t *testing.T) {
 				t.Fatalf("failed to list sqlite lists: %v", err)
 			}
 
-			if diff := cmp.Diff(tt.wantSQLiteLists, gotSQLiteLists, opts...); diff != "" {
+			if diff := cmp.Diff(tt.wantSQLiteLists, gotSQLiteLists, listOpts...); diff != "" {
 				t.Errorf("SQLite state mismatch (-want +got):\n%s", diff)
 			}
 
@@ -1901,7 +1906,7 @@ func TestPushMarkdown(t *testing.T) {
 				t.Fatalf("failed to list markdown lists: %v", err)
 			}
 
-			if diff := cmp.Diff(tt.wantMarkdownLists, gotMarkdownLists, opts...); diff != "" {
+			if diff := cmp.Diff(tt.wantMarkdownLists, gotMarkdownLists, listOpts...); diff != "" {
 				t.Errorf("Markdown state mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -1919,7 +1924,7 @@ func TestPullMarkdown(t *testing.T) {
 		wantMarkdownLists []model.List
 		wantSQLiteLists   []model.List
 		wantUpdated       bool
-		wantErr           bool
+		wantErr           error
 	}{
 		{
 			name: "success (no updates needed)",
@@ -2020,6 +2025,95 @@ func TestPullMarkdown(t *testing.T) {
 					Name:   "L1",
 					Status: model.StatusOpen,
 					Items:  []*model.Item{},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "preserves updated status across subsequent unchanged list",
+			setupMarkdown: func(t *testing.T) *errorProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+					{
+						ID:       "store-list-2",
+						Name:     "L2",
+						Modified: baseTime,
+					},
+				})
+
+				return md
+			},
+			setupSQLite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime,
+					},
+				})
+
+				return sqlite
+			},
+			wantMarkdownLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1",
+							Position: 0,
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-1",
+						},
+					},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Items:    []*model.Item{},
+				},
+			},
+			wantSQLiteLists: []model.List{
+				{
+					ID:       "store-list-1",
+					Name:     "L1",
+					Position: 0,
+					Status:   model.StatusOpen,
+					Items: []*model.Item{
+						{
+							ID:       "store-item-1",
+							Title:    "I1",
+							Position: 0,
+							Status:   model.StatusNotStarted,
+							ListID:   "store-list-1",
+						},
+					},
+				},
+				{
+					ID:       "store-list-2",
+					Name:     "L2",
+					Position: 1,
+					Status:   model.StatusOpen,
+					Items:    []*model.Item{},
 				},
 			},
 			wantUpdated: true,
@@ -3497,7 +3591,7 @@ func TestPullMarkdown(t *testing.T) {
 			name: "fails to build source state",
 			setupMarkdown: func(t *testing.T) *errorProvider {
 				md := setupTestMarkdown(t, []model.List{})
-				md.errListLists = errors.New("boom")
+				md.errListLists = fs.ErrPermission
 
 				return md
 			},
@@ -3505,21 +3599,29 @@ func TestPullMarkdown(t *testing.T) {
 				sqlite := setupTestSQLite(t, []model.List{})
 				return sqlite
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to build destination state",
 			setupMarkdown: func(t *testing.T) *errorProvider {
-				md := setupTestMarkdown(t, []model.List{})
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: baseTime,
+					},
+				})
+
 				return md
 			},
 			setupSQLite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{})
-				sqlite.errListLists = errors.New("boom")
+				sqlite.errListLists = fs.ErrPermission
 
 				return sqlite
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to create list in destination",
@@ -3536,11 +3638,11 @@ func TestPullMarkdown(t *testing.T) {
 			},
 			setupSQLite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{})
-				sqlite.errCreateList = errors.New("boom")
+				sqlite.errCreateList = fs.ErrPermission
 
 				return sqlite
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to backfill list ID in source",
@@ -3552,7 +3654,7 @@ func TestPullMarkdown(t *testing.T) {
 					},
 				})
 
-				md.errUpdateList = errors.New("boom")
+				md.errUpdateList = fs.ErrPermission
 
 				return md
 			},
@@ -3560,7 +3662,7 @@ func TestPullMarkdown(t *testing.T) {
 				sqlite := setupTestSQLite(t, []model.List{})
 				return sqlite
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to create item in destination",
@@ -3589,11 +3691,11 @@ func TestPullMarkdown(t *testing.T) {
 					},
 				})
 
-				sqlite.errCreateItem = errors.New("boom")
+				sqlite.errCreateItem = fs.ErrPermission
 
 				return sqlite
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to backfill item ID in source",
@@ -3612,7 +3714,7 @@ func TestPullMarkdown(t *testing.T) {
 					},
 				})
 
-				md.errUpdateItem = errors.New("boom")
+				md.errUpdateItem = fs.ErrPermission
 
 				return md
 			},
@@ -3626,7 +3728,7 @@ func TestPullMarkdown(t *testing.T) {
 
 				return sqlite
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to update list in destination",
@@ -3649,11 +3751,11 @@ func TestPullMarkdown(t *testing.T) {
 					},
 				})
 
-				sqlite.errUpdateList = errors.New("boom")
+				sqlite.errUpdateList = fs.ErrPermission
 
 				return sqlite
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to update item in destination",
@@ -3689,11 +3791,52 @@ func TestPullMarkdown(t *testing.T) {
 					},
 				})
 
-				sqlite.errUpdateItem = errors.New("boom")
+				sqlite.errUpdateItem = fs.ErrPermission
 
 				return sqlite
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
+		},
+		{
+			name: "fails to update item after updating list in destination",
+			setupMarkdown: func(t *testing.T) *errorProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1 Updated",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								ID:       "store-item-1",
+								Title:    "I1 Updated",
+								Modified: baseTime.Add(1),
+							},
+						},
+					},
+				})
+
+				return md
+			},
+			setupSQLite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "L1 Original",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1 Original",
+								Modified: baseTime,
+							},
+						},
+					},
+				})
+
+				sqlite.errUpdateItem = fs.ErrPermission
+
+				return sqlite
+			},
+			wantUpdated: true,
+			wantErr:     fs.ErrPermission,
 		},
 		{
 			name: "fails to backfill project id in destination",
@@ -3731,16 +3874,32 @@ func TestPullMarkdown(t *testing.T) {
 			},
 			setupSQLite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{})
-				sqlite.errUpdateItem = errors.New("boom")
+				sqlite.errUpdateItem = fs.ErrPermission
 
 				return sqlite
 			},
-			wantErr: true,
+			wantUpdated: true,
+			wantErr:     fs.ErrPermission,
 		},
 		{
-			name: "fails to mark list as deleted in destination",
+			name: "fails to backfill project id when lists already synced",
 			setupMarkdown: func(t *testing.T) *errorProvider {
-				md := setupTestMarkdown(t, []model.List{})
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								ID:         "store-item-1",
+								Title:      "Item with Project",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+				})
+
 				return md
 			},
 			setupSQLite: func(t *testing.T) *errorProvider {
@@ -3748,14 +3907,55 @@ func TestPullMarkdown(t *testing.T) {
 					{
 						Name:     "L1",
 						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Item with Project",
+								Modified:   baseTime.Add(1),
+								ProjectTag: new("project-a"),
+							},
+						},
 					},
 				})
 
-				sqlite.errUpdateList = errors.New("boom")
+				sqlite.errUpdateItem = fs.ErrPermission
 
 				return sqlite
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
+		},
+		{
+			name: "fails to mark list as deleted in destination",
+			setupMarkdown: func(t *testing.T) *errorProvider {
+				md := setupTestMarkdown(t, []model.List{
+					{
+						ID:       "store-list-1",
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: baseTime,
+					},
+				})
+
+				return md
+			},
+			setupSQLite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:     "Inbox",
+						Status:   model.StatusOpen,
+						Modified: baseTime,
+					},
+					{
+						Name:     "L2",
+						Status:   model.StatusOpen,
+						Modified: baseTime,
+					},
+				})
+
+				sqlite.errUpdateList = fs.ErrPermission
+
+				return sqlite
+			},
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to mark item as deleted in destination",
@@ -3784,11 +3984,12 @@ func TestPullMarkdown(t *testing.T) {
 					},
 				})
 
-				sqlite.errUpdateItem = errors.New("boom")
+				sqlite.errUpdateItem = fs.ErrPermission
 
 				return sqlite
 			},
-			wantErr: true,
+			wantUpdated: true,
+			wantErr:     fs.ErrPermission,
 		},
 	}
 
@@ -3803,19 +4004,24 @@ func TestPullMarkdown(t *testing.T) {
 
 			syncStart := baseTime.Add(time.Hour)
 			updated, err := syncer.Pull(t.Context(), syncStart)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("Pull error = %v, wantErr %v", err, tt.wantErr)
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
 			}
 
-			if err != nil {
-				return
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
+				t.Fatalf("Pull() error mismatch (-want +got):\n%s", diff)
 			}
 
 			if updated != tt.wantUpdated {
 				t.Errorf("updated = %v, want %v", updated, tt.wantUpdated)
 			}
 
-			opts := []cmp.Option{
+			if err != nil {
+				return
+			}
+
+			listOpts := []cmp.Option{
 				cmpopts.EquateEmpty(),
 				cmpopts.IgnoreFields(model.List{}, "Modified"),
 				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
@@ -3826,7 +4032,7 @@ func TestPullMarkdown(t *testing.T) {
 				t.Fatalf("failed to list markdown lists: %v", err)
 			}
 
-			if diff := cmp.Diff(tt.wantMarkdownLists, gotMarkdownLists, opts...); diff != "" {
+			if diff := cmp.Diff(tt.wantMarkdownLists, gotMarkdownLists, listOpts...); diff != "" {
 				t.Errorf("Markdown state mismatch (-want +got):\n%s", diff)
 			}
 
@@ -3835,7 +4041,7 @@ func TestPullMarkdown(t *testing.T) {
 				t.Fatalf("failed to list sqlite lists: %v", err)
 			}
 
-			if diff := cmp.Diff(tt.wantSQLiteLists, gotSQLiteLists, opts...); diff != "" {
+			if diff := cmp.Diff(tt.wantSQLiteLists, gotSQLiteLists, listOpts...); diff != "" {
 				t.Errorf("SQLite state mismatch (-want +got):\n%s", diff)
 			}
 		})

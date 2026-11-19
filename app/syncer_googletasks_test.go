@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -28,7 +29,7 @@ func TestPushGoogleTasks(t *testing.T) {
 		setupGoogleTasks     func(t *testing.T) *errorProvider
 		wantSQLiteLists      []model.List
 		wantGoogleTasksLists []model.List
-		wantErr              bool
+		wantErr              error
 	}{
 		{
 			name: "success (no updates needed)",
@@ -1492,7 +1493,7 @@ func TestPushGoogleTasks(t *testing.T) {
 			name: "fails to build source state",
 			setupSQLite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{})
-				sqlite.errListLists = errors.New("boom")
+				sqlite.errListLists = fs.ErrPermission
 
 				return sqlite
 			},
@@ -1500,7 +1501,7 @@ func TestPushGoogleTasks(t *testing.T) {
 				tasks := setupTestGoogleTasks(t, []model.List{})
 				return tasks
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to build destination state",
@@ -1510,11 +1511,11 @@ func TestPushGoogleTasks(t *testing.T) {
 			},
 			setupGoogleTasks: func(t *testing.T) *errorProvider {
 				tasks := setupTestGoogleTasks(t, []model.List{})
-				tasks.errListLists = errors.New("boom")
+				tasks.errListLists = fs.ErrPermission
 
 				return tasks
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to create list in destination",
@@ -1530,11 +1531,11 @@ func TestPushGoogleTasks(t *testing.T) {
 			},
 			setupGoogleTasks: func(t *testing.T) *errorProvider {
 				tasks := setupTestGoogleTasks(t, []model.List{})
-				tasks.errCreateList = errors.New("boom")
+				tasks.errCreateList = fs.ErrPermission
 
 				return tasks
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to backfill list ID in source",
@@ -1546,7 +1547,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					},
 				})
 
-				sqlite.errUpdateList = errors.New("boom")
+				sqlite.errUpdateList = fs.ErrPermission
 
 				return sqlite
 			},
@@ -1554,7 +1555,7 @@ func TestPushGoogleTasks(t *testing.T) {
 				tasks := setupTestGoogleTasks(t, []model.List{})
 				return tasks
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to create item in destination",
@@ -1582,11 +1583,11 @@ func TestPushGoogleTasks(t *testing.T) {
 					},
 				})
 
-				tasks.errCreateItem = errors.New("boom")
+				tasks.errCreateItem = fs.ErrPermission
 
 				return tasks
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to backfill item ID in source",
@@ -1605,7 +1606,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					},
 				})
 
-				sqlite.errUpdateItem = errors.New("boom")
+				sqlite.errUpdateItem = fs.ErrPermission
 
 				return sqlite
 			},
@@ -1619,7 +1620,7 @@ func TestPushGoogleTasks(t *testing.T) {
 
 				return tasks
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to update list in destination",
@@ -1642,11 +1643,11 @@ func TestPushGoogleTasks(t *testing.T) {
 					},
 				})
 
-				tasks.errUpdateList = errors.New("boom")
+				tasks.errUpdateList = fs.ErrPermission
 
 				return tasks
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to update item in destination",
@@ -1683,11 +1684,11 @@ func TestPushGoogleTasks(t *testing.T) {
 					},
 				})
 
-				tasks.errUpdateItem = errors.New("boom")
+				tasks.errUpdateItem = fs.ErrPermission
 
 				return tasks
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to permanently delete list from destination",
@@ -1711,11 +1712,11 @@ func TestPushGoogleTasks(t *testing.T) {
 					},
 				})
 
-				tasks.errDeleteList = errors.New("boom")
+				tasks.errDeleteList = fs.ErrPermission
 
 				return tasks
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to permanently delete list from source",
@@ -1729,7 +1730,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					},
 				})
 
-				sqlite.errDeleteList = errors.New("boom")
+				sqlite.errDeleteList = fs.ErrPermission
 
 				return sqlite
 			},
@@ -1743,7 +1744,7 @@ func TestPushGoogleTasks(t *testing.T) {
 
 				return tasks
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to permanently delete item from destination",
@@ -1781,11 +1782,11 @@ func TestPushGoogleTasks(t *testing.T) {
 					},
 				})
 
-				tasks.errDeleteItem = errors.New("boom")
+				tasks.errDeleteItem = fs.ErrPermission
 
 				return tasks
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to permanently delete item from source",
@@ -1807,7 +1808,7 @@ func TestPushGoogleTasks(t *testing.T) {
 					},
 				})
 
-				sqlite.errDeleteItem = errors.New("boom")
+				sqlite.errDeleteItem = fs.ErrPermission
 
 				return sqlite
 			},
@@ -1827,7 +1828,7 @@ func TestPushGoogleTasks(t *testing.T) {
 
 				return tasks
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 	}
 
@@ -1842,15 +1843,20 @@ func TestPushGoogleTasks(t *testing.T) {
 
 			syncStart := baseTime.Add(time.Hour)
 			err := syncer.Push(t.Context(), syncStart)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("Push error = %v, wantErr %v", err, tt.wantErr)
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
+			}
+
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
+				t.Fatalf("Push() error mismatch (-want +got):\n%s", diff)
 			}
 
 			if err != nil {
 				return
 			}
 
-			opts := []cmp.Option{
+			listOpts := []cmp.Option{
 				cmpopts.EquateEmpty(),
 				cmpopts.IgnoreFields(model.List{}, "Modified"),
 				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
@@ -1861,7 +1867,7 @@ func TestPushGoogleTasks(t *testing.T) {
 				t.Fatalf("failed to list sqlite lists: %v", err)
 			}
 
-			if diff := cmp.Diff(tt.wantSQLiteLists, gotSQLiteLists, opts...); diff != "" {
+			if diff := cmp.Diff(tt.wantSQLiteLists, gotSQLiteLists, listOpts...); diff != "" {
 				t.Errorf("SQLite state mismatch (-want +got):\n%s", diff)
 			}
 
@@ -1870,7 +1876,7 @@ func TestPushGoogleTasks(t *testing.T) {
 				t.Fatalf("failed to list google tasks lists: %v", err)
 			}
 
-			if diff := cmp.Diff(tt.wantGoogleTasksLists, gotGoogleTasksLists, opts...); diff != "" {
+			if diff := cmp.Diff(tt.wantGoogleTasksLists, gotGoogleTasksLists, listOpts...); diff != "" {
 				t.Errorf("Google Tasks state mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -1888,7 +1894,7 @@ func TestPullGoogleTasks(t *testing.T) {
 		wantGoogleTasksLists []model.List
 		wantSQLiteLists      []model.List
 		wantUpdated          bool
-		wantErr              bool
+		wantErr              error
 	}{
 		{
 			name: "success (no updates needed)",
@@ -1991,6 +1997,98 @@ func TestPullGoogleTasks(t *testing.T) {
 					Name:       "L1",
 					Status:     model.StatusOpen,
 					ExternalID: new("external-list-1"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantUpdated: true,
+		},
+		{
+			name: "preserves updated status across subsequent unchanged list",
+			setupGoogleTasks: func(t *testing.T) *errorProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:    "I1",
+								Modified: baseTime,
+							},
+						},
+					},
+					{
+						Name:     "L2",
+						Modified: baseTime,
+					},
+				})
+
+				return tasks
+			},
+			setupSQLite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: new("external-list-1"),
+					},
+					{
+						Name:       "L2",
+						Modified:   baseTime,
+						ExternalID: new("external-list-2"),
+					},
+				})
+
+				return sqlite
+			},
+			wantGoogleTasksLists: []model.List{
+				{
+					Name:       "L1",
+					Position:   0,
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-1"),
+					Items: []*model.Item{
+						{
+							Title:          "I1",
+							Position:       0,
+							Status:         model.StatusOpen,
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
+						},
+					},
+				},
+				{
+					Name:       "L2",
+					Position:   1,
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-2"),
+					Items:      []*model.Item{},
+				},
+			},
+			wantSQLiteLists: []model.List{
+				{
+					ID:         "store-list-1",
+					Name:       "L1",
+					Position:   0,
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-1"),
+					Items: []*model.Item{
+						{
+							ID:             "store-item-1",
+							Title:          "I1",
+							Position:       0,
+							Status:         model.StatusNotStarted,
+							ListID:         "store-list-1",
+							ExternalID:     new("external-task-1"),
+							ExternalListID: new("external-list-1"),
+						},
+					},
+				},
+				{
+					ID:         "store-list-2",
+					Name:       "L2",
+					Position:   1,
+					Status:     model.StatusOpen,
+					ExternalID: new("external-list-2"),
 					Items:      []*model.Item{},
 				},
 			},
@@ -3610,7 +3708,7 @@ func TestPullGoogleTasks(t *testing.T) {
 			name: "fails to build source state",
 			setupGoogleTasks: func(t *testing.T) *errorProvider {
 				tasks := setupTestGoogleTasks(t, []model.List{})
-				tasks.errListLists = errors.New("boom")
+				tasks.errListLists = fs.ErrPermission
 
 				return tasks
 			},
@@ -3618,7 +3716,7 @@ func TestPullGoogleTasks(t *testing.T) {
 				sqlite := setupTestSQLite(t, []model.List{})
 				return sqlite
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to build destination state",
@@ -3628,11 +3726,11 @@ func TestPullGoogleTasks(t *testing.T) {
 			},
 			setupSQLite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{})
-				sqlite.errListLists = errors.New("boom")
+				sqlite.errListLists = fs.ErrPermission
 
 				return sqlite
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to create list in destination",
@@ -3648,11 +3746,11 @@ func TestPullGoogleTasks(t *testing.T) {
 			},
 			setupSQLite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{})
-				sqlite.errCreateList = errors.New("boom")
+				sqlite.errCreateList = fs.ErrPermission
 
 				return sqlite
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to create item in destination",
@@ -3680,11 +3778,12 @@ func TestPullGoogleTasks(t *testing.T) {
 					},
 				})
 
-				sqlite.errCreateItem = errors.New("boom")
+				sqlite.errCreateItem = fs.ErrPermission
 
 				return sqlite
 			},
-			wantErr: true,
+			wantUpdated: true,
+			wantErr:     fs.ErrPermission,
 		},
 		{
 			name: "fails to update list in destination",
@@ -3707,11 +3806,11 @@ func TestPullGoogleTasks(t *testing.T) {
 					},
 				})
 
-				sqlite.errUpdateList = errors.New("boom")
+				sqlite.errUpdateList = fs.ErrPermission
 
 				return sqlite
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to update item in destination",
@@ -3748,11 +3847,53 @@ func TestPullGoogleTasks(t *testing.T) {
 					},
 				})
 
-				sqlite.errUpdateItem = errors.New("boom")
+				sqlite.errUpdateItem = fs.ErrPermission
 
 				return sqlite
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
+		},
+		{
+			name: "fails to update item after updating list in destination",
+			setupGoogleTasks: func(t *testing.T) *errorProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1 Updated",
+						Modified: baseTime.Add(1),
+						Items: []*model.Item{
+							{
+								Title:    "I1 Updated",
+								Modified: baseTime.Add(1),
+							},
+						},
+					},
+				})
+
+				return tasks
+			},
+			setupSQLite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1 Original",
+						Modified:   baseTime,
+						ExternalID: new("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:          "I1 Original",
+								Modified:       baseTime,
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
+							},
+						},
+					},
+				})
+
+				sqlite.errUpdateItem = fs.ErrPermission
+
+				return sqlite
+			},
+			wantUpdated: true,
+			wantErr:     fs.ErrPermission,
 		},
 		{
 			name: "fails to backfill project id in destination",
@@ -3786,11 +3927,55 @@ func TestPullGoogleTasks(t *testing.T) {
 			},
 			setupSQLite: func(t *testing.T) *errorProvider {
 				sqlite := setupTestSQLite(t, []model.List{})
-				sqlite.errUpdateItem = errors.New("boom")
+				sqlite.errUpdateItem = fs.ErrPermission
 
 				return sqlite
 			},
-			wantErr: true,
+			wantUpdated: true,
+			wantErr:     fs.ErrPermission,
+		},
+		{
+			name: "fails to backfill project id when lists already synced",
+			setupGoogleTasks: func(t *testing.T) *errorProvider {
+				tasks := setupTestGoogleTasks(t, []model.List{
+					{
+						Name:     "L1",
+						Modified: baseTime,
+						Items: []*model.Item{
+							{
+								Title:      "Item with Project",
+								Modified:   baseTime,
+								ProjectTag: new("project-a"),
+							},
+						},
+					},
+				})
+
+				return tasks
+			},
+			setupSQLite: func(t *testing.T) *errorProvider {
+				sqlite := setupTestSQLite(t, []model.List{
+					{
+						Name:       "L1",
+						Modified:   baseTime,
+						ExternalID: new("external-list-1"),
+						Items: []*model.Item{
+							{
+								Title:          "Item with Project",
+								Modified:       baseTime.Add(1),
+								ProjectTag:     new("project-a"),
+								ExternalID:     new("external-task-1"),
+								ExternalListID: new("external-list-1"),
+							},
+						},
+					},
+				})
+
+				sqlite.errUpdateItem = fs.ErrPermission
+
+				return sqlite
+			},
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to mark list as deleted in destination",
@@ -3807,11 +3992,11 @@ func TestPullGoogleTasks(t *testing.T) {
 					},
 				})
 
-				sqlite.errUpdateList = errors.New("boom")
+				sqlite.errUpdateList = fs.ErrPermission
 
 				return sqlite
 			},
-			wantErr: true,
+			wantErr: fs.ErrPermission,
 		},
 		{
 			name: "fails to mark item as deleted in destination",
@@ -3842,11 +4027,12 @@ func TestPullGoogleTasks(t *testing.T) {
 					},
 				})
 
-				sqlite.errUpdateItem = errors.New("boom")
+				sqlite.errUpdateItem = fs.ErrPermission
 
 				return sqlite
 			},
-			wantErr: true,
+			wantUpdated: true,
+			wantErr:     fs.ErrPermission,
 		},
 	}
 
@@ -3861,19 +4047,24 @@ func TestPullGoogleTasks(t *testing.T) {
 
 			syncStart := baseTime.Add(time.Hour)
 			updated, err := syncer.Pull(t.Context(), syncStart)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("Pull error = %v, wantErr %v", err, tt.wantErr)
+
+			errOpts := []cmp.Option{
+				cmpopts.EquateErrors(),
 			}
 
-			if err != nil {
-				return
+			if diff := cmp.Diff(tt.wantErr, err, errOpts...); diff != "" {
+				t.Fatalf("Pull() error mismatch (-want +got):\n%s", diff)
 			}
 
 			if updated != tt.wantUpdated {
 				t.Errorf("updated = %v, want %v", updated, tt.wantUpdated)
 			}
 
-			opts := []cmp.Option{
+			if err != nil {
+				return
+			}
+
+			listOpts := []cmp.Option{
 				cmpopts.EquateEmpty(),
 				cmpopts.IgnoreFields(model.List{}, "Modified"),
 				cmpopts.IgnoreFields(model.Item{}, "Modified", "Created"),
@@ -3884,7 +4075,7 @@ func TestPullGoogleTasks(t *testing.T) {
 				t.Fatalf("failed to list google tasks lists: %v", err)
 			}
 
-			if diff := cmp.Diff(tt.wantGoogleTasksLists, gotGoogleTasksLists, opts...); diff != "" {
+			if diff := cmp.Diff(tt.wantGoogleTasksLists, gotGoogleTasksLists, listOpts...); diff != "" {
 				t.Errorf("Google Tasks state mismatch (-want +got):\n%s", diff)
 			}
 
@@ -3893,7 +4084,7 @@ func TestPullGoogleTasks(t *testing.T) {
 				t.Fatalf("failed to list sqlite lists: %v", err)
 			}
 
-			if diff := cmp.Diff(tt.wantSQLiteLists, gotSQLiteLists, opts...); diff != "" {
+			if diff := cmp.Diff(tt.wantSQLiteLists, gotSQLiteLists, listOpts...); diff != "" {
 				t.Errorf("SQLite state mismatch (-want +got):\n%s", diff)
 			}
 		})
